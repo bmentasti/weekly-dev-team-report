@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* DevMetrics design tokens */
+@layer base {
+  :root {
+    --background: #f7f9fc; /* Soft Background */
+    --foreground: #0b1d3a; /* Deep Navy */
+    --card: #ffffff;
+    --card-foreground: #0b1d3a;
+    --primary: #2563ff; /* Electric Blue */
+    --primary-foreground: #ffffff;
+    --secondary: #e6ebf2; /* Cool Gray */
+    --secondary-foreground: #0b1d3a;
+    --muted: #f1f4f9;
+    --muted-foreground: #64748b;
+    --accent: #e6ebf2;
+    --accent-foreground: #0b1d3a;
+    --destructive: #e5484d;
+    --destructive-foreground: #ffffff;
+    --success: #16c784; /* Success Green */
+    --border: #dce3ee; /* Stroke */
+    --input: #dce3ee;
+    --ring: #2563ff;
+    --navy: #0b1d3a;
+    --radius: 0.625rem; /* buttons 10px */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Marquee (showcase de reportes, estilo carrusel continuo) */
+@keyframes marquee-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee-x 40s linear infinite;
+}
+.marquee-mask:hover .animate-marquee {
+  animation-play-state: paused;
+}
+.marquee-mask {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+}
+
+/* Cursor parpadeante para el headline animado */
+@keyframes blink-caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+.animate-caret {
+  animation: blink-caret 1s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
+  .animate-caret {
+    animation: none;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Scroll reveal: transiciones de entrada por sección (estilo reporting.dev)  */
+/* -------------------------------------------------------------------------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.reveal.reveal-up {
+  transform: translateY(28px);
+}
+.reveal.reveal-left {
+  transform: translateX(-32px);
+}
+.reveal.reveal-right {
+  transform: translateX(32px);
+}
+.reveal.reveal-scale {
+  transform: scale(0.96);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}

@@ -1,0 +1,425 @@
+// Weekly Dev Team Report — Prisma schema
+// Full data model per the MVP spec. Sprint 1 uses User, Workspace and
+// WorkspaceMember; the remaining models are defined up front so future
+// sprints (Jira, GitHub, report generation, delivery) plug in cleanly.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  TECH_LEAD
+  PRODUCT_OWNER
+  ENGINEERING_MANAGER
+  CTO
+  DEVELOPER_LEAD
+  OTHER
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum IntegrationType {
+  JIRA
+  GITHUB
+  SLACK
+  LINEAR
+  GITLAB
+  BITBUCKET
+  AZURE_DEVOPS
+  CLICKUP
+  NOTION
+  MS_TEAMS
+  AIRTABLE
+  DISCORD
+  OPENAI
+  ANTHROPIC
+  GEMINI
+  COPILOT
+}
+
+enum IntegrationStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
+enum ReportFrequency {
+  MANUAL
+  WEEKLY
+}
+
+enum ReportStatus {
+  DRAFT
+  GENERATED
+  SENT
+  ERROR
+}
+
+enum HealthStatus {
+  HEALTHY
+  MEDIUM_RISK
+  HIGH_RISK
+}
+
+enum DeliveryChannel {
+  EMAIL
+  SLACK
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  ERROR
+}
+
+enum PlanTier {
+  FREE
+  TEAM
+  PRO
+}
+
+enum BillingPeriod {
+  MONTHLY
+  ANNUAL
+}
+
+// ---------------------------------------------------------------------------
+// Core (Sprint 1)
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  company      String?
+  role         UserRole @default(OTHER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ownedWorkspaces   Workspace[]       @relation("WorkspaceOwner")
+  workspaceMembers  WorkspaceMember[]
+  reportNotes       ReportNote[]      @relation("UserNotes")
+  reportShares      ReportShare[]     @relation("UserShares")
+  notifications     Notification[]    @relation("UserNotifications")
+  projectMembers    ProjectMember[]   @relation("UserProjectMembers")
+}
+
+model Workspace {
+  id            String        @id @default(cuid())
+  name          String
+  companyName   String?
+  teamName      String?
+  teamSize      Int?
+  ownerId       String
+  plan          PlanTier      @default(FREE)
+  billingPeriod BillingPeriod @default(MONTHLY)
+  // Reverse trial: mientras trialEndsAt sea futuro, el workspace tiene Pro.
+  trialEndsAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  owner         User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members       WorkspaceMember[]
+  integrations  Integration[]
+  projects      Project[]
+  reportConfigs ReportConfig[]
+  reports       Report[]
+  healthStandards HealthStandard[]
+
+  @@index([ownerId])
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole @default(MEMBER)
+  createdAt   DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Integrations (Sprints 2 & 3)
+// ---------------------------------------------------------------------------
+
+model Integration {
+  id                    String            @id @default(cuid())
+  workspaceId           String
+  projectId             String?
+  type                  IntegrationType
+  status                IntegrationStatus @default(DISCONNECTED)
+  config                Json?
+  encryptedAccessToken  String?
+  encryptedRefreshToken String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, type])
+  @@index([workspaceId])
+  @@index([projectId])
+}
+
+model Project {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  name            String
+  jiraProjectKey  String?
+  githubRepoOwner String?
+  githubRepoName  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  integrations   Integration[]
+  members        ProjectMember[]
+  reportConfigs  ReportConfig[]
+  reports        Report[]
+  personContexts PersonContext[]
+
+  @@index([workspaceId])
+}
+
+model PersonContext {
+  id         String   @id @default(cuid())
+  projectId  String
+  name       String
+  role       String?
+  seniority  String?
+  daily      String? // LOW | MEDIUM | HIGH
+  refinement String?
+  retro      String?
+  demo       String?
+  ownership  String?
+  feedback   String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model ProjectMember {
+  id        String        @id @default(cuid())
+  projectId String
+  userId    String
+  role      WorkspaceRole @default(MEMBER)
+  createdAt DateTime      @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation("UserProjectMembers", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Reporting (Sprints 4 & 5)
+// ---------------------------------------------------------------------------
+
+// Parámetros de análisis / Umbrales de salud (Team & Pro).
+// Un estándar por workspace (projectId = null) y, opcionalmente, overrides por proyecto.
+model HealthStandard {
+  id          String   @id @default(cuid())
+  workspaceId String
+  projectId   String? // null = estándar del workspace; con valor = override por proyecto
+  name        String   @default("Estándar del workspace")
+  config      Json // { thresholds: {...}, weights: {...} }
+  reason      String? // motivo del último cambio (gobernanza)
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, projectId])
+  @@index([workspaceId])
+}
+
+// Registro de auditoría de acciones sensibles (RBAC / seguridad).
+model AuditLog {
+  id          String   @id @default(cuid())
+  workspaceId String
+  actorId     String?
+  actorName   String?
+  action      String // ej: plan.change, integration.connect, member.role, report.share
+  target      String? // recurso afectado (id/nombre)
+  meta        Json?
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+}
+
+// Reglas de alerta personalizadas basadas en umbrales de métricas (Pro).
+model AlertRule {
+  id          String   @id @default(cuid())
+  workspaceId String
+  projectId   String?
+  metricKey   String
+  operator    String // gt | lt | gte | lte
+  threshold   Float
+  severity    String   @default("medium") // high | medium | low
+  enabled     Boolean  @default(true)
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId, projectId])
+}
+
+// Historial/auditoría de cambios de estándares (Team básico, Pro completo).
+model HealthStandardHistory {
+  id          String   @id @default(cuid())
+  workspaceId String
+  projectId   String?
+  config      Json
+  reason      String?
+  changedById String?
+  changedByName String?
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId, projectId])
+}
+
+model ReportConfig {
+  id          String          @id @default(cuid())
+  workspaceId String
+  projectId   String?
+  name        String
+  frequency   ReportFrequency @default(MANUAL)
+  recipients  String[]
+  sections    Json?
+  lastRunAt   DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  reports   Report[]
+
+  @@index([workspaceId])
+  @@index([projectId])
+}
+
+model Report {
+  id              String       @id @default(cuid())
+  workspaceId     String
+  projectId       String?
+  reportConfigId  String?
+  periodStart     DateTime
+  periodEnd       DateTime
+  status          ReportStatus @default(DRAFT)
+  healthStatus    HealthStatus?
+  // Snapshot del score calculado con el estándar vigente al generarse (H3).
+  // Congela el resultado para que editar umbrales no altere reportes pasados.
+  score           Int?
+  scoreLevel      String?
+  standardVersion String?
+  type            String       @default("SPRINT")
+  pinned          Boolean      @default(false)
+  reviewedAt      DateTime?
+  tags            String[]
+  summary         String?
+  metrics         Json?
+  risks           Json?
+  recommendations Json?
+  rawData         Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project      Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  reportConfig ReportConfig?    @relation(fields: [reportConfigId], references: [id], onDelete: SetNull)
+  deliveries   ReportDelivery[]
+  notes        ReportNote[]
+  shares       ReportShare[]
+
+  @@index([workspaceId])
+  @@index([projectId])
+}
+
+model ReportNote {
+  id         String   @id @default(cuid())
+  reportId   String
+  authorId   String
+  authorName String
+  body       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  author User   @relation("UserNotes", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([authorId])
+}
+
+model ReportShare {
+  id          String    @id @default(cuid())
+  reportId    String
+  userId      String?
+  inviteEmail String?
+  // Nivel de vista compartida: EXECUTIVE (sin datos por persona) o FULL.
+  level       String    @default("FULL")
+  viewedAt    DateTime?
+  createdAt   DateTime  @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  user   User?  @relation("UserShares", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([userId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  reportId  String?
+  message   String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ReportDelivery {
+  id           String          @id @default(cuid())
+  reportId     String
+  channel      DeliveryChannel
+  recipient    String
+  status       DeliveryStatus  @default(PENDING)
+  sentAt       DateTime?
+  errorMessage String?
+  createdAt    DateTime        @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+}
