@@ -1,487 +1,514 @@
 # DevMetrics
 
-> Clear engineering reports in one click.
->
-> (Nombre interno del repo: weekly-dev-team-report.)
-
-SaaS B2B para TLs, POs y Engineering Managers: conectá Jira y GitHub y generá
-un reporte semanal automático de avance del equipo (tareas, PRs, bloqueos,
-riesgos y recomendaciones).
-
-Este repositorio es el **scaffold + Sprint 1** del MVP.
-
-## Estado actual (Sprint 1)
-
-Implementado y funcional:
-
-- Registro de usuario (nombre, email, contraseña, empresa, rol).
-- Login / logout con sesión (Auth.js / NextAuth, estrategia JWT).
-- Creación de workspace (nombre, empresa, equipo, tamaño).
-- Dashboard con estado vacío ("Todavía no conectaste ninguna herramienta").
-- Protección de rutas privadas vía middleware.
-- Contraseñas hasheadas con bcrypt.
-- `EncryptionService` (AES-256-GCM) listo para guardar tokens de integraciones.
-- **Schema Prisma completo** de todo el MVP (User, Workspace, WorkspaceMember,
-  Integration, Project, ReportConfig, Report, ReportDelivery), así los próximos
-  sprints se enchufan sin migraciones estructurales grandes.
-
-### Sprint 2 — Jira (implementado)
-
-- Conexión a Jira Cloud (dominio, email, API token, project key), con el token
-  guardado **encriptado** (AES-256-GCM).
-- Botón "Probar conexión" que valida credenciales y acceso al proyecto antes de
-  guardar.
-- Traído de issues del proyecto vía JQL desde el servidor.
-- Clasificación automática de issues: finalizada / en progreso / bloqueada /
-  por hacer, más detección de tareas **críticas** (prioridad High/Highest/
-  Critical) y **sin movimiento** (>5 días sin update).
-- Tabla de issues + tarjetas de métricas (total, finalizadas, en progreso,
-  bloqueadas, sin movimiento, críticas).
-
-Rutas nuevas: `/integrations/jira` (conectar) y `/integrations/jira/issues`.
-APIs: `POST /api/integrations/jira/test`, `POST /api/integrations/jira/connect`,
-`GET /api/integrations/jira/issues`.
-
-> Para conectar Jira necesitás un API token: creá uno en
-> https://id.atlassian.com/manage-profile/security/api-tokens
-
-### Sprint 3 — GitHub (implementado)
-
-- Conexión a un repositorio de GitHub (owner, repo, access token), con el token
-  guardado **encriptado**. Usa un Personal Access Token (fine-grained o clásico
-  con scope `repo`) — más simple que OAuth para el MVP y consistente con Jira.
-- Guía embebida + enlaces oficiales para crear el token y setear permisos de
-  solo lectura.
-- Botón "Probar conexión" que valida token y acceso al repo antes de guardar.
-- Traído de Pull Requests: abiertos + mergeados/cerrados de los últimos 7 días.
-- Clasificación automática por reglas del spec: PR **viejo** (>72h abierto), PR
-  **sin reviewer**, PR **con checks fallando**, PR **con riesgo**; más métricas
-  (abiertos, mergeados, sin reviewer, checks fallando, >72h, edad promedio).
-- Tabla de PRs + tarjetas de métricas.
-
-Rutas nuevas: `/integrations/github` (conectar) y
-`/integrations/github/pull-requests`. APIs:
-`POST /api/integrations/github/test`, `POST /api/integrations/github/connect`,
-`GET /api/integrations/github/pull-requests`.
-
-> Para conectar GitHub creá un token en
-> https://github.com/settings/tokens?type=beta con lectura de Pull Requests,
-> Contents y Checks sobre el repositorio.
-
-### Lote de integraciones — capa unificada (implementado)
-
-Se introdujo una **capa de datos unificada** para poder cruzar información entre
-fuentes (estado de un equipo / una persona a través de tareas, PRs y actividad),
-en vez de tener integraciones sueltas. Modelos comunes:
-
-- `UnifiedWorkItem` (tareas/issues) ← Jira, Linear, (próximo: Azure DevOps,
-  ClickUp, Notion)
-- `UnifiedCodeChange` (PRs/MRs) ← GitHub, GitLab, (próximo: Bitbucket, Azure
-  Repos)
-- `ActivitySignal` (mensajes/blockers) ← Slack, (próximo: Teams)
-
-Cada proveedor es un **adapter** que implementa una interfaz común
-(`ProviderAdapter`) y se registra en `src/lib/integrations/registry.ts`. El
-catálogo client-safe (`src/lib/integrations/catalog.ts`) describe campos, guías y
-links de cada uno y maneja toda la UI. Rutas y UI son **genéricas**:
-
-- API: `POST /api/integrations/[provider]/test`, `.../connect`,
-  `GET /api/integrations/[provider]/data`
-- UI: `/integrations/[provider]` (conectar) y `/integrations/[provider]/data`
-
-Integraciones activas: **Jira, GitHub, Slack, Linear, GitLab** (todas con guía
-embebida + links oficiales y token/API key encriptado).
-Próximo lote: **Azure DevOps, Bitbucket, ClickUp, Notion, Microsoft Teams**
-(Teams requiere OAuth de Microsoft Graph). Ya aparecen listadas como
-"próximamente" en el dashboard.
-
-> ⚠️ Este lote amplió el enum `IntegrationType` en Prisma. Después de traer los
-> cambios, corré **`npm run db:push`** para actualizar la base y regenerar el
-> cliente Prisma.
-
-### Sprint 4 — Generación de reportes (implementado)
-
-El corazón del producto. Un motor (`src/lib/reports/generate.ts`) junta los datos
-de **todas las integraciones conectadas** en el período y produce un reporte
-unificado:
-
-- **Métricas cruzadas**: tareas (finalizadas, en progreso, bloqueadas, sin
-  movimiento, críticas) y PR/MR (abiertos, mergeados, sin reviewer, viejos,
-  checks fallando), sin importar de qué herramienta vengan.
-- **Desglose por persona**: tareas y PRs por cada integrante (base para ver el
-  estado de una persona).
-- **Detección de riesgos** con las reglas del spec (bloqueos, críticas sin
-  movimiento, PRs viejos/sin reviewer/con checks rojos, sobrecarga, blockers en
-  Slack).
-- **Estado de salud** (Saludable / Riesgo medio / Riesgo alto) por scoring.
-- **Resumen ejecutivo** y **recomendaciones** generados automáticamente.
-- Reporte en **markdown** listo para copiar (y para enviar por email en Sprint 5).
-
-Pantallas: `/reports` (generar con selector de período + historial) y
-`/reports/[id]` (preview completa con copiar texto). APIs:
-`POST /api/reports/generate`, `GET /api/reports`, `GET /api/reports/:id`.
-
-> ⚠️ Este sprint hizo `projectId` opcional en `Report` y `ReportConfig` (los
-> reportes son a nivel workspace). Corré **`npm run db:push`** después de traer
-> los cambios.
-
-### Analítica de decisión (implementado)
-
-El reporte pasó de "qué pasó" a "qué significa y qué hacer". Se agregó:
-
-- **Capacidad y velocity**: story points comprometidos vs completados, velocity,
-  puntos restantes y cycle time promedio.
-- **Avance del proyecto**: % completado por tareas y por story points, con
-  distribución de estados (gráfico de dona).
-- **Tendencia**: comparación con reportes previos (velocity, finalizadas, PRs,
-  bloqueadas) en gráfico de líneas.
-- **Insumos para planning**: carry-over, forecast de capacidad y foco recomendado.
-- **Señales por persona**: categoría de gestión (Reconocer / Necesita apoyo /
-  Sobrecargado / Capacidad libre / En ritmo) **con contexto y próximos pasos**,
-  más un **score y ranking** de contribución. Incluye un aviso explícito de que
-  son proxies, para evitar decisiones injustas.
-- **Gráficos** con Recharts (dona de estados, barras de SP/throughput por
-  persona, líneas de tendencia).
-
-> ⚠️ Este lote agregó la dependencia **recharts**. Corré **`npm install`** antes
-> de levantar. No hay cambios de base de datos; generá un reporte nuevo para ver
-> las secciones (los reportes viejos no tienen las métricas nuevas).
-
-### Colaboración y comparación (implementado)
-
-- **Comparar reportes**: `/reports/compare` — elegís dos reportes y los ves lado
-  a lado (deltas coloreados, métricas, gráfico comparativo y acciones de cada
-  uno). Presets en `/reports` para generar "Último sprint (14 días)" y "Últimos
-  3 meses"; la data demo escala según el período para que la comparación tenga
-  sentido.
-- **Notas** por reporte: agregar, editar y eliminar (solo el autor edita/borra),
-  visibles para todos los que tienen acceso.
-- **Compartir**: agregar miembros del workspace (lista) o invitar por email; se
-  ve el estado **Visto / Sin ver** de cada persona. Se puede quitar.
-- **Notificaciones in-app**: campana en el header con contador; avisa cuando te
-  comparten un reporte o cuando alguien deja una nota en uno que compartís.
-  (El envío por email queda para el Sprint 5.)
-
-> ⚠️ Este lote agregó modelos (`ReportNote`, `ReportShare`, `Notification`).
-> Corré **`npm run db:push`** y luego **`npm run db:seed`** (el seed ahora
-> siembra compañeros de equipo para poder probar el compartir).
-
-### Sprint 5 — Exportar y enviar (implementado)
-
-- **Exportar a CSV**: botón "Exportar CSV" en cada reporte descarga un archivo
-  (`GET /api/reports/[id]/export`) con métricas, desglose por persona, riesgos y
-  recomendaciones, listo para abrir en Excel / Google Sheets (con BOM UTF-8).
-- **Enviar por email**: botón "Enviar por email" con destinatarios (prellenados
-  con quienes tienen el reporte compartido). Envía un resumen HTML + el CSV
-  adjunto vía Resend y registra cada envío en `ReportDelivery`.
-
-> El **CSV funciona sin configurar nada**. Para el **email** definí en tu `.env`
-> `RESEND_API_KEY` (https://resend.com/api-keys) y `EMAIL_FROM` (dominio
-> verificado en Resend). Sin eso, el botón avisa que falta la configuración.
-
-### Airtable (implementado)
-
-Nueva integración: mapea los registros de una tabla de Airtable a WorkItems
-(estado→bucket, responsable, story points, crítico, sin movimiento). Config:
-Personal Access Token + Base ID + tabla, con campos mapeables (Status / Assignee
-/ Story Points por defecto). Se conecta desde `/integrations` como cualquier otra.
-
-> ⚠️ Agregó `AIRTABLE` al enum `IntegrationType`. Corré **`npm run db:push`**.
-
-### Sprint 6 — Multi-proyecto (implementado)
-
-Un workspace ahora tiene varios **proyectos**, y cada proyecto tiene lo suyo:
-
-- **Integraciones por proyecto**: cada proyecto define su propio repo de GitHub,
-  proyecto de Jira, base de Airtable, etc. (permite conectar varios repos de la
-  misma org — uno por proyecto). Unicidad ahora es `(projectId, type)`.
-- **Reportes por proyecto**: se generan y listan para el proyecto activo; la
-  tendencia compara reportes del mismo proyecto.
-- **Equipo por proyecto** (`ProjectMember`): asignás qué integrantes siguen cada
-  proyecto desde la página Equipos.
-- **Selector de proyecto** en la barra superior (cambiar / crear proyecto). El
-  proyecto activo se guarda en una cookie.
-
-El seed crea 2 proyectos demo: **Web App** (Jira + GitHub + Slack, equipo Ana/
-Bruno/Carla) y **Mobile App** (Linear + GitLab, equipo Diego/Elena).
-
-> ⚠️ Cambios de schema (Integration.projectId, ProjectMember). Corré
-> **`npm run db:push`** y luego **`npm run db:seed`**.
-
-### Planes y billing (implementado)
-
-- **Planes** por workspace: Free / Team / Pro (`Workspace.plan`, `billingPeriod`).
-- **Límites reales (gates)**: creación de proyectos (Free/Team = 1, Pro =
-  ilimitado) e integraciones permitidas (Free solo Jira + GitHub; Team/Pro todas).
-- **Página Ajustes** (`/settings`): plan actual, uso vs límites (proyectos,
-  usuarios, integraciones), toggle mensual/anual y cambio de plan.
-- **Cambio de plan**: `POST /api/billing/change`. En dev se aplica al instante;
-  cuando definís `STRIPE_SECRET_KEY` (y los price IDs) se enchufa el checkout real.
-
-> ⚠️ Agregó `PlanTier`, `BillingPeriod` y campos en Workspace. Corré
-> **`npm run db:push`** y **`npm run db:seed`**.
-
-### Diferenciación de planes, modales y pagos (implementado)
-
-- **3 usuarios demo** (todos pass `password123`): `test@test.com` (Pro, 2
-  proyectos), `team@demo.co` (Team), `free@demo.co` (Free, solo Jira + GitHub).
-  Sirven para ver las diferencias de cada plan.
-- **Gates server-side** (seguridad): creación de proyectos e integraciones
-  permitidas se validan en el backend según el plan, no solo en la UI.
-- **Modales con estilo** (`DialogProvider`): confirmaciones, prompts y avisos
-  usan modales DevMetrics en vez de los diálogos nativos. Al topar un límite
-  aparece un **modal de upgrade** (Free→Team, Team→Pro) que lleva a Ajustes.
-- **Pagos**: modal con **Mercado Pago** y **PayPal**. Endpoint
-  `POST /api/billing/checkout` crea la preferencia (MP) u orden (PayPal) si hay
-  credenciales; sin ellas, aplica el plan en modo demo.
-
-Variables opcionales para cobro real (`.env`): `MP_ACCESS_TOKEN`,
-`PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_ENV`.
-
-> Este lote no cambió el schema; alcanza con **`npm run db:seed`** (si ya
-> corriste el `db:push` del lote de planes).
-
-### Todas las integraciones activas + gating por tipo (implementado)
-
-Se activaron las que estaban "próximamente" y se sumó Discord. Todas conectan de
-verdad (token/credenciales), con guía embebida:
-
-- **Tareas/Código** (Team y Pro): Jira, GitHub, GitLab, Linear, Airtable,
-  Bitbucket, Azure DevOps, ClickUp, Notion. (Free: solo Jira + GitHub.)
-- **Comunicación** (solo Pro): Slack, Microsoft Teams, Discord.
-
-El gating es por **kind** (`integrationAllowed`): Free = Jira+GitHub; Team =
-ISSUES + CODE; Pro = todas, incluidas las de comunicación. Se valida en el
-backend (seguridad) y en la UI (botón "Mejorar plan" con modal de upgrade).
-
-> ⚠️ Agregó `DISCORD` al enum. Corré **`npm run db:push`**.
-
-### Análisis con IA (solo Pro, implementado)
-
-Nuevos proveedores de tipo **IA** (kind `AI`, solo Pro): **Claude (Anthropic),
-ChatGPT (OpenAI), Gemini (Google) y GitHub Copilot/Models**. Se conectan como
-cualquier integración (API key encriptada, con guía). Al **generar un reporte**,
-si el plan es Pro y hay un proveedor de IA conectado en el proyecto, el motor le
-manda las métricas y guarda un **"Análisis con IA"** (lectura ejecutiva, riesgos
-interpretados, recomendaciones y foco) que se muestra en la preview.
-
-- Módulo `src/lib/reports/ai.ts` (Anthropic messages / OpenAI-compatible /
-  Gemini generateContent / GitHub Models).
-- Gating: kind `AI` solo habilitado en Pro (backend + UI con modal de upgrade).
-
-> ⚠️ Agregó `OPENAI`, `ANTHROPIC`, `GEMINI`, `COPILOT` al enum. Corré
-> **`npm run db:push`**. La IA usa tu API key real del proveedor.
-
-### Análisis por rol y métricas de calidad (Etapas 1–2)
-
-- **Lectura por rol** en cada reporte: pestañas **Tech Lead / Product Owner /
-  Dirección**, cada una con sus KPIs y alertas curadas.
-- **Motor de alertas tempranas** (`src/lib/reports/alerts.ts`): alertas nombradas
-  con nivel + significado + impacto + acción, filtradas por rol (WIP alto, PRs
-  viejos/sin reviewer, checks rojos, bloqueos, sin movimiento, avance bajo,
-  carry-over, caída de velocity, sobrecarga, bugs abiertos, scope creep).
-- **Métricas de calidad** (derivadas de los datos existentes): bugs y **defect
-  rate**, **scope creep** (tareas agregadas a mitad del período) y **listas para
-  QA/demo**. Se ven en las vistas por rol, el análisis automático y el CSV.
-
-Sin cambios de base: generá un reporte nuevo para verlas.
-
-### Salud de CI (Etapa 3)
-
-- **CI/pipelines** desde **GitHub Actions** y **GitLab pipelines** (usa el mismo
-  token de la integración): corridas totales, fallidas, tasa de fallo y **deploys
-  fallidos**.
-- Se ve en la vista de Tech Lead ("CI fallando"), en el análisis automático
-  ("Éxito de CI"), en el CSV, y dispara la alerta **"CI/deploys fallando"** (TL/Dir).
-
-> El resto de la Etapa 3 (test coverage, incidentes, deuda técnica, rework)
-> requiere integraciones dedicadas (Codecov/SonarQube/PagerDuty) — queda como
-> Etapa 3b.
-
-### Proactividad e IA por rol (Etapa 4)
-
-- **Envío programado**: en Reportes, "Envío programado" define frecuencia
-  (Manual/Semanal) y destinatarios (`ReportConfig`). "Enviar ahora" genera y
-  manda al instante; el semanal lo dispara un scheduler externo vía
-  `POST /api/cron/run` (protegido con `CRON_SECRET`) — ideal Vercel Cron/GitHub
-  Actions una vez por día.
-- **IA por rol**: el asistente "Preguntale al reporte" tiene pestañas Tech Lead /
-  Product Owner / Dirección que enfocan la respuesta y traen sugerencias por rol.
-- Se extrajo `createReportForProject` (motor reutilizable) y `deliverReportByEmail`
-  (entrega + registro) para compartir lógica entre generación manual y cron.
-
-> ⚠️ Agregó `ReportConfig.lastRunAt`. Corré **`npm run db:push`**. Variables:
-> `CRON_SECRET` (cron) y las de Resend para el email.
-
-### Perfil por persona y desempeño (Etapa 5.1)
-
-- **Perfil por persona** (`/people/[name]`): evolución entre sprints (throughput,
-  SP, bloqueos), métricas del último sprint y tendencia.
-- **Clasificación en 3 niveles**: Destacada / Cumple (podría dar más) / Necesita
-  apoyo — como punto de partida para conversar, con aviso explícito de que son
-  proxies y no un veredicto.
-- **Hipótesis de contexto** y **plan de acompañamiento 1:1** (pasos + preguntas)
-  por plantilla para todos; y **análisis 1:1 con IA** en Pro (mirada humana, sin
-  etiquetas definitivas).
-- Los nombres en la tabla por persona del reporte y en Equipos enlazan al perfil.
-
-### Alertas de desempeño sostenido (Etapa 5.2)
-
-- **Señal sostenida por persona**: solo se marca cuando alguien queda en "necesita
-  apoyo" en **2+ sprints consecutivos** (severidad media; 3+ → alta con evaluación
-  de escalamiento). `GET /api/people/alerts`.
-- Se ve en **Equipos** ("Desempeño sostenido a seguir", con conversación y próxima
-  acción sugeridas) y como **banner** en el perfil de la persona.
-- Mantiene el criterio: acompañar y revisar en ~14 días; escalar solo si no hay
-  mejora tras acompañamiento.
-
-### Contexto cualitativo y matriz individual (Etapas 5.3–5.4)
-
-- **Contexto por persona** (`PersonContext`): en el perfil se cargan seniority,
-  rol, participación en daily/refinamiento/retro/demo, ownership, feedback y
-  notas — lo que las APIs no ven. Enriquece el análisis y la matriz.
-- **Matriz individual**: en Equipos, tabla compacta + **Exportar CSV** con las 18
-  columnas del framework (categoría, entrega, comunicación, participación,
-  autonomía, ownership, feedback, evolución, riesgo, evidencia, causas, acción,
-  objetivo, indicador, fecha de revisión). Combina lo cuantitativo (reportes) con
-  lo cualitativo (contexto).
-
-> ⚠️ Agregó el modelo `PersonContext`. Corré **`npm run db:push`**.
-
-### Sección Reportes ejecutiva (Etapa 7)
-
-- **Score de salud 0-100** + 5 niveles (Saludable/Estable/Observación/Alto
-  riesgo/Crítico) por reporte.
-- **KPIs ampliados** + **tabs por rol**, **insights automáticos**, **recomendados
-  para revisar** (ponderados por rol), **búsqueda y filtros** (nivel, tendencia,
-  con alertas, favoritos).
-- **Tabla enriquecida**: score+nivel, tendencia vs anterior, alertas, tipo, tags,
-  acciones (Ver, CSV, Favorito, Revisado, Eliminar).
-- **Overview cross-proyecto** en el dashboard (salud del último reporte por
-  proyecto).
-- Schema: `Report.type / pinned / reviewedAt / tags`; `PATCH /api/reports/[id]`.
-
-> ⚠️ Corré **`npm run db:push`** y **`npm run db:seed`**. Pendiente (7.4): tipos
-> de reporte generables, crear tareas en Jira/Slack desde el reporte, auditoría.
-
-### Comparación avanzada de sprints (Etapa 6)
-
-`/reports/compare` ahora es un análisis completo A vs B:
-
-- **Métricas con % de variación, dirección e interpretación** (mejoró/empeoró/sin
-  cambio) y **tabs por rol** (Todos/TL/PO/Dirección).
-- **Clasificación de tendencia** por dimensión (mejora clara/leve, sin cambio,
-  deterioro leve/crítico).
-- **Alertas de la comparación** (carry-over ↑, velocity ↓, cycle time ↑, PRs
-  viejos ↑, bugs ↑, scope creep ↑) con impacto, acción y rol.
-- **Evolución por persona S1 vs S2** con 5 categorías (destacada / estable /
-  cumple / observación / riesgo) y movimiento.
-- **Recomendación de planificación** (capacidad, scope, margen) derivada de ambos
-  sprints.
-- **Análisis comparativo con IA** (Pro) + prompt libre sobre la comparación.
-
-> Sin cambios de base.
-- Sprint 5 — Envío por email e historial.
-
-## Stack
-
-Next.js 14 (App Router) · React · TypeScript · Tailwind CSS · shadcn/ui ·
-PostgreSQL · Prisma · Auth.js (NextAuth) · Resend (Sprint 5).
-
-## Requisitos
-
-- Node.js 18.18+ (recomendado 20 LTS).
-- Una base de datos PostgreSQL (local, Supabase, Railway, Neon, etc.).
-
-## Puesta en marcha
+> Reportes de ingeniería claros, en un clic.
+
+DevMetrics es un SaaS B2B que conecta **Jira** y **GitHub** y genera automáticamente un **reporte semanal** del avance del equipo: tareas, Pull Requests, bloqueos, riesgos y recomendaciones. Elimina el trabajo manual de armar el status semanal y les da a TLs, POs y Engineering Managers una foto objetiva y accionable del equipo.
+
+> Nombre interno del repositorio: `weekly-dev-team-report`.
+
+---
+
+## Tabla de contenidos
+
+- [Descripción general](#descripción-general)
+- [Características principales](#características-principales)
+- [Demo o preview](#demo-o-preview)
+- [Tecnologías utilizadas](#tecnologías-utilizadas)
+- [Arquitectura del proyecto](#arquitectura-del-proyecto)
+- [Requisitos previos](#requisitos-previos)
+- [Instalación](#instalación)
+- [Variables de entorno](#variables-de-entorno)
+- [Scripts disponibles](#scripts-disponibles)
+- [Uso del proyecto](#uso-del-proyecto)
+- [Testing](#testing)
+- [Calidad de código](#calidad-de-código)
+- [Git workflow](#git-workflow)
+- [Pull Requests](#pull-requests)
+- [Deploy](#deploy)
+- [Roadmap](#roadmap)
+- [Contribución](#contribución)
+- [Troubleshooting](#troubleshooting)
+- [Seguridad](#seguridad)
+- [Licencia](#licencia)
+- [Autor o equipo](#autor-o-equipo)
+- [Agradecimientos y referencias](#agradecimientos-y-referencias)
+- [Checklist de README](#checklist-de-readme)
+
+---
+
+## Descripción general
+
+Armar el reporte semanal de un equipo de desarrollo es tedioso y subjetivo: hay que revisar el board de Jira, mirar los PRs de GitHub, cruzar quién está bloqueado y traducir todo a un resumen para stakeholders. DevMetrics automatiza ese flujo.
+
+- **Qué problema resuelve:** reemplaza el armado manual del status semanal por un reporte generado a partir de datos reales de Jira y GitHub.
+- **Para quién está pensado:** Tech Leads, Product Owners, Engineering Managers y Delivery Managers que necesitan visibilidad recurrente del equipo.
+- **Qué valor aporta:** métricas objetivas (avance de tareas, throughput de PRs, tareas críticas o sin movimiento, PRs viejos o sin reviewer), detección temprana de riesgos y bloqueos, y comparación semana a semana — todo en un panel único y exportable.
+
+Estado actual: **MVP en desarrollo activo** (scaffold + Sprints 1–3 implementados: auth, workspaces, integración Jira, integración GitHub, motor de reportes, planes/billing y envíos programados).
+
+---
+
+## Características principales
+
+**Implementado**
+
+- Registro, login/logout y sesión con NextAuth (estrategia JWT); contraseñas hasheadas con bcrypt.
+- Multi-tenant por **workspace** con roles (owner / admin / member) y protección de rutas privadas vía middleware.
+- Conexión a **Jira Cloud** (dominio, email, API token, project key) con token guardado **encriptado** (AES-256-GCM) y botón "Probar conexión".
+- Conexión a **GitHub** (owner, repo, PAT) con token encriptado; traído y clasificación de Pull Requests (viejos >72h, sin reviewer, checks fallando, en riesgo).
+- Clasificación automática de issues de Jira (finalizada / en progreso / bloqueada / por hacer, críticas y sin movimiento).
+- **Motor de reportes semanales** con métricas, health status, estándares configurables, alertas y comparación entre reportes.
+- Notas por reporte, compartir reportes, exportación (CSV / PDF) y envío por email (Resend).
+- Vistas por persona y matriz de equipo; dashboard con estado vacío guiado (onboarding).
+- Planes **Free / Team / Pro** con límites por plan y flujo de billing.
+- Envíos programados vía endpoint de cron protegido (`POST /api/cron/run`).
+
+**Futuro** (ver [Roadmap](#roadmap))
+
+- Integraciones adicionales del catálogo (GitLab, Bitbucket, Azure DevOps, Linear, ClickUp, Notion, Slack, Teams, etc.).
+- Resumen y recomendaciones asistidas por IA sobre el reporte.
+
+---
+
+## Demo o preview
+
+`Demo próximamente.`
+
+- Demo online: `[COMPLETAR]`
+- Capturas / video: `[COMPLETAR]`
+
+Para probar en local con datos de ejemplo, ver [Uso del proyecto](#uso-del-proyecto) (incluye seed de usuarios y proyectos demo).
+
+---
+
+## Tecnologías utilizadas
+
+### Frontend
+
+| Tecnología | Uso |
+|---|---|
+| Next.js 14 (App Router) | Framework fullstack, rendering en servidor y routing por carpetas. |
+| React 18 + TypeScript | UI tipada y componible. |
+| Tailwind CSS | Estilos utility-first; `tailwind-merge` + `cva` + `clsx` para variantes. |
+| Radix UI (`react-slot`, `react-label`) | Primitivas accesibles de UI. |
+| lucide-react | Set de íconos. |
+| Recharts | Gráficos de métricas en el dashboard y reportes. |
+
+### Backend
+
+| Tecnología | Uso |
+|---|---|
+| Next.js Route Handlers (`src/app/api`) | API interna (~39 endpoints). |
+| NextAuth (Auth.js) v4 | Autenticación con estrategia JWT. |
+| Zod | Validación de inputs y payloads. |
+| bcryptjs | Hash de contraseñas. |
+| AES-256-GCM (`EncryptionService`) | Cifrado en reposo de los tokens de integraciones. |
+
+### Base de datos
+
+| Tecnología | Uso |
+|---|---|
+| PostgreSQL | Persistencia principal. |
+| Prisma ORM 5 | Schema, migraciones y cliente tipado. |
+
+### Testing
+
+| Tecnología | Uso |
+|---|---|
+| Vitest | Tests unitarios de la capa de lógica pura. |
+| @vitest/coverage-v8 | Cobertura con umbrales (statements/functions/lines 100%, branches 95%). |
+
+### DevOps / Deploy
+
+| Tecnología | Uso |
+|---|---|
+| GitHub Actions | CI: typecheck, lint, tests con coverage y build. |
+| Vercel *(sugerido)* | Deploy recomendado para Next.js. `[COMPLETAR: confirmar plataforma]` |
+
+### Integraciones externas
+
+| Servicio | Uso |
+|---|---|
+| Jira Cloud (REST) | Fuente de issues del equipo. |
+| GitHub (REST) | Fuente de Pull Requests. |
+| Resend | Envío de reportes por email. |
+
+---
+
+## Arquitectura del proyecto
+
+Aplicación **fullstack con Next.js App Router**. La UI y las páginas viven en `src/app`, la API en `src/app/api`, y toda la **lógica de dominio** está aislada en `src/lib` (testeable sin framework). Las páginas usan **route groups**: `(auth)` para login/registro y `(app)` para el producto autenticado.
+
+```text
+weekly-dev-team-report/
+├── prisma/
+│   ├── schema.prisma          # Modelos: User, Workspace, Integration, Report, etc.
+│   └── seed.mjs               # Datos demo (usuarios, proyectos, integraciones)
+├── src/
+│   ├── app/
+│   │   ├── (auth)/            # Login y registro (layout público)
+│   │   ├── (app)/             # Producto autenticado (dashboard, reports, projects…)
+│   │   ├── api/               # Route handlers (auth, integrations, reports, billing, cron…)
+│   │   ├── layout.tsx         # Layout raíz
+│   │   └── globals.css
+│   ├── components/            # UI reutilizable (ui/, charts/, marketing/)
+│   ├── lib/                   # Lógica de dominio y servicios
+│   │   ├── github/            # Cliente y clasificación de PRs
+│   │   ├── jira/              # Cliente y clasificación de issues
+│   │   ├── integrations/      # Registry, catálogo y providers
+│   │   ├── reports/           # Score, estándares, comparación, matriz, health
+│   │   ├── auth.ts            # Config de NextAuth
+│   │   ├── encryption.ts      # AES-256-GCM para tokens
+│   │   ├── prisma.ts          # Cliente Prisma singleton
+│   │   └── permissions.ts     # Autorización por rol/plan
+│   └── types/
+├── .github/workflows/ci.yml   # Pipeline de CI
+├── next.config.mjs
+├── vitest.config.ts
+└── package.json
+```
+
+Responsabilidades clave:
+
+- **`src/app/(app)`** — pantallas del producto; server components que consumen `src/lib` y la API.
+- **`src/app/api`** — endpoints REST internos; validan con Zod y aplican permisos.
+- **`src/lib`** — corazón de negocio (reportes, integraciones, permisos, cifrado). Sin dependencias de React → testeable en aislamiento.
+- **`prisma`** — modelo de datos único para todo el MVP, pensado para no requerir migraciones estructurales grandes por sprint.
+
+---
+
+## Requisitos previos
+
+| Herramienta | Versión recomendada |
+|---|---|
+| Node.js | 20 LTS (CI corre en Node 20) |
+| npm | 10+ (el proyecto usa `package-lock.json`) |
+| PostgreSQL | 14+ en local o instancia gestionada |
+
+Servicios / credenciales externas (según features que quieras usar):
+
+- **PostgreSQL** accesible vía `DATABASE_URL`.
+- **Jira Cloud** API token para conectar Jira (crear en `https://id.atlassian.com/manage-profile/security/api-tokens`).
+- **GitHub** Personal Access Token (fine-grained o clásico con scope `repo` / lectura de PRs).
+- **Resend** API key + dominio verificado, solo si vas a enviar reportes por email.
+
+---
+
+## Instalación
 
 ```bash
-# 1. Instalar dependencias
+# 1. Clonar el repositorio
+git clone https://github.com/bmentasti/weekly-dev-team-report.git
+cd weekly-dev-team-report
+
+# 2. Instalar dependencias
 npm install
 
-# 2. Configurar variables de entorno
+# 3. Configurar variables de entorno
 cp .env.example .env
-#   - DATABASE_URL     → tu string de conexión PostgreSQL
-#   - NEXTAUTH_SECRET  → openssl rand -base64 32
-#   - ENCRYPTION_KEY   → openssl rand -hex 32   (32 bytes / 64 hex chars)
+# editá .env con tus valores (ver tabla más abajo)
 
-# 3. Crear las tablas en la base de datos
-npm run db:push
-#   (o bien: npm run db:migrate  para migraciones versionadas)
+# 4. Preparar la base de datos
+npm run db:generate      # genera el cliente Prisma
+npm run db:push          # crea el schema en la base
+npm run db:seed          # (opcional) carga datos demo
 
-# 4. Levantar en desarrollo
+# 5. Levantar en desarrollo
 npm run dev
 ```
 
-Abrí http://localhost:3000 → te redirige a `/login`. Registrate en `/register`,
-creá tu workspace y vas a ver el dashboard con el estado vacío.
+La app queda disponible en `http://localhost:3000`.
 
-## Scripts
-
-| Script                | Descripción                              |
-| --------------------- | ---------------------------------------- |
-| `npm run dev`         | Servidor de desarrollo                   |
-| `npm run build`       | `prisma generate` + build de producción  |
-| `npm start`           | Servir el build de producción            |
-| `npm run typecheck`   | Chequeo de tipos con `tsc`               |
-| `npm run db:push`     | Sincronizar el schema con la DB          |
-| `npm run db:migrate`  | Crear/aplicar una migración              |
-| `npm run db:studio`   | Prisma Studio (explorar la DB)           |
-
-## Estructura
-
-```
-prisma/schema.prisma          Modelo de datos completo del MVP
-src/
-  app/
-    (auth)/login|register      Pantallas públicas de autenticación
-    (app)/dashboard            Dashboard (protegido)
-    (app)/workspace/new        Crear workspace (protegido)
-    api/auth/register          Alta de usuario
-    api/auth/[...nextauth]     Handler de NextAuth
-    api/workspaces             CRUD básico de workspaces
-  components/ui                Componentes base (button, input, card, label)
-  lib/
-    auth.ts                    Config de NextAuth (credenciales + JWT)
-    prisma.ts                  Cliente Prisma (singleton)
-    encryption.ts              AES-256-GCM para tokens de integraciones
-    validations.ts             Schemas Zod
-  middleware.ts                Protección de rutas /dashboard y /workspace
-```
-
-## Notas de seguridad
-
-- Los tokens de integraciones (Jira/GitHub/Slack) se guardan **encriptados**
-  (`encryptedAccessToken` / `encryptedRefreshToken`) usando `EncryptionService`.
-- Nunca se exponen credenciales al frontend: las llamadas a las APIs externas
-  se harán siempre desde el servidor.
-- Las contraseñas se guardan solo como hash bcrypt (nunca en texto plano).
-```
-
-## Base de datos y migraciones (producción)
-
-En desarrollo se puede usar `npm run db:push` (sincroniza el schema sin historial).
-Para **producción** usar migraciones versionadas (evita pérdida de datos y permite rollback):
-
-1. Baseline inicial (una vez, con el schema actual):
-   `npx prisma migrate dev --name init`
-2. Cada cambio de schema genera una migración nueva con `npx prisma migrate dev --name <cambio>`.
-3. En el deploy se aplican con:
-   `npm run db:migrate:deploy`   # prisma migrate deploy
-
-No usar `db:push` contra una base con datos reales.
+---
 
 ## Variables de entorno
 
-`src/lib/env.ts` valida las variables al iniciar. En producción **aborta el arranque**
-si faltan `DATABASE_URL`, `NEXTAUTH_SECRET` o `ENCRYPTION_KEY`, o si quedaron los
-placeholders del `.env.example`. Generar secretos reales:
-`openssl rand -base64 32` (NEXTAUTH_SECRET) y `openssl rand -hex 32` (ENCRYPTION_KEY).
+Definidas en `.env` (partí de `.env.example`). **No commitees valores reales.**
 
-`ALLOW_DEV_PLAN_CHANGE` solo debe usarse en desarrollo: habilita aplicar upgrades de
-plan sin pago. En producción los upgrades pagos solo se aplican vía el proveedor de pago.
+| Variable | Descripción | Ejemplo | Obligatoria |
+|---|---|---|---|
+| `DATABASE_URL` | Cadena de conexión a PostgreSQL. | `postgresql://user:password@localhost:5432/weekly_dev_report?schema=public` | Sí |
+| `NEXTAUTH_SECRET` | Secreto para firmar sesiones JWT. Generar con `openssl rand -base64 32`. | `k3y...==` | Sí |
+| `NEXTAUTH_URL` | URL base de la app. | `http://localhost:3000` | Sí |
+| `ENCRYPTION_KEY` | Clave AES-256-GCM (32 bytes / 64 hex) para cifrar tokens de integraciones. `openssl rand -hex 32`. | `a1b2...` (64 hex) | Sí |
+| `RESEND_API_KEY` | API key de Resend para enviar reportes por email. | `re_...` | No (solo email) |
+| `EMAIL_FROM` | Remitente; debe ser un dominio verificado en Resend. | `reportes@tudominio.com` | No (solo email) |
+| `CRON_SECRET` | Secreto que protege `POST /api/cron/run` (envíos programados). | `un-secreto-largo` | No |
+| `MP_ACCESS_TOKEN` | Token de Mercado Pago para checkout real. | `APP_USR-...` | No |
+| `PAYPAL_CLIENT_ID` | Client ID de PayPal para checkout real. | `Ax...` | No |
+| `PAYPAL_CLIENT_SECRET` | Client secret de PayPal. | `EL...` | No |
+| `PAYPAL_ENV` | Entorno de PayPal. | `sandbox` \| `live` | No |
+| `ALLOW_DEV_PLAN_CHANGE` | Solo desarrollo: permite cambiar de plan sin pago real. **Nunca en producción.** | `true` | No |
 
-## Tests
+---
 
-`npm test` (Vitest). Cubre los motores de cálculo: `scoreWithStandard`, umbrales,
-pesos, `levelOf` y la encripción AES-256-GCM.
+## Scripts disponibles
+
+| Script | Comando | Descripción |
+|---|---|---|
+| `dev` | `npm run dev` | Levanta el servidor de desarrollo (Next.js) en `:3000`. |
+| `build` | `npm run build` | Genera el cliente Prisma y compila la app para producción. |
+| `start` | `npm run start` | Sirve el build de producción. |
+| `lint` | `npm run lint` | Ejecuta ESLint (config de Next.js). |
+| `typecheck` | `npm run typecheck` | Verifica tipos con `tsc --noEmit`. |
+| `test` | `npm run test` | Corre los tests unitarios (Vitest). |
+| `test:watch` | `npm run test:watch` | Tests en modo watch. |
+| `test:coverage` | `npm run test:coverage` | Tests + reporte de cobertura. |
+| `db:generate` | `npm run db:generate` | Genera el cliente Prisma. |
+| `db:push` | `npm run db:push` | Sincroniza el schema con la base (sin migraciones). |
+| `db:migrate` | `npm run db:migrate` | Crea/aplica migraciones en desarrollo. |
+| `db:migrate:deploy` | `npm run db:migrate:deploy` | Aplica migraciones en entornos gestionados. |
+| `db:seed` | `npm run db:seed` | Carga datos demo. |
+| `db:studio` | `npm run db:studio` | Abre Prisma Studio. |
+
+> Nota: aún no hay script `format` (Prettier) ni hooks de pre-commit configurados. Ver [Roadmap](#roadmap).
+
+---
+
+## Uso del proyecto
+
+Flujo principal end-to-end:
+
+1. Abrí `http://localhost:3000` → te redirige a `/login`.
+2. Registrate en `/register` (nombre, email, contraseña, empresa, rol) y creá tu **workspace**.
+3. En `/integrations` conectá **Jira** y/o **GitHub**:
+   - Jira: dominio, email, API token y project key → "Probar conexión" → guardar.
+   - GitHub: owner, repo y PAT → "Probar conexión" → guardar.
+4. Generá un reporte desde `/reports`; revisá métricas, tareas críticas, PRs en riesgo y comparación semanal.
+5. Compartí, exportá (CSV/PDF) o enviá por email el reporte.
+
+Con `npm run db:seed` se cargan **usuarios demo** (contraseña `password123`) y proyectos de ejemplo para explorar la app sin conectar herramientas reales.
+
+Ejemplos de endpoints de la API interna:
+
+```http
+POST /api/integrations/jira/test        # valida credenciales de Jira
+POST /api/integrations/jira/connect     # guarda la integración (token cifrado)
+GET  /api/integrations/github/data      # trae PRs clasificados
+POST /api/reports/generate              # genera un reporte
+POST /api/cron/run                      # dispara envíos programados (requiere CRON_SECRET)
+```
+
+```jsonc
+// POST /api/integrations/jira/test — request
+{ "domain": "acme.atlassian.net", "email": "me@acme.com", "apiToken": "***", "projectKey": "ENG" }
+
+// respuesta (ok)
+{ "ok": true, "project": { "key": "ENG", "name": "Engineering" } }
+```
+
+---
+
+## Testing
+
+El proyecto usa **Vitest** para tests unitarios sobre la **capa de lógica pura** (`src/lib`), donde vive el negocio: cálculo de score, estándares, comparación de reportes, matriz de equipo, health, permisos, planes, validaciones y cifrado.
+
+```bash
+npm run test            # corre todos los tests
+npm run test:watch      # modo watch
+npm run test:coverage   # tests + cobertura (HTML en coverage/, texto en consola)
+```
+
+Alcance y estrategia:
+
+- **Unitarios:** lógica pura de `src/lib` (sin React/Prisma/next). Es lo que se mide en coverage.
+- **Integración / E2E:** UI, páginas RSC y rutas de API se validan por fuera del unit coverage (requieren mockear el framework), para no inflar la métrica con casos poco útiles.
+- **Umbrales de cobertura (CI falla si no se cumplen):** statements 100%, functions 100%, lines 100%, branches 95%.
+
+---
+
+## Calidad de código
+
+- **ESLint** (`eslint-config-next`): `npm run lint`.
+- **TypeScript** estricto: `npm run typecheck`.
+- **Vitest + coverage** con umbrales exigidos en CI.
+- **CI (GitHub Actions)** corre en cada push a `main` y en cada PR: `typecheck` → `lint` → `test:coverage` → `build`.
+
+Reglas mínimas para mantener calidad:
+
+- No romper tipos ni lint (CI bloquea el merge).
+- Mantener o subir la cobertura; agregá tests para la lógica nueva en `src/lib`.
+- Validá todos los inputs de API con Zod.
+
+Antes de abrir un PR, corré localmente:
+
+```bash
+npm run typecheck && npm run lint && npm run test:coverage && npm run build
+```
+
+> Pendiente de incorporar: Prettier y hooks de pre-commit (Husky + lint-staged).
+
+---
+
+## Git workflow
+
+Estrategia de ramas recomendada:
+
+| Rama | Propósito |
+|---|---|
+| `main` | Rama estable / integración. CI corre en cada push y PR. |
+| `develop` *(opcional)* | Integración previa a `main` si el equipo lo adopta. |
+| `feature/*` | Nuevas funcionalidades. |
+| `bugfix/*` | Corrección de bugs no urgentes. |
+| `hotfix/*` | Correcciones urgentes sobre producción. |
+
+Nomenclatura de ramas: `tipo/descripcion-corta-en-kebab-case`, p. ej. `feature/report-comparison`, `bugfix/jira-token-refresh`.
+
+Commits con **Conventional Commits**:
+
+```text
+tipo(scope opcional): descripción breve en imperativo
+
+# ejemplos
+feat(reports): agrega comparación semana a semana
+fix(integrations): corrige validación de token de Jira
+chore(ci): actualiza Node a 20
+```
+
+Tipos comunes: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `perf`, `ci`.
+
+Flujo recomendado: creá una rama desde `main` → hacé commits pequeños → abrí un PR → pasá CI y review → merge (squash sugerido).
+
+---
+
+## Pull Requests
+
+Checklist antes de abrir un PR:
+
+- [ ] El código compila (`npm run build`).
+- [ ] Los tests pasan (`npm run test`).
+- [ ] Sin errores de lint (`npm run lint`) ni de tipos (`npm run typecheck`).
+- [ ] Se actualizó la documentación si corresponde.
+- [ ] Se agregaron/actualizaron tests para la lógica nueva.
+- [ ] Se validó manualmente la funcionalidad.
+- [ ] No se commitearon secretos ni archivos `.env`.
+
+---
+
+## Deploy
+
+Ambientes:
+
+| Ambiente | Descripción |
+|---|---|
+| Local | `npm run dev` en `http://localhost:3000`. |
+| Development | `[COMPLETAR: URL/entorno]` |
+| Staging | `[COMPLETAR: URL/entorno]` |
+| Production | `[COMPLETAR: URL/entorno]` |
+
+Pasos generales de deploy (build de producción):
+
+```bash
+npm ci
+npm run db:migrate:deploy     # aplica migraciones
+npm run build                 # prisma generate + next build
+npm run start                 # sirve el build
+```
+
+Recomendaciones de deploy:
+
+- Plataforma sugerida: **Vercel** (nativa para Next.js) o un contenedor con Node 20. `[COMPLETAR: confirmar plataforma real]`
+- Configurar todas las variables de entorno obligatorias en el proveedor.
+- Programar `POST /api/cron/run` (con `CRON_SECRET`) mediante Vercel Cron o GitHub Actions para los envíos semanales.
+
+---
+
+## Roadmap
+
+**Corto plazo**
+
+- Agregar Prettier + Husky + lint-staged.
+- Tests de integración/E2E para rutas de API y páginas.
+
+**Mediano plazo**
+
+- Habilitar más providers del catálogo (GitLab, Bitbucket, Azure DevOps, Linear, ClickUp, Notion).
+- Notificaciones a Slack / Teams / Discord.
+
+**Largo plazo**
+
+- Resumen y recomendaciones asistidas por IA sobre cada reporte.
+- Métricas históricas y tendencias multi-equipo.
+
+---
+
+## Contribución
+
+1. Hacé un fork o pedí acceso al repo.
+2. Creá una rama desde `main`: `git checkout -b feature/mi-cambio`.
+3. Hacé tus cambios siguiendo el estilo del proyecto (TypeScript tipado, validación con Zod, lógica en `src/lib`).
+4. Corré las validaciones: `npm run typecheck && npm run lint && npm run test:coverage && npm run build`.
+5. Commiteá con Conventional Commits y abrí un PR completando el [checklist](#pull-requests).
+
+Toda contribución pasa por review y debe pasar CI antes del merge.
+
+---
+
+## Troubleshooting
+
+| Problema | Causa probable | Solución |
+|---|---|---|
+| `npm install` falla | Versión de Node incompatible / caché corrupta | Usá Node 20 LTS; borrá `node_modules` y `package-lock.json` y reinstalá. |
+| `Port 3000 is already in use` | Otro proceso usa el puerto | Cerralo o corré `PORT=3001 npm run dev`. |
+| `Environment variable not found: DATABASE_URL` | Falta `.env` o la variable | `cp .env.example .env` y completá los valores. |
+| Errores de Prisma / cliente desactualizado | No se generó el cliente | Corré `npm run db:generate`. |
+| No conecta a la base | `DATABASE_URL` incorrecta o Postgres apagado | Verificá credenciales, host/puerto y que el servicio esté arriba. |
+| Falla la conexión a Jira/GitHub | Token inválido o sin permisos | Regenerá el token con los scopes correctos y usá "Probar conexión". |
+| Login falla / sesión inválida | Falta `NEXTAUTH_SECRET` o `NEXTAUTH_URL` | Definí ambas variables y reiniciá el server. |
+| Error al descifrar tokens | `ENCRYPTION_KEY` cambiada o mal formada | Debe ser 64 caracteres hex (32 bytes) y estable entre entornos. |
+
+---
+
+## Seguridad
+
+- **Nunca** commitees secretos: `.env` y `.env*.local` están en `.gitignore`. Usá `.env.example` como plantilla.
+- Los tokens de integraciones se guardan **cifrados** con AES-256-GCM (`ENCRYPTION_KEY`).
+- Usá tokens con el **mínimo privilegio** (p. ej. GitHub PAT de solo lectura de PRs).
+- Revisá dependencias vulnerables periódicamente: `npm audit`.
+- Rotá `NEXTAUTH_SECRET`, `ENCRYPTION_KEY` y los tokens ante cualquier sospecha de exposición.
+- Reportá vulnerabilidades de forma **privada** al equipo (no abras un issue público): `[COMPLETAR: email/canal de seguridad]`.
+
+---
+
+## Licencia
+
+`Licencia pendiente de definir.` `[COMPLETAR]`
+
+---
+
+## Autor o equipo
+
+- **Autor:** Bruno Mentasti
+- GitHub: https://github.com/bmentasti
+- LinkedIn: `[COMPLETAR]`
+- Portfolio / web: `[COMPLETAR]`
+- Contacto: `[COMPLETAR]`
+
+---
+
+## Agradecimientos y referencias
+
+- [Next.js](https://nextjs.org/docs) · [Prisma](https://www.prisma.io/docs) · [NextAuth / Auth.js](https://authjs.dev)
+- [Jira Cloud REST API](https://developer.atlassian.com/cloud/jira/platform/rest/v3/) · [GitHub REST API](https://docs.github.com/rest)
+- [Vitest](https://vitest.dev) · [Tailwind CSS](https://tailwindcss.com) · [Resend](https://resend.com/docs)
+
+---
+
+## Checklist de README
+
+Revisá antes de subir al repositorio:
+
+- [ ] El **nombre** y la descripción reflejan el proyecto real.
+- [ ] La **tabla de contenidos** enlaza correctamente a cada sección.
+- [ ] Las **tecnologías** listadas coinciden con `package.json`.
+- [ ] Los **requisitos previos** (Node, DB, tokens) están completos.
+- [ ] Los pasos de **instalación** funcionan en una máquina limpia.
+- [ ] Todas las **variables de entorno** están documentadas y marcadas como obligatorias/opcionales.
+- [ ] Los **scripts** coinciden con los de `package.json`.
+- [ ] Hay ejemplos reales de **uso** (endpoints/pantallas).
+- [ ] Está claro cómo correr **tests** y ver coverage.
+- [ ] El **git workflow** y el checklist de **PR** están definidos.
+- [ ] La sección de **deploy** tiene los ambientes/plataforma completos.
+- [ ] Se completaron los placeholders `[COMPLETAR]` (demo, deploy, licencia, contacto, seguridad).
+- [ ] No hay **secretos** ni datos sensibles en el README.
+- [ ] Los **links** externos e internos funcionan.
