@@ -52,7 +52,10 @@ export default function RegisterPage() {
       router.push("/login");
       return;
     }
-    router.push("/onboarding");
+    // Primero el workspace: crea el espacio y un proyecto "General" por
+    // defecto. Sin este paso el usuario entra sin workspace y todo lo que lo
+    // requiere (crear proyecto, integraciones, reportes) falla con 400.
+    router.push("/workspace/new");
     router.refresh();
   }
 

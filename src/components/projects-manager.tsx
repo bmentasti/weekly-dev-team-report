@@ -24,12 +24,17 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
 
   async function select(id: string) {
     setBusy(true);
-    await fetch("/api/projects/active", {
+    const res = await fetch("/api/projects/active", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ projectId: id }),
     });
     setBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      await alert({ title: "No se pudo cambiar de proyecto", description: j.error });
+      return;
+    }
     router.refresh();
   }
 
@@ -53,6 +58,15 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
       await upgrade({ feature: "Tener más de un proyecto", suggestedPlan: "Pro" });
       return;
     }
+    if (!res.ok) {
+      await alert({
+        title: "No se pudo crear el proyecto",
+        description:
+          json.error ??
+          "Ocurrió un error inesperado. Revisá que tengas un workspace y volvé a intentar.",
+      });
+      return;
+    }
     if (res.ok && json.project?.id) {
       await fetch("/api/projects/active", {
         method: "POST",
@@ -71,12 +85,17 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
     });
     if (!name || name === p.name) return;
     setBusy(true);
-    await fetch(`/api/projects/${p.id}`, {
+    const res = await fetch(`/api/projects/${p.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
     });
     setBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      await alert({ title: "No se pudo renombrar", description: j.error });
+      return;
+    }
     router.refresh();
   }
 

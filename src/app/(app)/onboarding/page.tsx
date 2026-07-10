@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { PlugZap, FileBarChart2, Sparkles } from "lucide-react";
 import { authOptions } from "@/lib/auth";
+import { resolveWorkspaceForUser } from "@/lib/workspace";
 import { getOnboardingState } from "@/lib/onboarding";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,11 @@ export const metadata = { title: "Empezá con DevMetrics" };
 export default async function OnboardingPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
+
+  // Sin workspace no hay nada que onboardear: primero hay que crearlo
+  // (crea también el proyecto "General" por defecto).
+  const workspace = await resolveWorkspaceForUser(session.user.id);
+  if (!workspace) redirect("/workspace/new");
 
   const state = await getOnboardingState(
     session.user.id,
