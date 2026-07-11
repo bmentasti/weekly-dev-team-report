@@ -18,6 +18,22 @@ import {
   geminiAdapter,
   copilotAdapter,
 } from "./providers/ai";
+// Project Planning & Portfolio
+import { trelloAdapter } from "./providers/trello";
+import { asanaAdapter } from "./providers/asana";
+import { mondayAdapter } from "./providers/monday";
+import { shortcutAdapter } from "./providers/shortcut";
+import { wrikeAdapter } from "./providers/wrike";
+import { teamworkAdapter } from "./providers/teamwork";
+import { smartsheetAdapter } from "./providers/smartsheet";
+import { zohoProjectsAdapter } from "./providers/zoho-projects";
+import { basecampAdapter } from "./providers/basecamp";
+import { azureBoardsAdapter } from "./providers/azureboards";
+import { jiraAlignAdapter } from "./providers/jira-align";
+import { jiraRoadmapsAdapter } from "./providers/jira-roadmaps";
+import { msPlannerAdapter } from "./providers/ms-planner";
+import { msProjectAdapter } from "./providers/ms-project";
+import { primaveraAdapter } from "./providers/primavera";
 
 // Only implemented adapters live here. Catalog entries with enabled:false have
 // no adapter yet (they render as "próximamente" in the UI).
@@ -38,6 +54,22 @@ const ADAPTERS: Partial<Record<ProviderSlug, ProviderAdapter>> = {
   openai: openaiAdapter,
   gemini: geminiAdapter,
   copilot: copilotAdapter,
+  // Project Planning & Portfolio
+  trello: trelloAdapter,
+  asana: asanaAdapter,
+  monday: mondayAdapter,
+  shortcut: shortcutAdapter,
+  wrike: wrikeAdapter,
+  teamwork: teamworkAdapter,
+  smartsheet: smartsheetAdapter,
+  "zoho-projects": zohoProjectsAdapter,
+  basecamp: basecampAdapter,
+  "azure-boards": azureBoardsAdapter,
+  "jira-align": jiraAlignAdapter,
+  "jira-roadmaps": jiraRoadmapsAdapter,
+  "ms-planner": msPlannerAdapter,
+  "ms-project": msProjectAdapter,
+  primavera: primaveraAdapter,
 };
 
 export function getAdapter(slug: string): ProviderAdapter | undefined {

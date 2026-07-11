@@ -49,6 +49,22 @@ enum IntegrationType {
   ANTHROPIC
   GEMINI
   COPILOT
+  // Project Planning & Portfolio
+  MS_PROJECT
+  MS_PLANNER
+  AZURE_BOARDS
+  MONDAY
+  ASANA
+  SMARTSHEET
+  WRIKE
+  TEAMWORK
+  BASECAMP
+  TRELLO
+  SHORTCUT
+  ZOHO_PROJECTS
+  PRIMAVERA
+  JIRA_ALIGN
+  JIRA_ROADMAPS
 }
 
 enum IntegrationStatus {

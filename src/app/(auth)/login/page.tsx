@@ -7,9 +7,11 @@ import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useT } from "@/components/i18n-provider";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useT();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +29,7 @@ export default function LoginPage() {
 
     setLoading(false);
     if (res?.error) {
-      setError("Email o contraseña incorrectos.");
+      setError(t("auth.badCredentials"));
       return;
     }
     router.push("/dashboard");
@@ -37,10 +39,8 @@ export default function LoginPage() {
   return (
     <div>
       <div className="mb-8 text-center">
-        <h2 className="text-3xl font-bold tracking-tight">Bienvenido/a</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Iniciá sesión en tu cuenta de DevMetrics para continuar
-        </p>
+        <h2 className="text-3xl font-bold tracking-tight">{t("auth.welcome")}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{t("auth.loginSubtitle")}</p>
       </div>
 
       <form onSubmit={onSubmit} className="space-y-5">
@@ -50,31 +50,31 @@ export default function LoginPage() {
           </p>
         )}
         <div className="space-y-2">
-          <Label htmlFor="email">Email de trabajo</Label>
+          <Label htmlFor="email">{t("auth.workEmail")}</Label>
           <Input
             id="email"
             name="email"
             type="email"
-            placeholder="vos@empresa.com"
+            placeholder={t("auth.emailPlaceholder")}
             required
           />
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label htmlFor="password">Contraseña</Label>
-            <span className="text-sm text-primary">¿Olvidaste tu contraseña?</span>
+            <Label htmlFor="password">{t("auth.password")}</Label>
+            <span className="text-sm text-primary">{t("auth.forgotPassword")}</span>
           </div>
           <Input id="password" name="password" type="password" required />
         </div>
         <Button type="submit" className="h-11 w-full" disabled={loading}>
-          {loading ? "Ingresando..." : "Iniciar sesión"}
+          {loading ? t("auth.loggingIn") : t("auth.login")}
         </Button>
       </form>
 
       <p className="mt-8 text-center text-sm text-muted-foreground">
-        ¿No tenés cuenta?{" "}
+        {t("auth.noAccount")}{" "}
         <Link href="/register" className="font-semibold text-primary hover:underline">
-          Registrate
+          {t("auth.register")}
         </Link>
       </p>
     </div>

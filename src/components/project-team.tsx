@@ -125,7 +125,7 @@ export function ProjectTeam({ projectId }: { projectId: string }) {
           ) : (
             <div className="flex gap-2">
               <select
-                className="flex h-11 flex-1 rounded-input border border-input bg-white px-3 text-sm"
+                className="flex h-11 flex-1 rounded-input border border-input bg-card px-3 text-sm"
                 value={selected}
                 onChange={(e) => setSelected(e.target.value)}
               >

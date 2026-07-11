@@ -129,7 +129,7 @@ export function OnboardingChecklist({
                 key={step.key}
                 className={cn(
                   "flex items-center gap-3 rounded-input border p-3",
-                  isNext && "border-primary bg-white",
+                  isNext && "border-primary bg-card",
                   step.done && "opacity-70",
                 )}
               >

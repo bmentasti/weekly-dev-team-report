@@ -18,9 +18,25 @@ export type ProviderSlug =
   | "openai"
   | "anthropic"
   | "gemini"
-  | "copilot";
+  | "copilot"
+  // Project Planning & Portfolio
+  | "ms-project"
+  | "ms-planner"
+  | "azure-boards"
+  | "monday"
+  | "asana"
+  | "smartsheet"
+  | "wrike"
+  | "teamwork"
+  | "basecamp"
+  | "trello"
+  | "shortcut"
+  | "zoho-projects"
+  | "primavera"
+  | "jira-align"
+  | "jira-roadmaps";
 
-export type ProviderKind = "ISSUES" | "CODE" | "COMM" | "AI";
+export type ProviderKind = "ISSUES" | "CODE" | "COMM" | "AI" | "PLANNING";
 
 /** Matches the Prisma IntegrationType enum names. */
 export type IntegrationTypeName =
@@ -39,7 +55,23 @@ export type IntegrationTypeName =
   | "OPENAI"
   | "ANTHROPIC"
   | "GEMINI"
-  | "COPILOT";
+  | "COPILOT"
+  // Project Planning & Portfolio
+  | "MS_PROJECT"
+  | "MS_PLANNER"
+  | "AZURE_BOARDS"
+  | "MONDAY"
+  | "ASANA"
+  | "SMARTSHEET"
+  | "WRIKE"
+  | "TEAMWORK"
+  | "BASECAMP"
+  | "TRELLO"
+  | "SHORTCUT"
+  | "ZOHO_PROJECTS"
+  | "PRIMAVERA"
+  | "JIRA_ALIGN"
+  | "JIRA_ROADMAPS";
 
 export interface ProviderField {
   name: string;
@@ -642,6 +674,272 @@ export const PROVIDER_CATALOG: Record<ProviderSlug, ProviderCatalogEntry> = {
       },
     ],
   },
+
+  // -------------------------------------------------------------------------
+  // Project Planning & Portfolio
+  // Adapters aún no implementados: se muestran como "próximamente" en la UI.
+  // -------------------------------------------------------------------------
+  "ms-project": {
+    slug: "ms-project",
+    type: "MS_PROJECT",
+    label: "Microsoft Project",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 17,
+    secretField: "apiToken",
+    blurb: "Cronogramas, fases, hitos y baseline.",
+    fields: [
+      { name: "siteUrl", label: "Project Online URL", placeholder: "https://org.sharepoint.com/sites/pwa" },
+      { name: "apiToken", label: "Access token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "Access token", body: "Cómo obtenerlo:conexión vía Microsoft Graph / Project for the web." },
+    ],
+  },
+  "ms-planner": {
+    slug: "ms-planner",
+    type: "MS_PLANNER",
+    label: "Microsoft Planner",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 18,
+    secretField: "apiToken",
+    blurb: "Tableros, buckets y tareas de Planner.",
+    fields: [
+      { name: "planId", label: "Plan ID", help: "El ID del plan de Planner" },
+      { name: "apiToken", label: "Access token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "Access token", body: "Cómo obtenerlo:conexión vía Microsoft Graph (Planner)." },
+    ],
+  },
+  "azure-boards": {
+    slug: "azure-boards",
+    type: "AZURE_BOARDS",
+    label: "Azure DevOps Boards",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 19,
+    secretField: "apiToken",
+    blurb: "Work items, sprints y epics de Azure Boards.",
+    fields: [
+      { name: "project", label: "Proyecto", placeholder: "MiProyecto" },
+      { name: "organization", label: "Organización", placeholder: "dev.azure.com/org" },
+      { name: "apiToken", label: "Personal Access Token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "Personal Access Token", body: "Cómo obtenerlo:PAT con permiso de lectura de Work Items." },
+    ],
+  },
+  monday: {
+    slug: "monday",
+    type: "MONDAY",
+    label: "monday.com",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 20,
+    secretField: "apiToken",
+    blurb: "Boards, timelines y workload.",
+    fields: [
+      { name: "boardId", label: "Board ID", help: "El ID del board de monday.com" },
+      { name: "apiToken", label: "API Token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "API Token", body: "Cómo obtenerlo:token de API v2 de monday.com (Admin → API)." },
+    ],
+  },
+  asana: {
+    slug: "asana",
+    type: "ASANA",
+    label: "Asana",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 21,
+    secretField: "apiToken",
+    blurb: "Proyectos, portfolios y metas.",
+    fields: [
+      { name: "projectGid", label: "Project ID", help: "El GID del proyecto (de la URL de Asana)" },
+      { name: "apiToken", label: "Personal Access Token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "Personal Access Token", body: "Cómo obtenerlo:PAT de Asana (Developer Console)." },
+    ],
+  },
+  smartsheet: {
+    slug: "smartsheet",
+    type: "SMARTSHEET",
+    label: "Smartsheet",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 22,
+    secretField: "apiToken",
+    blurb: "Grillas, Gantt y dependencias.",
+    fields: [
+      { name: "sheetId", label: "Sheet ID", help: "El ID de la hoja (File → Properties)" },
+      { name: "apiToken", label: "API Token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "API Token", body: "Cómo obtenerlo:token de API de Smartsheet (Personal Settings → API Access)." },
+    ],
+  },
+  wrike: {
+    slug: "wrike",
+    type: "WRIKE",
+    label: "Wrike",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 23,
+    secretField: "apiToken",
+    blurb: "Proyectos, fases y cargas de trabajo.",
+    fields: [
+      { name: "apiToken", label: "Permanent access token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "Permanent access token", body: "Cómo obtenerlo:token permanente de la API de Wrike." },
+    ],
+  },
+  teamwork: {
+    slug: "teamwork",
+    type: "TEAMWORK",
+    label: "Teamwork",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 24,
+    secretField: "apiToken",
+    blurb: "Proyectos, hitos y time tracking.",
+    fields: [
+      { name: "site", label: "Sitio", placeholder: "empresa.teamwork.com" },
+      { name: "apiToken", label: "API Key", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "API Key", body: "Cómo obtenerlo:API key de Teamwork (Profile → API & Mobile)." },
+    ],
+  },
+  basecamp: {
+    slug: "basecamp",
+    type: "BASECAMP",
+    label: "Basecamp",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 25,
+    secretField: "apiToken",
+    blurb: "Proyectos, to-dos y schedules.",
+    fields: [
+      { name: "accountId", label: "Account ID", help: "El número de cuenta (de la URL de Basecamp)" },
+      { name: "projectId", label: "Project ID" },
+      { name: "todolistId", label: "To-do list ID" },
+      { name: "apiToken", label: "Access token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "Access token", body: "Cómo obtenerlo:OAuth de Basecamp (Launchpad)." },
+    ],
+  },
+  trello: {
+    slug: "trello",
+    type: "TRELLO",
+    label: "Trello",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 26,
+    secretField: "apiToken",
+    blurb: "Boards, listas y tarjetas.",
+    fields: [
+      { name: "boardId", label: "Board ID", help: "El ID del tablero (de la URL trello.com/b/<ID>)" },
+      { name: "apiKey", label: "API Key" },
+      { name: "apiToken", label: "Token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "Token", body: "Cómo obtenerlo:API key + token de Trello (trello.com/power-ups/admin)." },
+    ],
+  },
+  shortcut: {
+    slug: "shortcut",
+    type: "SHORTCUT",
+    label: "Shortcut",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 27,
+    secretField: "apiToken",
+    blurb: "Stories, epics e iterations.",
+    fields: [
+      { name: "apiToken", label: "API Token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "API Token", body: "Cómo obtenerlo:token de API de Shortcut (Settings → API Tokens)." },
+    ],
+  },
+  "zoho-projects": {
+    slug: "zoho-projects",
+    type: "ZOHO_PROJECTS",
+    label: "Zoho Projects",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 28,
+    secretField: "apiToken",
+    blurb: "Tareas, hitos y Gantt.",
+    fields: [
+      { name: "portalId", label: "Portal ID" },
+      { name: "projectId", label: "Project ID" },
+      { name: "apiToken", label: "Auth token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "Auth token", body: "Cómo obtenerlo:OAuth de Zoho (API Console)." },
+    ],
+  },
+  primavera: {
+    slug: "primavera",
+    type: "PRIMAVERA",
+    label: "Oracle Primavera",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 29,
+    secretField: "apiToken",
+    blurb: "Cronogramas y critical path (P6).",
+    fields: [
+      { name: "baseUrl", label: "Base URL", placeholder: "https://p6.empresa.com" },
+      { name: "apiToken", label: "Access token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "Access token", body: "Cómo obtenerlo:Primavera P6 EPPM REST API." },
+    ],
+  },
+  "jira-align": {
+    slug: "jira-align",
+    type: "JIRA_ALIGN",
+    label: "Jira Align",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 30,
+    secretField: "apiToken",
+    blurb: "Portfolios, programas y OKRs.",
+    fields: [
+      { name: "instance", label: "Instancia", placeholder: "empresa.jiraalign.com" },
+      { name: "apiToken", label: "API Token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "API Token", body: "Cómo obtenerlo:token de la API de Jira Align." },
+    ],
+  },
+  "jira-roadmaps": {
+    slug: "jira-roadmaps",
+    type: "JIRA_ROADMAPS",
+    label: "Jira Advanced Roadmaps",
+    kind: "PLANNING",
+    enabled: true,
+    priority: 31,
+    secretField: "apiToken",
+    tokenUrl: "https://id.atlassian.com/manage-profile/security/api-tokens",
+    blurb: "Planes, dependencias y capacity.",
+    fields: [
+      { name: "email", label: "Email", placeholder: "usuario@empresa.com" },
+      { name: "projectKey", label: "Project Key", placeholder: "FOR", optional: true },
+      { name: "domain", label: "Jira domain", placeholder: "empresa.atlassian.net" },
+      { name: "apiToken", label: "API Token", secret: true, help: "Se guarda encriptado" },
+    ],
+    guide: [
+      { field: "API Token", body: "Cómo obtenerlo:usa el mismo API token de Jira (Advanced Roadmaps)." },
+    ],
+  },
 };
 
 export const PROVIDER_LIST: ProviderCatalogEntry[] = Object.values(
@@ -663,4 +961,5 @@ export const KIND_LABELS: Record<ProviderKind, string> = {
   CODE: "Código y Pull/Merge Requests",
   COMM: "Comunicación",
   AI: "Inteligencia artificial",
+  PLANNING: "Planificación y Portfolio",
 };

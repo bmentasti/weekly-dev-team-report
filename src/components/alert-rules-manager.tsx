@@ -141,7 +141,7 @@ export function AlertRulesManager() {
                 <select
                   value={metricKey}
                   onChange={(e) => setMetricKey(e.target.value)}
-                  className="mt-1 block w-48 rounded-md border bg-white px-2 py-1.5 text-sm text-foreground"
+                  className="mt-1 block w-48 rounded-md border bg-card px-2 py-1.5 text-sm text-foreground"
                 >
                   {METRIC_DEFS.map((d) => (
                     <option key={d.key} value={d.key}>
@@ -155,7 +155,7 @@ export function AlertRulesManager() {
                 <select
                   value={operator}
                   onChange={(e) => setOperator(e.target.value as RuleOperator)}
-                  className="mt-1 block w-40 rounded-md border bg-white px-2 py-1.5 text-sm text-foreground"
+                  className="mt-1 block w-40 rounded-md border bg-card px-2 py-1.5 text-sm text-foreground"
                 >
                   {OPERATORS.map((op) => (
                     <option key={op} value={op}>
@@ -170,7 +170,7 @@ export function AlertRulesManager() {
                   type="number"
                   value={threshold}
                   onChange={(e) => setThreshold(Number(e.target.value))}
-                  className="mt-1 block w-20 rounded-md border bg-white px-2 py-1.5 text-sm text-foreground"
+                  className="mt-1 block w-20 rounded-md border bg-card px-2 py-1.5 text-sm text-foreground"
                 />
               </label>
               <label className="text-xs text-muted-foreground">
@@ -178,7 +178,7 @@ export function AlertRulesManager() {
                 <select
                   value={severity}
                   onChange={(e) => setSeverity(e.target.value as RuleSeverity)}
-                  className="mt-1 block w-28 rounded-md border bg-white px-2 py-1.5 text-sm text-foreground"
+                  className="mt-1 block w-28 rounded-md border bg-card px-2 py-1.5 text-sm text-foreground"
                 >
                   {SEVERITIES.map((s) => (
                     <option key={s} value={s}>

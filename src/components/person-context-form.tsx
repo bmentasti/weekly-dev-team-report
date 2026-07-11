@@ -24,7 +24,7 @@ function Select({
     <div className="space-y-1">
       <Label>{label}</Label>
       <select
-        className="flex h-10 w-full rounded-input border border-input bg-white px-3 text-sm"
+        className="flex h-10 w-full rounded-input border border-input bg-card px-3 text-sm"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -100,7 +100,7 @@ export function PersonContextForm({ name }: { name: string }) {
         <div className="space-y-1">
           <Label>Feedback (TL / PO / pares)</Label>
           <textarea
-            className="w-full rounded-input border border-input bg-white px-3.5 py-2 text-sm"
+            className="w-full rounded-input border border-input bg-card px-3.5 py-2 text-sm"
             rows={2}
             value={ctx.feedback ?? ""}
             onChange={(e) => set("feedback", e.target.value)}
@@ -109,7 +109,7 @@ export function PersonContextForm({ name }: { name: string }) {
         <div className="space-y-1">
           <Label>Notas / observaciones</Label>
           <textarea
-            className="w-full rounded-input border border-input bg-white px-3.5 py-2 text-sm"
+            className="w-full rounded-input border border-input bg-card px-3.5 py-2 text-sm"
             rows={2}
             value={ctx.notes ?? ""}
             onChange={(e) => set("notes", e.target.value)}

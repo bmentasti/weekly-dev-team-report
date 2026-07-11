@@ -144,7 +144,7 @@ export default function ComparePage() {
                   {sel.letter}
                 </label>
                 <select
-                  className="flex h-10 w-full rounded-input border border-input bg-white px-3 text-sm"
+                  className="flex h-10 w-full rounded-input border border-input bg-card px-3 text-sm"
                   value={sel.id}
                   onChange={(e) => sel.set(e.target.value)}
                 >
@@ -184,7 +184,7 @@ export default function ComparePage() {
           {ready && (
             <>
               {/* Role tabs */}
-              <div className="inline-flex rounded-full border bg-white p-1 text-sm">
+              <div className="inline-flex rounded-full border bg-card p-1 text-sm">
                 {ROLE_TABS.map((t) => (
                   <button
                     key={t.key}
@@ -352,7 +352,7 @@ export default function ComparePage() {
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <input
-                      className="flex h-10 flex-1 rounded-input border border-input bg-white px-3 text-sm"
+                      className="flex h-10 flex-1 rounded-input border border-input bg-card px-3 text-sm"
                       placeholder="Preguntá algo sobre la comparación..."
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}

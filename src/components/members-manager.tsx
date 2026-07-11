@@ -144,7 +144,7 @@ export function MembersManager() {
                 <select
                   value={m.role}
                   onChange={(e) => changeRole(m.id, e.target.value)}
-                  className="rounded-md border bg-white px-2 py-1 text-xs"
+                  className="rounded-md border bg-card px-2 py-1 text-xs"
                 >
                   <option value="ADMIN">Admin</option>
                   <option value="MEMBER">Member</option>
@@ -184,7 +184,7 @@ export function MembersManager() {
               <select
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value as Role)}
-                className="rounded-md border bg-white px-2 py-1 text-sm"
+                className="rounded-md border bg-card px-2 py-1 text-sm"
               >
                 <option value="ADMIN">Admin</option>
                 <option value="MEMBER">Member</option>

@@ -64,7 +64,7 @@ export function AiAskBox({ reportId }: { reportId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="inline-flex rounded-full border bg-white p-1 text-sm">
+        <div className="inline-flex rounded-full border bg-card p-1 text-sm">
           {(["TL", "PO", "DIR"] as Role[]).map((r) => (
             <button
               key={r}
@@ -92,7 +92,7 @@ export function AiAskBox({ reportId }: { reportId: string }) {
           ))}
         </div>
         <textarea
-          className="w-full rounded-input border border-input bg-white px-3.5 py-2 text-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+          className="w-full rounded-input border border-input bg-card px-3.5 py-2 text-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
           rows={3}
           placeholder="Escribí tu pregunta sobre este reporte..."
           value={prompt}

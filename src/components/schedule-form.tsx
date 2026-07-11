@@ -72,7 +72,7 @@ export function ScheduleForm() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-2">
             <Label>Frecuencia</Label>
-            <div className="inline-flex rounded-button border bg-white p-1 text-sm">
+            <div className="inline-flex rounded-button border bg-card p-1 text-sm">
               {(["MANUAL", "WEEKLY"] as const).map((f) => (
                 <button
                   key={f}

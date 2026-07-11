@@ -4,7 +4,13 @@ import { CheckCircle2, Info } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveProject } from "@/lib/project";
-import { PROVIDER_LIST, type ProviderSlug } from "@/lib/integrations/catalog";
+import {
+  PROVIDER_LIST,
+  KIND_LABELS,
+  type ProviderSlug,
+  type ProviderKind,
+  type ProviderCatalogEntry,
+} from "@/lib/integrations/catalog";
 import { integrationAllowed, effectivePlan } from "@/lib/plans";
 import { UpgradeButton } from "@/components/upgrade-button";
 import { Button } from "@/components/ui/button";
@@ -34,6 +40,22 @@ const BRAND_COLOR: Record<ProviderSlug, string> = {
   openai: "#10A37F",
   gemini: "#1A73E8",
   copilot: "#0B1D3A",
+  // Project Planning & Portfolio
+  "ms-project": "#31752F",
+  "ms-planner": "#31752F",
+  "azure-boards": "#0078D4",
+  monday: "#FF3D57",
+  asana: "#F06A6A",
+  smartsheet: "#003059",
+  wrike: "#08CF65",
+  teamwork: "#E1523D",
+  basecamp: "#1DA032",
+  trello: "#0079BF",
+  shortcut: "#4999E9",
+  "zoho-projects": "#E42527",
+  primavera: "#C74634",
+  "jira-align": "#2563FF",
+  "jira-roadmaps": "#2563FF",
 };
 
 function timeAgo(date: Date): string {
@@ -70,6 +92,103 @@ export default async function IntegrationsPage() {
   const recent = [...integrations].sort(
     (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
   );
+
+  // Agrupación por categoría (kind), en un orden de negocio.
+  const KIND_ORDER: ProviderKind[] = [
+    "ISSUES",
+    "CODE",
+    "PLANNING",
+    "COMM",
+    "AI",
+  ];
+  const groups = KIND_ORDER.map((kind) => ({
+    kind,
+    items: PROVIDER_LIST.filter((p) => p.kind === kind),
+  })).filter((g) => g.items.length > 0);
+
+  const renderCard = (p: ProviderCatalogEntry) => {
+    const integration = byType.get(p.type);
+    const status = integration?.status as IntegrationStatus | undefined;
+    const connected = status === "CONNECTED";
+    const errored = status === "ERROR";
+    const allowed = integrationAllowed(plan, p.type);
+    return (
+      <Card key={p.slug} className="flex flex-col">
+        <CardContent className="flex flex-1 flex-col gap-3 py-5">
+          <div className="flex items-start justify-between">
+            <span
+              className="flex h-11 w-11 items-center justify-center rounded-input text-base font-bold text-white"
+              style={{ backgroundColor: BRAND_COLOR[p.slug] }}
+            >
+              {p.label.charAt(0)}
+            </span>
+            {!p.enabled && <Badge variant="outline">Pronto</Badge>}
+          </div>
+          <div>
+            <p className="font-semibold">{p.label}</p>
+            <p className="text-sm text-muted-foreground">{p.blurb}</p>
+          </div>
+          <div className="mt-auto">
+            <div className="mb-3 flex items-center gap-2 text-sm">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  connected
+                    ? "bg-success"
+                    : errored
+                      ? "bg-destructive"
+                      : "bg-muted-foreground/40"
+                }`}
+              />
+              <span
+                className={
+                  connected
+                    ? "text-success"
+                    : errored
+                      ? "text-destructive"
+                      : "text-muted-foreground"
+                }
+              >
+                {connected
+                  ? "Conectado"
+                  : errored
+                    ? "Error"
+                    : "No conectado"}
+              </span>
+              {integration && connected && (
+                <span className="text-xs text-muted-foreground">
+                  · sync {timeAgo(integration.updatedAt)}
+                </span>
+              )}
+            </div>
+            {!p.enabled ? (
+              <Button variant="outline" size="sm" className="w-full" disabled>
+                Próximamente
+              </Button>
+            ) : connected ? (
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/integrations/${p.slug}`}>Configurar</Link>
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/integrations/${p.slug}/data`}>Ver datos</Link>
+                </Button>
+              </div>
+            ) : !allowed ? (
+              <UpgradeButton
+                className="w-full"
+                feature={`Conectar ${p.label}`}
+                suggestedPlan="Team"
+              />
+            ) : (
+              <Button size="sm" className="w-full" asChild>
+                <Link href={`/integrations/${p.slug}`}>Conectar {p.label}</Link>
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -115,97 +234,29 @@ export default async function IntegrationsPage() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Provider cards */}
-        <div className="lg:col-span-2">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {PROVIDER_LIST.map((p) => {
-              const integration = byType.get(p.type);
-              const status = integration?.status as IntegrationStatus | undefined;
-              const connected = status === "CONNECTED";
-              const errored = status === "ERROR";
-              const allowed = integrationAllowed(plan, p.type);
-              return (
-                <Card key={p.slug} className="flex flex-col">
-                  <CardContent className="flex flex-1 flex-col gap-3 py-5">
-                    <div className="flex items-start justify-between">
-                      <span
-                        className="flex h-11 w-11 items-center justify-center rounded-input text-base font-bold text-white"
-                        style={{ backgroundColor: BRAND_COLOR[p.slug] }}
-                      >
-                        {p.label.charAt(0)}
-                      </span>
-                      {!p.enabled && <Badge variant="outline">Pronto</Badge>}
-                    </div>
-                    <div>
-                      <p className="font-semibold">{p.label}</p>
-                      <p className="text-sm text-muted-foreground">{p.blurb}</p>
-                    </div>
-                    <div className="mt-auto">
-                      <div className="mb-3 flex items-center gap-2 text-sm">
-                        <span
-                          className={`h-2 w-2 rounded-full ${
-                            connected
-                              ? "bg-success"
-                              : errored
-                                ? "bg-destructive"
-                                : "bg-muted-foreground/40"
-                          }`}
-                        />
-                        <span
-                          className={
-                            connected
-                              ? "text-success"
-                              : errored
-                                ? "text-destructive"
-                                : "text-muted-foreground"
-                          }
-                        >
-                          {connected
-                            ? "Conectado"
-                            : errored
-                              ? "Error"
-                              : "No conectado"}
-                        </span>
-                        {integration && connected && (
-                          <span className="text-xs text-muted-foreground">
-                            · sync {timeAgo(integration.updatedAt)}
-                          </span>
-                        )}
-                      </div>
-                      {!p.enabled ? (
-                        <Button variant="outline" size="sm" className="w-full" disabled>
-                          Próximamente
-                        </Button>
-                      ) : connected ? (
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/integrations/${p.slug}`}>Configurar</Link>
-                          </Button>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/integrations/${p.slug}/data`}>
-                              Ver datos
-                            </Link>
-                          </Button>
-                        </div>
-                      ) : !allowed ? (
-                        <UpgradeButton
-                          className="w-full"
-                          feature={`Conectar ${p.label}`}
-                          suggestedPlan="Team"
-                        />
-                      ) : (
-                        <Button size="sm" className="w-full" asChild>
-                          <Link href={`/integrations/${p.slug}`}>
-                            Conectar {p.label}
-                          </Link>
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+        {/* Provider cards, agrupadas por categoría */}
+        <div className="lg:col-span-2 space-y-8">
+          {groups.map((g) => {
+            const total = g.items.length;
+            const active = g.items.filter(
+              (p) => p.enabled && byType.get(p.type)?.status === "CONNECTED",
+            ).length;
+            return (
+              <section key={g.kind}>
+                <div className="mb-3 flex items-baseline justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    {KIND_LABELS[g.kind]}
+                  </h2>
+                  <span className="text-xs text-muted-foreground">
+                    {active}/{total} conectadas
+                  </span>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {g.items.map((p) => renderCard(p))}
+                </div>
+              </section>
+            );
+          })}
         </div>
 
         {/* Aside */}

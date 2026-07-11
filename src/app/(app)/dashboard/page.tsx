@@ -11,7 +11,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PROVIDER_LIST } from "@/lib/integrations/catalog";
+import { PROVIDER_LIST, getProviderByType } from "@/lib/integrations/catalog";
+import { computeCoverage } from "@/lib/intelligence/coverage";
+import { computeHealth } from "@/lib/intelligence/health";
+import { generateRecommendations } from "@/lib/intelligence/recommendations";
+import {
+  COVERAGE_LEVEL_LABELS,
+  type ConnectedSource,
+} from "@/lib/intelligence/types";
+import { ProjectHealthMap, InsightCallout } from "@/components/viz";
+import { getT } from "@/lib/i18n/server";
 import { resolveActiveProject } from "@/lib/project";
 import { levelOf, LEVEL_LABEL, levelVariant } from "@/lib/reports/score";
 import {
@@ -23,6 +32,7 @@ import { getOnboardingState } from "@/lib/onboarding";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
 
 export default async function DashboardPage() {
+  const { t } = getT();
   const session = await getServerSession(authOptions);
   const userId = session!.user.id;
 
@@ -62,6 +72,20 @@ export default async function DashboardPage() {
   const connectedProviders = PROVIDER_LIST.filter(
     (p) => statusByType.get(p.type) === "CONNECTED",
   );
+
+  // Intelligence Engine sobre las fuentes conectadas (datos reales).
+  const sources: ConnectedSource[] = integrations.map((i) => {
+    const provider = getProviderByType(i.type as string);
+    return {
+      slug: provider?.slug ?? String(i.type),
+      label: provider?.label ?? String(i.type),
+      status: i.status as ConnectedSource["status"],
+      lastSyncAt: i.updatedAt,
+    };
+  });
+  const coverage = computeCoverage(sources);
+  const health = computeHealth(coverage);
+  const recommendations = generateRecommendations(coverage);
 
   // Salud por proyecto (cross-proyecto) del workspace.
   const wsProjects = await prisma.project.findMany({
@@ -114,10 +138,58 @@ export default async function DashboardPage() {
 
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          Overview del proyecto — integraciones, equipo y reportes.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("dash.subtitle")}</p>
       </div>
+
+      {connectedCount > 0 && (
+        <Card>
+          <CardContent className="grid gap-6 py-6 lg:grid-cols-[auto_1fr] lg:items-center">
+            <div className="flex justify-center">
+              <ProjectHealthMap
+                overall={health.overall}
+                size={230}
+                dimensions={health.dimensions.map((d) => ({
+                  key: d.key,
+                  label: d.label,
+                  score: d.score,
+                }))}
+              />
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-input border p-3">
+                  <p className="text-2xl font-bold tabular-nums">{coverage.overall}%</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("dash.coverage")} · {COVERAGE_LEVEL_LABELS[coverage.level]}
+                  </p>
+                </div>
+                <div className="rounded-input border p-3">
+                  <p className="text-2xl font-bold tabular-nums">
+                    {coverage.categoriesCovered}
+                    <span className="text-base text-muted-foreground">/{coverage.totalDimensions}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">{t("dash.dimsWithData")}</p>
+                </div>
+                <div className="rounded-input border p-3">
+                  <p className="text-2xl font-bold tabular-nums">{connectedCount}</p>
+                  <p className="text-xs text-muted-foreground">{t("dash.activeIntegrations")}</p>
+                </div>
+              </div>
+              {recommendations[0] && (
+                <InsightCallout
+                  intent={recommendations[0].priority === "high" ? "danger" : "warning"}
+                  title={recommendations[0].title}
+                >
+                  {recommendations[0].action}
+                </InsightCallout>
+              )}
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/reports/intelligence">{t("dash.viewIntelligence")}</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {projectHealth.length > 1 && (
         <Card>

@@ -14,7 +14,9 @@ import {
   CircleDot,
 } from "lucide-react";
 import { authOptions } from "@/lib/auth";
+import { getT } from "@/lib/i18n/server";
 import { Logo } from "@/components/logo";
+import { LanguageToggle } from "@/components/language-toggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ContactForm } from "@/components/marketing/contact-form";
@@ -22,18 +24,7 @@ import { PricingPlans } from "@/components/marketing/pricing-plans";
 import { RoleTabs } from "@/components/marketing/role-tabs";
 import { RotatingHeadline } from "@/components/marketing/rotating-headline";
 import { LandingScrollReveal } from "@/components/marketing/landing-scroll-reveal";
-import {
-  PROBLEMS,
-  STEPS,
-  INTEGRATIONS,
-  REPORT_SHOWCASE,
-  METRIC_GROUPS,
-  ALERTS,
-  COMPARE_ROWS,
-  PIPELINE,
-  USE_CASES,
-  TRUST,
-} from "@/lib/marketing/landing-data";
+import { INTEGRATIONS, getLandingData } from "@/lib/marketing/landing-data";
 import { FAQ_INDEX } from "@/lib/help/faq";
 
 const POPULAR_FAQ = FAQ_INDEX.filter((it) =>
@@ -75,6 +66,18 @@ function DirIcon({ dir }: { dir: "up" | "down" | "flat" }) {
 /* --------------------------------- page ---------------------------------- */
 
 export default async function LandingPage() {
+  const { t, locale } = getT();
+  const {
+    PROBLEMS,
+    STEPS,
+    REPORT_SHOWCASE,
+    METRIC_GROUPS,
+    ALERTS,
+    COMPARE_ROWS,
+    PIPELINE,
+    USE_CASES,
+    TRUST,
+  } = getLandingData(locale);
   const session = await getServerSession(authOptions);
 
   return (
@@ -85,25 +88,26 @@ export default async function LandingPage() {
         <div className="container flex h-16 items-center justify-between">
           <Logo iconClassName="h-8 w-8 text-navy" />
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-            <a href="#producto" className="hover:text-foreground">Producto</a>
-            <a href="#reportes" className="hover:text-foreground">Reportes</a>
-            <a href="#roles" className="hover:text-foreground">Para tu equipo</a>
-            <a href="#integraciones" className="hover:text-foreground">Integraciones</a>
-            <a href="#precios" className="hover:text-foreground">Precios</a>
-            <a href="#ayuda" className="hover:text-foreground">Ayuda</a>
+            <a href="#producto" className="hover:text-foreground">{t("m.nav.product")}</a>
+            <a href="#reportes" className="hover:text-foreground">{t("m.nav.reports")}</a>
+            <a href="#roles" className="hover:text-foreground">{t("m.nav.team")}</a>
+            <a href="#integraciones" className="hover:text-foreground">{t("m.nav.integrations")}</a>
+            <a href="#precios" className="hover:text-foreground">{t("m.nav.pricing")}</a>
+            <a href="#ayuda" className="hover:text-foreground">{t("m.nav.help")}</a>
           </nav>
           <div className="flex items-center gap-2">
+            <LanguageToggle />
             {session ? (
               <Button asChild>
-                <Link href="/dashboard">Ir al dashboard</Link>
+                <Link href="/dashboard">{t("m.nav.goDashboard")}</Link>
               </Button>
             ) : (
               <>
                 <Button variant="ghost" asChild>
-                  <Link href="/login">Iniciar sesión</Link>
+                  <Link href="/login">{t("m.nav.login")}</Link>
                 </Button>
                 <Button asChild>
-                  <Link href="/register">Probar gratis</Link>
+                  <Link href="/register">{t("m.nav.tryFree")}</Link>
                 </Button>
               </>
             )}
@@ -118,19 +122,15 @@ export default async function LandingPage() {
         <div className="container relative grid gap-12 py-16 lg:grid-cols-2 lg:py-24">
           <div className="max-w-xl">
             <span className="inline-block rounded-full bg-primary px-3 py-1 text-xs font-semibold">
-              Engineering Intelligence
+              {t("m.hero.badge")}
             </span>
             <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
-              Reportes claros para <RotatingHeadline />
+              {t("m.hero.titlePrefix")} <RotatingHeadline />
             </h1>
-            <p className="mt-5 text-lg text-white/70">
-              Conectá Jira, GitHub, Slack y +10 herramientas, y obtené reportes
-              ejecutivos sobre sprints, delivery, calidad, riesgos y equipo. Sin
-              armar planillas, sin perder contexto.
-            </p>
+            <p className="mt-5 text-lg text-white/70">{t("m.hero.desc")}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg" className="h-12">
-                <Link href="/register">Probar gratis</Link>
+                <Link href="/register">{t("m.nav.tryFree")}</Link>
               </Button>
               <Button
                 asChild
@@ -138,29 +138,27 @@ export default async function LandingPage() {
                 variant="outline"
                 className="h-12 border-white/30 bg-transparent text-white hover:bg-white/10"
               >
-                <a href="#producto">Ver cómo funciona</a>
+                <a href="#producto">{t("m.cta.howItWorks")}</a>
               </Button>
             </div>
-            <p className="mt-4 text-sm text-white/50">
-              Gratis para siempre · Sin tarjeta · Usuarios ilimitados
-            </p>
+            <p className="mt-4 text-sm text-white/50">{t("m.hero.freeLine")}</p>
           </div>
 
           {/* Product preview mock (parcial) */}
           <div className="relative">
             <div className="rounded-card bg-white p-5 text-foreground shadow-card">
               <div className="mb-4 flex items-center justify-between">
-                <span className="font-semibold">Reporte semanal — Frontend</span>
+                <span className="font-semibold">{t("m.mock.weeklyReport")}</span>
                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                  Riesgo medio
+                  {t("m.mock.mediumRisk")}
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  ["14", "Finalizadas"],
-                  ["8", "PR merg."],
-                  ["3", "Bloqueadas"],
-                  ["7", "PR abiertos"],
+                  ["14", t("m.mock.done")],
+                  ["8", t("m.mock.prMerged")],
+                  ["3", t("m.mock.blocked")],
+                  ["7", t("m.mock.prOpen")],
                   ["2.4d", "Cycle time"],
                   ["11%", "Scope creep"],
                 ].map(([v, l]) => (
@@ -173,12 +171,12 @@ export default async function LandingPage() {
               <div className="mt-4 flex items-end justify-between gap-4">
                 <div className="flex-1">
                   <p className="mb-1 text-[11px] text-muted-foreground">
-                    Velocity (últimos 6 sprints)
+                    {t("m.mock.velocity6")}
                   </p>
                   <MiniBars />
                 </div>
                 <Button size="sm" className="shrink-0">
-                  Generate report
+                  {t("m.mock.generate")}
                 </Button>
               </div>
             </div>
@@ -186,7 +184,7 @@ export default async function LandingPage() {
             {/* Floating card: score de salud */}
             <div className="absolute -left-4 -top-5 hidden rounded-card bg-white p-3 shadow-card sm:block">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Score de salud
+                {t("m.mock.healthScore")}
               </p>
               <p className="text-2xl font-bold text-navy">78<span className="text-sm font-medium text-muted-foreground">/100</span></p>
             </div>
@@ -197,10 +195,10 @@ export default async function LandingPage() {
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-100 text-red-600">
                   <AlertTriangle className="h-3.5 w-3.5" />
                 </span>
-                <span className="text-xs font-semibold">Riesgo detectado</span>
+                <span className="text-xs font-semibold">{t("m.mock.riskDetected")}</span>
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                3 PRs abiertos hace +72h sin reviewer.
+                {t("m.mock.riskDetail")}
               </p>
             </div>
           </div>
@@ -211,7 +209,7 @@ export default async function LandingPage() {
       <section className="border-b bg-white py-10">
         <div className="container">
           <p className="text-center text-sm text-muted-foreground">
-            Pensado para equipos que ya trabajan con
+            {t("m.social.worksWith")}
           </p>
           <div className="marquee-mask mt-5 flex overflow-hidden">
             <div className="animate-marquee flex shrink-0 items-center gap-10 pr-10">
@@ -227,9 +225,9 @@ export default async function LandingPage() {
           </div>
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
             {[
-              ["+40", "métricas analizadas por reporte"],
-              ["12", "integraciones en vivo + IA"],
-              ["1 click", "del dato disperso al informe listo"],
+              ["+40", t("m.stats.l1")],
+              ["12", t("m.stats.l2")],
+              ["1 click", t("m.stats.l3")],
             ].map(([v, l]) => (
               <div key={l} className="text-center">
                 <div className="text-3xl font-bold tracking-tight text-navy">
@@ -247,16 +245,12 @@ export default async function LandingPage() {
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-sm font-semibold uppercase tracking-wide text-primary">
-              El problema
+              {t("m.problem.kicker")}
             </p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight">
-              Tus herramientas tienen los datos. Vos necesitás la historia.
+              {t("m.problem.title")}
             </h2>
-            <p className="mt-4 text-muted-foreground">
-              Jira muestra tareas, GitHub muestra PRs, Slack tiene la conversación —
-              pero nadie los junta. El estado del proyecto termina armándose a mano,
-              tarde y sin claridad.
-            </p>
+            <p className="mt-4 text-muted-foreground">{t("m.problem.desc")}</p>
           </div>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {PROBLEMS.map((p) => (
@@ -279,15 +273,12 @@ export default async function LandingPage() {
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-sm font-semibold uppercase tracking-wide text-primary">
-              La solución
+              {t("m.solution.kicker")}
             </p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight">
-              Conectá, generá y decidí — en tres pasos
+              {t("m.solution.title")}
             </h2>
-            <p className="mt-4 text-muted-foreground">
-              DevMetrics no reemplaza a Jira, GitHub ni Slack. Los conecta y
-              transforma sus datos en información lista para actuar.
-            </p>
+            <p className="mt-4 text-muted-foreground">{t("m.solution.desc")}</p>
           </div>
           <div className="mt-12 grid gap-8 md:grid-cols-3">
             {STEPS.map((s) => (
@@ -297,7 +288,7 @@ export default async function LandingPage() {
                     <s.icon className="h-5 w-5" />
                   </span>
                   <span className="text-sm font-semibold text-muted-foreground">
-                    Paso {s.n}
+                    {t("m.step")} {s.n}
                   </span>
                 </div>
                 <h3 className="mt-4 font-semibold">{s.title}</h3>
@@ -313,13 +304,8 @@ export default async function LandingPage() {
       <section id="integraciones" className="border-y bg-muted/40 py-16">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-2xl font-bold tracking-tight">
-              Tus herramientas siguen igual. La claridad aparece en un solo lugar.
-            </h2>
-            <p className="mt-3 text-sm text-muted-foreground">
-              DevMetrics toma datos de tus fuentes y los convierte en reportes
-              listos para TLs, POs y Dirección.
-            </p>
+            <h2 className="text-2xl font-bold tracking-tight">{t("m.integ.title")}</h2>
+            <p className="mt-3 text-sm text-muted-foreground">{t("m.integ.desc")}</p>
           </div>
 
           {/* Data flow: fuentes -> centro */}
@@ -364,15 +350,12 @@ export default async function LandingPage() {
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-sm font-semibold uppercase tracking-wide text-primary">
-              Reportes
+              {t("m.reports.kicker")}
             </p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight">
-              Un reporte para cada pregunta que te hacen
+              {t("m.reports.title")}
             </h2>
-            <p className="mt-4 text-muted-foreground">
-              De sprint, comparativos, de riesgo, ejecutivos, de calidad técnica o
-              de performance. Claros, compartibles y exportables.
-            </p>
+            <p className="mt-4 text-muted-foreground">{t("m.reports.desc")}</p>
           </div>
 
           <div className="marquee-mask mt-12 flex overflow-hidden">
@@ -419,8 +402,7 @@ export default async function LandingPage() {
             </div>
           </div>
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            Vistas ilustrativas del producto. Datos de ejemplo. Pasá el mouse para
-            pausar.
+            {t("m.reports.illustrative")}
           </p>
         </div>
       </section>
@@ -429,12 +411,8 @@ export default async function LandingPage() {
       <section id="roles" className="bg-muted/40 py-20">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight">
-              Un producto, una lectura para cada rol
-            </h2>
-            <p className="mt-3 text-muted-foreground">
-              La misma data, leída según lo que cada quien necesita resolver.
-            </p>
+            <h2 className="text-3xl font-bold tracking-tight">{t("m.roles.title")}</h2>
+            <p className="mt-3 text-muted-foreground">{t("m.roles.desc")}</p>
           </div>
           <RoleTabs />
         </div>
@@ -444,13 +422,8 @@ export default async function LandingPage() {
       <section className="py-20">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight">
-              No solo números: interpretación y acciones
-            </h2>
-            <p className="mt-3 text-muted-foreground">
-              DevMetrics analiza decenas de métricas y te dice qué significan y qué
-              hacer, no solo las grafica.
-            </p>
+            <h2 className="text-3xl font-bold tracking-tight">{t("m.metrics.title")}</h2>
+            <p className="mt-3 text-muted-foreground">{t("m.metrics.desc")}</p>
           </div>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {METRIC_GROUPS.map((g) => (
@@ -482,31 +455,25 @@ export default async function LandingPage() {
         <div className="container grid gap-12 lg:grid-cols-2 lg:items-center">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">
-              <Bell className="h-3.5 w-3.5" /> Alertas inteligentes
+              <Bell className="h-3.5 w-3.5" /> {t("m.al.badge")}
             </span>
-            <h2 className="mt-5 text-3xl font-bold tracking-tight">
-              Detectá riesgos <span className="text-primary">antes de que sea tarde</span>
-            </h2>
-            <p className="mt-4 text-white/70">
-              DevMetrics levanta señales tempranas y te dice a quién le toca y qué
-              hacer. Cada alerta llega con severidad, rol responsable y acción
-              recomendada.
-            </p>
+            <h2 className="mt-5 text-3xl font-bold tracking-tight">{t("m.al.title")}</h2>
+            <p className="mt-4 text-white/70">{t("m.al.desc")}</p>
             <Button
               asChild
               size="lg"
               variant="outline"
               className="mt-6 h-12 border-white/30 bg-transparent text-white hover:bg-white/10"
             >
-              <a href="#producto">Ver reporte de riesgo</a>
+              <a href="#producto">{t("m.al.cta")}</a>
             </Button>
           </div>
 
           {/* Panel de alertas */}
           <div className="rounded-card bg-white p-4 text-foreground shadow-card">
             <div className="mb-3 flex items-center justify-between px-1">
-              <span className="text-sm font-semibold">Action required</span>
-              <span className="text-xs text-muted-foreground">5 alertas</span>
+              <span className="text-sm font-semibold">{t("m.al.required")}</span>
+              <span className="text-xs text-muted-foreground">{t("m.al.count")}</span>
             </div>
             <div className="space-y-2">
               {ALERTS.map((a) => (
@@ -522,7 +489,7 @@ export default async function LandingPage() {
                   <div className="flex-1">
                     <p className="text-sm font-medium">{a.text}</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {a.who} · Acción: {a.action}
+                      {a.who} · {t("m.al.action")} {a.action}
                     </p>
                   </div>
                 </div>
@@ -536,21 +503,16 @@ export default async function LandingPage() {
       <section className="py-20">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight">
-              Compará dos sprints <span className="text-primary">en segundos</span>
-            </h2>
-            <p className="mt-4 text-muted-foreground">
-              Dejá de comparar sprints a mano. Detectá qué mejoró, qué empeoró, qué
-              se mantuvo y qué riesgos se repiten.
-            </p>
+            <h2 className="text-3xl font-bold tracking-tight">{t("m.cmp.title")}</h2>
+            <p className="mt-4 text-muted-foreground">{t("m.cmp.desc")}</p>
           </div>
 
           <div className="mx-auto mt-12 max-w-3xl overflow-hidden rounded-card border shadow-card">
             <div className="grid grid-cols-[1.4fr_1fr_1fr_0.9fr] items-center gap-2 border-b bg-muted/50 px-5 py-3 text-xs font-semibold text-muted-foreground">
-              <span>Métrica</span>
+              <span>{t("m.cmp.metric")}</span>
               <span className="text-center">Sprint 23</span>
               <span className="text-center">Sprint 24</span>
-              <span className="text-right">Var.</span>
+              <span className="text-right">{t("m.cmp.var")}</span>
             </div>
             {COMPARE_ROWS.map((r) => (
               <div
@@ -569,9 +531,8 @@ export default async function LandingPage() {
             <div className="flex items-start gap-3 bg-primary/5 px-5 py-4">
               <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <p className="text-sm text-muted-foreground">
-                <span className="font-semibold text-foreground">Conclusión: </span>
-                el equipo mejoró velocity y calidad, pero el tiempo de review
-                subió 50%. Sugerencia: sumar reviewers y achicar PRs.
+                <span className="font-semibold text-foreground">{t("m.cmp.conclusionLabel")} </span>
+                {t("m.cmp.conclusion")}
               </p>
             </div>
           </div>
@@ -582,19 +543,14 @@ export default async function LandingPage() {
       <section className="border-y bg-muted/40 py-20">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight">
-              Del dato disperso al reporte listo, <span className="text-primary">en un click</span>
-            </h2>
-            <p className="mt-4 text-muted-foreground">
-              Elegí proyecto, período y tipo de reporte. Hacé click y recibí un
-              informe listo para revisar, compartir o exportar.
-            </p>
+            <h2 className="text-3xl font-bold tracking-tight">{t("m.oc.title")}</h2>
+            <p className="mt-4 text-muted-foreground">{t("m.oc.desc")}</p>
           </div>
 
           <div className="mx-auto mt-12 max-w-3xl">
             <div className="flex flex-col items-center gap-4">
               <Button size="lg" className="h-12 px-8">
-                <Zap className="mr-2 h-4 w-4" /> Generate report
+                <Zap className="mr-2 h-4 w-4" /> {t("m.mock.generate")}
               </Button>
               <div className="flex w-full flex-wrap items-center justify-center gap-2">
                 {PIPELINE.map((state, i) => (
@@ -623,17 +579,17 @@ export default async function LandingPage() {
               {/* reporte final */}
               <div className="mt-4 w-full rounded-card border bg-white p-5 shadow-card">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold">Reporte generado — Sprint 24</span>
+                  <span className="font-semibold">{t("m.mock.reportGenerated")}</span>
                   <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-                    Listo
+                    {t("m.mock.ready")}
                   </span>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {[
-                    ["82%", "Avance"],
+                    ["82%", t("m.mock.progress")],
                     ["36", "Velocity"],
                     ["7", "Bugs"],
-                    ["78", "Salud"],
+                    ["78", t("m.mock.health")],
                   ].map(([v, l]) => (
                     <div key={l} className="rounded-input border p-3">
                       <div className="text-lg font-bold">{v}</div>
@@ -643,13 +599,13 @@ export default async function LandingPage() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <span className="rounded-input bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-                    View report
+                    {t("m.mock.viewReport")}
                   </span>
                   <span className="rounded-input bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-                    Compare sprints
+                    {t("m.mock.compareSprints")}
                   </span>
                   <span className="rounded-input bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-                    Export PDF
+                    {t("m.mock.exportPdf")}
                   </span>
                 </div>
               </div>
@@ -662,12 +618,8 @@ export default async function LandingPage() {
       <section className="py-20">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight">
-              Listo para cada momento del equipo
-            </h2>
-            <p className="mt-3 text-muted-foreground">
-              El reporte correcto para la conversación que tenés que tener.
-            </p>
+            <h2 className="text-3xl font-bold tracking-tight">{t("m.uc.title")}</h2>
+            <p className="mt-3 text-muted-foreground">{t("m.uc.desc")}</p>
           </div>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {USE_CASES.map((u) => (
@@ -680,7 +632,7 @@ export default async function LandingPage() {
                     </span>
                   </div>
                   <p className="mt-3 text-sm">
-                    <span className="text-muted-foreground">Genera: </span>
+                    <span className="text-muted-foreground">{t("m.uc.generates")} </span>
                     <span className="font-medium">{u.report}</span>
                   </p>
                   <p className="mt-1.5 text-sm text-muted-foreground">
@@ -697,13 +649,8 @@ export default async function LandingPage() {
       <section className="border-y bg-muted/40 py-20">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight">
-              Seguro por diseño, bajo tu control
-            </h2>
-            <p className="mt-3 text-muted-foreground">
-              Tus datos, tus reglas. DevMetrics lee lo mínimo necesario y nunca
-              decide por vos.
-            </p>
+            <h2 className="text-3xl font-bold tracking-tight">{t("m.trust.title")}</h2>
+            <p className="mt-3 text-muted-foreground">{t("m.trust.desc")}</p>
           </div>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {TRUST.map((t) => (
@@ -726,15 +673,12 @@ export default async function LandingPage() {
         <div className="pointer-events-none absolute -right-32 -top-20 h-96 w-96 rounded-full bg-primary/20 blur-3xl" />
         <div className="container relative text-center">
           <h2 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
-            Probá gratis y generá tu primer reporte en minutos
+            {t("m.tryfree.title")}
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-white/70">
-            Sin planillas. Sin reportes manuales. Sin perder contexto. Conectá una
-            herramienta y empezá a ver claridad desde el primer sprint.
-          </p>
+          <p className="mx-auto mt-4 max-w-xl text-white/70">{t("m.tryfree.desc")}</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg" className="h-12">
-              <Link href="/register">Generar mi primer reporte</Link>
+              <Link href="/register">{t("m.tryfree.cta")}</Link>
             </Button>
             <Button
               asChild
@@ -742,12 +686,10 @@ export default async function LandingPage() {
               variant="outline"
               className="h-12 border-white/30 bg-transparent text-white hover:bg-white/10"
             >
-              <a href="#producto">Ver cómo funciona</a>
+              <a href="#producto">{t("m.cta.howItWorks")}</a>
             </Button>
           </div>
-          <p className="mt-4 text-sm text-white/50">
-            Gratis para siempre · Sin tarjeta · Jira + GitHub en vivo
-          </p>
+          <p className="mt-4 text-sm text-white/50">{t("m.tryfree.free")}</p>
         </div>
       </section>
 
@@ -759,16 +701,12 @@ export default async function LandingPage() {
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-sm font-semibold uppercase tracking-wide text-primary">
-              Centro de Ayuda
+              {t("m.help.kicker")}
             </p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight">
-              ¿Tenés dudas? Entendé <span className="text-primary">DevMetrics</span> a fondo
+              {t("m.help.kicker")} · <span className="text-primary">DevMetrics</span>
             </h2>
-            <p className="mt-3 text-muted-foreground">
-              Reunimos las preguntas más frecuentes sobre qué es, integraciones,
-              reportes, métricas, seguridad y planes. Buscá por tema o filtrá por
-              tu rol.
-            </p>
+            <p className="mt-3 text-muted-foreground">{t("m.help.desc")}</p>
           </div>
 
           <div className="mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-2">
@@ -784,12 +722,12 @@ export default async function LandingPage() {
 
           <div className="mt-8 flex flex-col items-center gap-2">
             <Button asChild size="lg" className="h-12">
-              <Link href="/ayuda">Ir al Centro de Ayuda</Link>
+              <Link href="/ayuda">{t("m.help.cta")}</Link>
             </Button>
             <p className="text-sm text-muted-foreground">
-              ¿No encontrás lo que buscás?{" "}
+              {t("m.help.notFound")}{" "}
               <a href="#contacto" className="font-medium text-primary hover:underline">
-                Escribinos
+                {t("m.help.writeUs")}
               </a>
               .
             </p>
@@ -801,11 +739,8 @@ export default async function LandingPage() {
       <section id="contacto" className="bg-muted/40 py-20">
         <div className="container grid gap-10 lg:grid-cols-2">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Hablemos</h2>
-            <p className="mt-3 text-muted-foreground">
-              ¿Querés una demo o tenés dudas sobre si DevMetrics encaja con tu
-              equipo? Escribinos y te respondemos.
-            </p>
+            <h2 className="text-3xl font-bold tracking-tight">{t("m.contact.title")}</h2>
+            <p className="mt-3 text-muted-foreground">{t("m.contact.desc")}</p>
           </div>
           <Card>
             <CardContent className="py-6">
@@ -824,13 +759,10 @@ export default async function LandingPage() {
               Sumate a los equipos que ya decidieron con{" "}
               <span className="text-primary">claridad</span>
             </h2>
-            <p className="max-w-md text-white/60">
-              Herramientas conectadas, reportes en un click y una lectura para cada
-              rol. Menos tiempo armando informes, más tiempo decidiendo.
-            </p>
+            <p className="max-w-md text-white/60">{t("m.close.desc")}</p>
             <div className="flex flex-wrap justify-center gap-3">
               <Button asChild size="lg" className="h-12">
-                <Link href="/register">Empezar gratis</Link>
+                <Link href="/register">{t("m.close.cta1")}</Link>
               </Button>
               <Button
                 asChild
@@ -838,7 +770,7 @@ export default async function LandingPage() {
                 variant="outline"
                 className="h-12 border-white/30 bg-transparent text-white hover:bg-white/10"
               >
-                <a href="#contacto">Hablar con nosotros</a>
+                <a href="#contacto">{t("m.close.cta2")}</a>
               </Button>
             </div>
           </div>
@@ -849,40 +781,40 @@ export default async function LandingPage() {
               <div className="lg:col-span-1">
                 <Logo className="text-white" iconClassName="h-8 w-8" />
                 <p className="mt-3 max-w-xs text-sm text-white/50">
-                  Engineering intelligence para líderes de producto y tecnología.
+                  {t("m.footer.tagline")}
                 </p>
               </div>
               {[
                 {
-                  title: "Producto",
+                  title: t("m.footer.product"),
                   links: [
-                    ["Cómo funciona", "#producto"],
-                    ["Reportes", "#reportes"],
-                    ["Para tu equipo", "#roles"],
-                    ["Integraciones", "#integraciones"],
+                    [t("m.cta.howItWorks"), "#producto"],
+                    [t("m.nav.reports"), "#reportes"],
+                    [t("m.nav.team"), "#roles"],
+                    [t("m.nav.integrations"), "#integraciones"],
                   ],
                 },
                 {
-                  title: "Planes",
+                  title: t("m.footer.plans"),
                   links: [
-                    ["Precios", "#precios"],
-                    ["Empezar gratis", "/register"],
-                    ["Iniciar sesión", "/login"],
+                    [t("m.nav.pricing"), "#precios"],
+                    [t("m.close.cta1"), "/register"],
+                    [t("m.nav.login"), "/login"],
                   ],
                 },
                 {
-                  title: "Recursos",
+                  title: t("m.footer.resources"),
                   links: [
-                    ["Centro de Ayuda", "/ayuda"],
-                    ["Preguntas frecuentes", "/ayuda"],
-                    ["Contacto", "#contacto"],
+                    [t("m.help.cta"), "/ayuda"],
+                    [t("m.nav.help"), "/ayuda"],
+                    [t("m.contact.title"), "#contacto"],
                   ],
                 },
                 {
-                  title: "Empresa",
+                  title: t("m.footer.company"),
                   links: [
-                    ["Seguridad", "#producto"],
-                    ["Contacto", "#contacto"],
+                    [t("m.trust.title"), "#producto"],
+                    [t("m.contact.title"), "#contacto"],
                   ],
                 },
               ].map((col) => (
@@ -908,7 +840,7 @@ export default async function LandingPage() {
             </div>
             <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-xs text-white/50 sm:flex-row">
               <span>© {new Date().getFullYear()} DevMetrics</span>
-              <span>Tus datos están encriptados y nunca se comparten.</span>
+              <span>{t("m.footer.copyright")}</span>
             </div>
           </footer>
         </div>

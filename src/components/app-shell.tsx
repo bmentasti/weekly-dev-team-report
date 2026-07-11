@@ -7,6 +7,7 @@ import { signOut } from "next-auth/react";
 import {
   LayoutDashboard,
   FileBarChart2,
+  Sparkles,
   Plug,
   Users,
   Settings,
@@ -17,6 +18,9 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { NotificationsBell } from "@/components/notifications-bell";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageToggle } from "@/components/language-toggle";
+import { useT } from "@/components/i18n-provider";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { DialogProvider } from "@/components/ui/dialog-provider";
 import { PLANS, type PlanTierName } from "@/lib/plans";
@@ -33,18 +37,19 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Proyectos", href: "/projects", icon: FolderKanban },
-  { label: "Reportes", href: "/reports", icon: FileBarChart2 },
+  { label: "nav.overview", href: "/dashboard", icon: LayoutDashboard },
+  { label: "nav.projects", href: "/projects", icon: FolderKanban },
+  { label: "nav.reports", href: "/reports", icon: FileBarChart2 },
+  { label: "nav.intelligence", href: "/reports/intelligence", icon: Sparkles },
   {
-    label: "Integraciones",
+    label: "nav.integrations",
     href: "/integrations",
     icon: Plug,
     requires: "connectIntegrations",
   },
-  { label: "Equipos", href: "/teams", icon: Users },
-  { label: "Ajustes", href: "/settings", icon: Settings },
-  { label: "Ayuda", href: "/help", icon: LifeBuoy },
+  { label: "nav.teams", href: "/teams", icon: Users },
+  { label: "nav.settings", href: "/settings", icon: Settings },
+  { label: "nav.help", href: "/help", icon: LifeBuoy },
 ];
 
 function SidebarContent({
@@ -60,6 +65,7 @@ function SidebarContent({
   trialDaysLeft?: number;
   role?: AccessRole | null;
 }) {
+  const { t } = useT();
   const planLabel = plan ? (PLANS[plan as PlanTierName]?.name ?? "Free") : "Free";
   const nav = NAV.filter((item) => !item.requires || can(role, item.requires));
   return (
@@ -82,7 +88,7 @@ function SidebarContent({
                 className="flex items-center gap-3 rounded-button px-3 py-2.5 text-sm text-white/40"
               >
                 <Icon className="h-5 w-5" />
-                {item.label}
+                {t(item.label)}
                 <span className="ml-auto rounded-full bg-white/10 px-2 py-0.5 text-[10px]">
                   Pronto
                 </span>
@@ -102,7 +108,7 @@ function SidebarContent({
               )}
             >
               <Icon className="h-5 w-5" />
-              {item.label}
+              {t(item.label)}
             </Link>
           );
         })}
@@ -141,6 +147,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { t } = useT();
   const [open, setOpen] = useState(false);
 
   return (
@@ -184,7 +191,7 @@ export function AppShell({
 
       <div className="lg:pl-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-white px-4 sm:px-6">
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-card px-4 sm:px-6">
           <button
             className="text-foreground lg:hidden"
             onClick={() => setOpen(true)}
@@ -199,6 +206,8 @@ export function AppShell({
             <Logo showText={false} iconClassName="h-7 w-7 text-navy" />
           </div>
           <div className="ml-auto flex items-center gap-3">
+            <LanguageToggle />
+            <ThemeToggle />
             <NotificationsBell />
             {userName && (
               <span className="hidden text-sm font-medium sm:inline">
@@ -212,7 +221,7 @@ export function AppShell({
               onClick={() => signOut({ callbackUrl: "/login" })}
               className="text-sm text-muted-foreground hover:text-foreground"
             >
-              Salir
+              {t("shell.logout")}
             </button>
           </div>
         </header>

@@ -277,7 +277,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Role tabs */}
-      <div className="inline-flex rounded-full border bg-white p-1 text-sm">
+      <div className="inline-flex rounded-full border bg-card p-1 text-sm">
         {(["ALL", "TL", "PO", "DIR"] as RoleTab[]).map((r) => (
           <button key={r} onClick={() => setRole(r)} className={`rounded-full px-3 py-1.5 font-medium ${role === r ? "bg-primary text-white" : "text-muted-foreground"}`}>
             {r === "ALL" ? "Todos" : r === "TL" ? "Tech Lead" : r === "PO" ? "Product Owner" : "Dirección"}
@@ -327,13 +327,13 @@ export default function ReportsPage() {
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
         <Input className="max-w-xs" placeholder="Buscar por resumen, fecha o tag..." value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="h-10 rounded-input border border-input bg-white px-3 text-sm" value={levelF} onChange={(e) => setLevelF(e.target.value)}>
+        <select className="h-10 rounded-input border border-input bg-card px-3 text-sm" value={levelF} onChange={(e) => setLevelF(e.target.value)}>
           <option value="ALL">Todos los niveles</option>
           {(["SALUDABLE", "ESTABLE", "OBSERVACION", "ALTO_RIESGO", "CRITICO"] as ScoreLevel[]).map((l) => (
             <option key={l} value={l}>{LEVEL_LABEL[l]}</option>
           ))}
         </select>
-        <select className="h-10 rounded-input border border-input bg-white px-3 text-sm" value={trendF} onChange={(e) => setTrendF(e.target.value)}>
+        <select className="h-10 rounded-input border border-input bg-card px-3 text-sm" value={trendF} onChange={(e) => setTrendF(e.target.value)}>
           <option value="ALL">Toda tendencia</option>
           <option value="up">Mejoró</option>
           <option value="down">Empeoró</option>

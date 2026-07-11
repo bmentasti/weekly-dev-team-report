@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { userRoles, userRoleLabels } from "@/lib/validations";
+import { useT } from "@/components/i18n-provider";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { t } = useT();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +38,7 @@ export default function RegisterPage() {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "No se pudo crear la cuenta.");
+      setError(data.error ?? t("auth.registerError"));
       setLoading(false);
       return;
     }
@@ -62,10 +64,8 @@ export default function RegisterPage() {
   return (
     <div>
       <div className="mb-8 text-center">
-        <h2 className="text-3xl font-bold tracking-tight">Crear cuenta</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Empezá tu primer reporte en minutos
-        </p>
+        <h2 className="text-3xl font-bold tracking-tight">{t("auth.createAccount")}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{t("auth.registerSubtitle")}</p>
       </div>
 
       <form onSubmit={onSubmit} className="space-y-4">
@@ -75,34 +75,34 @@ export default function RegisterPage() {
           </p>
         )}
         <div className="space-y-2">
-          <Label htmlFor="name">Nombre</Label>
-          <Input id="name" name="name" required />
+          <Label htmlFor="name">{t("auth.name")}</Label>
+          <Input id="name" name="name" placeholder={t("auth.namePlaceholder")} required />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="email">Email de trabajo</Label>
+          <Label htmlFor="email">{t("auth.workEmail")}</Label>
           <Input
             id="email"
             name="email"
             type="email"
-            placeholder="vos@empresa.com"
+            placeholder={t("auth.emailPlaceholder")}
             required
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="password">Contraseña</Label>
+          <Label htmlFor="password">{t("auth.password")}</Label>
           <Input id="password" name="password" type="password" minLength={8} required />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="company">Empresa</Label>
-          <Input id="company" name="company" />
+          <Label htmlFor="company">{t("auth.company")}</Label>
+          <Input id="company" name="company" placeholder={t("auth.companyPlaceholder")} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="role">Rol</Label>
+          <Label htmlFor="role">{t("auth.role")}</Label>
           <select
             id="role"
             name="role"
             defaultValue="TECH_LEAD"
-            className="flex h-11 w-full rounded-input border border-input bg-white px-3.5 py-2 text-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+            className="flex h-11 w-full rounded-input border border-input bg-card px-3.5 py-2 text-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
           >
             {userRoles.map((role) => (
               <option key={role} value={role}>
@@ -112,14 +112,14 @@ export default function RegisterPage() {
           </select>
         </div>
         <Button type="submit" className="h-11 w-full" disabled={loading}>
-          {loading ? "Creando cuenta..." : "Crear cuenta"}
+          {loading ? t("auth.creating") : t("auth.signUp")}
         </Button>
       </form>
 
       <p className="mt-8 text-center text-sm text-muted-foreground">
-        ¿Ya tenés cuenta?{" "}
+        {t("auth.haveAccount")}{" "}
         <Link href="/login" className="font-semibold text-primary hover:underline">
-          Iniciá sesión
+          {t("auth.goLogin")}
         </Link>
       </p>
     </div>

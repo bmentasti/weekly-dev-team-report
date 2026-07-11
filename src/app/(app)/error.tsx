@@ -18,7 +18,7 @@ export default function AppError({
   }, [error]);
 
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-card border bg-white p-8 text-center shadow-card">
+    <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-card border bg-card p-8 text-center shadow-card">
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
         <AlertTriangle className="h-6 w-6" />
       </span>

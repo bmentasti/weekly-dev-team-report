@@ -1,10 +1,13 @@
 import { Logo } from "@/components/logo";
+import { LanguageToggle } from "@/components/language-toggle";
+import { getT } from "@/lib/i18n/server";
 
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { t } = getT();
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
       {/* Brand panel */}
@@ -18,28 +21,26 @@ export default function AuthLayout({
             Engineering Intelligence
           </span>
           <h1 className="mt-6 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
-            Convertí los datos de ingeniería en decisiones
+            {t("auth.brandTitle")}
           </h1>
-          <p className="mt-4 text-sm text-white/70 sm:text-base">
-            Reportes en tiempo real de Jira, GitHub y más para entregar con
-            confianza y sin armar nada a mano.
-          </p>
+          <p className="mt-4 text-sm text-white/70 sm:text-base">{t("auth.brandDesc")}</p>
         </div>
         <div className="relative mt-10 hidden items-center gap-3 text-sm text-white/70 lg:flex">
           <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20">
             🔒
           </span>
           <div>
-            <p className="font-medium text-white">Seguridad enterprise</p>
-            <p className="text-xs text-white/60">
-              Tus datos están encriptados y nunca se comparten.
-            </p>
+            <p className="font-medium text-white">{t("auth.security")}</p>
+            <p className="text-xs text-white/60">{t("auth.securityDesc")}</p>
           </div>
         </div>
       </div>
 
       {/* Form panel */}
-      <div className="flex flex-1 items-center justify-center bg-white px-6 py-12">
+      <div className="relative flex flex-1 items-center justify-center bg-white px-6 py-12">
+        <div className="absolute right-4 top-4">
+          <LanguageToggle />
+        </div>
         <div className="w-full max-w-sm">{children}</div>
       </div>
     </div>

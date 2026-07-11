@@ -366,7 +366,7 @@ export function StandardsEditor() {
 
       {/* Perfiles predefinidos */}
       {canEdit && (
-        <div className="rounded-card border bg-white px-5 py-4">
+        <div className="rounded-card border bg-card px-5 py-4">
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-primary" />
             <h3 className="font-semibold">Perfiles predefinidos</h3>
@@ -442,7 +442,7 @@ export function StandardsEditor() {
 
       {/* Historial de cambios */}
       {canEdit && history.length > 0 && (
-        <div className="rounded-card border bg-white px-5 py-4">
+        <div className="rounded-card border bg-card px-5 py-4">
           <div className="flex items-center gap-2">
             <History className="h-4 w-4 text-primary" />
             <h3 className="font-semibold">Historial de cambios</h3>
@@ -717,7 +717,7 @@ function ThresholdInput({
           onClick={() => !canEdit && onLocked()}
           onChange={(e) => onChange(Number(e.target.value))}
           className={cn(
-            "w-16 rounded-md border bg-white px-2 py-1 text-lg font-bold outline-none focus:ring-2 focus:ring-primary",
+            "w-16 rounded-md border bg-card px-2 py-1 text-lg font-bold outline-none focus:ring-2 focus:ring-primary",
             !canEdit && "cursor-pointer opacity-70",
           )}
         />
@@ -870,7 +870,7 @@ function ScorePreview({
             {preview.dimensions.map((d) => (
               <div
                 key={d.dim}
-                className="rounded-input border bg-white px-3 py-2 text-center"
+                className="rounded-input border bg-card px-3 py-2 text-center"
               >
                 <div className="text-sm font-bold">
                   {d.score === null ? "—" : d.score}

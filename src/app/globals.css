@@ -26,6 +26,29 @@
     --navy: #0b1d3a;
     --radius: 0.625rem; /* buttons 10px */
   }
+
+  /* Dark mode — tokens específicos (no inversión automática). */
+  .dark {
+    --background: #0b1220; /* Deep space navy */
+    --foreground: #e6ebf5;
+    --card: #111a2e;
+    --card-foreground: #e6ebf5;
+    --primary: #4f7cff; /* Electric blue, +luminosidad para contraste */
+    --primary-foreground: #ffffff;
+    --secondary: #1c2740;
+    --secondary-foreground: #e6ebf5;
+    --muted: #1a2338;
+    --muted-foreground: #93a1bd;
+    --accent: #1c2740;
+    --accent-foreground: #e6ebf5;
+    --destructive: #ff5c60;
+    --destructive-foreground: #ffffff;
+    --success: #22d39a;
+    --border: #24304a;
+    --input: #24304a;
+    --ring: #4f7cff;
+    --navy: #0b1d3a;
+  }
 }
 
 @layer base {

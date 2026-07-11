@@ -93,7 +93,7 @@ export function ReportRoleViews({
       <CardHeader>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-lg">Lectura por rol</CardTitle>
-          <div className="inline-flex rounded-full border bg-white p-1 text-sm">
+          <div className="inline-flex rounded-full border bg-card p-1 text-sm">
             {roles.map((r) => (
               <button
                 key={r}

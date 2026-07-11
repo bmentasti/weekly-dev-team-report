@@ -138,7 +138,7 @@ export function HelpCenter() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={SEARCH_PLACEHOLDER}
-              className="h-12 w-full rounded-button border border-transparent bg-white pl-12 pr-4 text-sm text-foreground shadow-card outline-none focus:ring-2 focus:ring-primary"
+              className="h-12 w-full rounded-button border border-transparent bg-card pl-12 pr-4 text-sm text-foreground shadow-card outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           <p className="mt-2 text-xs text-white/60">{SEARCH_SUBTEXT}</p>
@@ -193,7 +193,7 @@ export function HelpCenter() {
               </Button>
             </div>
           ) : (
-            <div className="rounded-card border bg-white px-5">
+            <div className="rounded-card border bg-card px-5">
               {results.map((it) => (
                 <QaRow key={it.id} item={it} showCategory />
               ))}
@@ -286,7 +286,7 @@ function CategoryBlock({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-card border bg-white">
+    <div className="rounded-card border bg-card">
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-3 px-5 py-4 text-left"

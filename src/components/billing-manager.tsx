@@ -70,7 +70,7 @@ export function BillingManager({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="inline-flex items-center gap-1 rounded-full border bg-white p-1 text-sm">
+        <div className="inline-flex items-center gap-1 rounded-full border bg-card p-1 text-sm">
           <button
             onClick={() => setAnnual(false)}
             className={`rounded-full px-4 py-1.5 font-medium ${!annual ? "bg-primary text-white" : "text-muted-foreground"}`}
