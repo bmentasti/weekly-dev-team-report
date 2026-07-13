@@ -1,0 +1,134 @@
+// Unificación de personas de un reporte YA GUARDADO, aplicada en lectura.
+//
+// Los reportes generados antes de tener la capa de identidad (o antes de crear
+// un alias) guardan `metrics.people` con identificadores crudos (p. ej. record
+// ids de Airtable) y a veces la misma persona repetida por venir de apps
+// distintas. Esta función re-agrupa esas filas por identidad canónica y recalcula
+// los derivados, con la MISMA lógica que la generación, sin necesidad de
+// regenerar el reporte.
+
+import { prisma } from "@/lib/prisma";
+import { makeT } from "@/lib/i18n/dictionaries";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
+import { makeResolver, type Resolver } from "./identity";
+import { getIdentityConfig } from "./identity-store";
+import type { PersonCategory, PersonInsight, ReportMetrics } from "./types";
+
+const OVERLOAD_WIP = 5;
+
+// Misma clasificación que generate.ts::categorize (mantener en sync).
+function categorize(p: PersonInsight): PersonCategory {
+  if (p.tasksBlocked > 0 || p.tasksStale >= 2) return "SUPPORT";
+  if (p.wip >= OVERLOAD_WIP) return "OVERLOADED";
+  if (p.throughput >= 3 && p.tasksBlocked === 0 && p.tasksStale === 0)
+    return "RECOGNIZE";
+  if (p.wip === 0 && p.throughput <= 1 && p.committedPoints <= 2)
+    return "FREE_CAPACITY";
+  return "ON_TRACK";
+}
+
+/**
+ * Re-agrupa `people` por identidad canónica sumando contadores y recalculando
+ * wip/throughput/score/categoría/próximo paso y el ranking.
+ */
+export function unifyPeople(
+  people: PersonInsight[],
+  resolve: Resolver,
+  nextStep: (category: PersonCategory) => string,
+): PersonInsight[] {
+  const map = new Map<string, PersonInsight>();
+  const cycles = new Map<string, number[]>();
+
+  for (const p of people) {
+    const { id, name } = resolve({ source: null, handle: p.id ?? p.name });
+    const key = id || p.name;
+    let e = map.get(key);
+    if (!e) {
+      e = {
+        id: key,
+        name: name || p.name,
+        tasksDone: 0,
+        tasksInProgress: 0,
+        tasksBlocked: 0,
+        tasksStale: 0,
+        prsOpen: 0,
+        prsMerged: 0,
+        committedPoints: 0,
+        completedPoints: 0,
+        wip: 0,
+        throughput: 0,
+        cycleTimeAvgDays: null,
+        category: "ON_TRACK",
+        score: 0,
+        rank: 0,
+        nextStep: "",
+      };
+      map.set(key, e);
+      cycles.set(key, []);
+    }
+    e.tasksDone += p.tasksDone;
+    e.tasksInProgress += p.tasksInProgress;
+    e.tasksBlocked += p.tasksBlocked;
+    e.tasksStale += p.tasksStale;
+    e.prsOpen += p.prsOpen;
+    e.prsMerged += p.prsMerged;
+    e.committedPoints += p.committedPoints;
+    e.completedPoints += p.completedPoints;
+    if (typeof p.cycleTimeAvgDays === "number") cycles.get(key)!.push(p.cycleTimeAvgDays);
+  }
+
+  const out = Array.from(map.values());
+  for (const e of out) {
+    e.wip = e.tasksInProgress;
+    e.throughput = e.tasksDone + e.prsMerged;
+    const cs = cycles.get(e.id!) ?? [];
+    e.cycleTimeAvgDays = cs.length
+      ? Math.round((cs.reduce((a, b) => a + b, 0) / cs.length) * 10) / 10
+      : null;
+    e.score = e.completedPoints * 2 + e.tasksDone * 2 + e.prsMerged * 3 + e.prsOpen;
+    e.category = categorize(e);
+    e.nextStep = nextStep(e.category);
+  }
+  out.sort((a, b) => b.score - a.score);
+  out.forEach((p, i) => (p.rank = i + 1));
+  return out;
+}
+
+/**
+ * Aplica la unificación de identidad a `metrics.people` de un reporte guardado.
+ * Devuelve un `metrics` nuevo (no muta). Si no hay proyecto o gente, lo deja igual.
+ * Resiliente: ante cualquier error devuelve el metrics original.
+ */
+export async function unifyReportMetricsPeople(
+  projectId: string | null,
+  metrics: ReportMetrics | null,
+  locale: Locale = DEFAULT_LOCALE,
+): Promise<ReportMetrics | null> {
+  if (!projectId || !metrics || !Array.isArray(metrics.people) || metrics.people.length === 0)
+    return metrics;
+  try {
+    const resolve = makeResolver(await getIdentityConfig(projectId));
+    const t = makeT(locale);
+    const people = unifyPeople(metrics.people, resolve, (c) => t(`gen.nextStep.${c}`));
+    return { ...metrics, people };
+  } catch (err) {
+    console.error("[identity] unifyReportMetricsPeople falló, dejo metrics original:", err);
+    return metrics;
+  }
+}
+
+/**
+ * Devuelve una copia del reporte con `metrics.people` unificado por identidad.
+ * Pensado para las rutas de lectura/export (report detail, PDF, CSV).
+ */
+export async function withUnifiedReportPeople<
+  T extends { projectId: string | null; metrics: unknown },
+>(report: T, locale: Locale = DEFAULT_LOCALE): Promise<T> {
+  const metrics = await unifyReportMetricsPeople(
+    report.projectId,
+    report.metrics as ReportMetrics | null,
+    locale,
+  );
+  if (metrics === report.metrics) return report;
+  return { ...report, metrics: metrics as T["metrics"] };
+}

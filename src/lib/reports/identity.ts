@@ -75,13 +75,20 @@ function isOpaque(handle: string): boolean {
 
 /**
  * ID canónico determinista cuando NO hay alias. Namespacea emails e IDs opacos
- * para que no colisionen ni se confundan con nombres reales.
+ * para que no se confundan con nombres reales.
+ *
+ * El prefijo de IDs opacos (record ids) es source-independiente (`rec:`) a
+ * propósito: así el MISMO record id produce el MISMO ID canónico tanto al
+ * generar el reporte (donde conocemos la app) como al leerlo después (donde ya
+ * no), evitando que la misma persona quede con dos claves distintas entre
+ * reportes viejos y nuevos. Los record ids de Airtable son únicos, así que no
+ * hay riesgo real de colisión.
  */
-function deriveId(source: string | null, raw: string): string {
+function deriveId(raw: string): string {
   const norm = normalizeHandle(raw);
   if (!norm) return "";
   if (EMAIL_RE.test(norm)) return `email:${norm}`;
-  if (isOpaque(raw)) return `${source ?? "src"}:${norm}`;
+  if (isOpaque(raw)) return `rec:${norm}`;
   return norm;
 }
 
@@ -114,7 +121,7 @@ export function makeResolver(config: IdentityConfig) {
       `${src}::${norm}`,
       `${ANY}::${norm}`,
       norm,
-      deriveId(a.source === ANY ? null : a.source, a.handle),
+      deriveId(a.handle),
     ]);
     for (const k of keys) if (k) lookup.set(k, target);
   }
@@ -130,11 +137,11 @@ export function makeResolver(config: IdentityConfig) {
       lookup.get(`${src ?? ANY}::${norm}`) ??
       lookup.get(`${ANY}::${norm}`) ??
       lookup.get(norm) ??
-      lookup.get(deriveId(src, raw));
+      lookup.get(deriveId(raw));
     if (hit) return { ...hit };
 
     // 2) Sin alias: ID canónico determinista.
-    const id = deriveId(src, raw);
+    const id = deriveId(raw);
     return { id, name: nameByKey.get(id) ?? raw };
   };
 }

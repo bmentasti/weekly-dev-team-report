@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getReportAccess, redactReportForAccess } from "@/lib/reports/access";
+import { withUnifiedReportPeople } from "@/lib/reports/people-unify";
+import { getLocale } from "@/lib/i18n/server";
 import { resolveWorkspaceRole } from "@/lib/workspace";
 import { can } from "@/lib/permissions";
 import { parseBody } from "@/lib/api";
@@ -30,10 +32,14 @@ export async function GET(
     });
   }
 
-  const report = await prisma.report.findUnique({ where: { id: params.id } });
-  if (!report) {
+  const rawReport = await prisma.report.findUnique({ where: { id: params.id } });
+  if (!rawReport) {
     return NextResponse.json({ error: "Reporte no encontrado." }, { status: 404 });
   }
+
+  // Unifica personas por identidad canónica (aplica alias y colapsa duplicados
+  // cross-app) sobre el reporte ya guardado, sin necesidad de regenerarlo.
+  const report = await withUnifiedReportPeople(rawReport, getLocale());
 
   // Datos por persona ocultos según rol / nivel de share (RBAC). (SEC-07)
   const out = redactReportForAccess(report, access);

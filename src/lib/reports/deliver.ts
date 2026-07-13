@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { buildReportCsv } from "@/lib/reports/csv";
 import { buildReportEmailHtml, sendEmail } from "@/lib/reports/email";
+import { withUnifiedReportPeople } from "@/lib/reports/people-unify";
 import { makeT } from "@/lib/i18n/dictionaries";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
@@ -19,8 +20,10 @@ export async function deliverReportByEmail(
     .filter((r) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(r));
   if (valid.length === 0) return { ok: false, error: "Sin destinatarios válidos.", sent: 0 };
 
-  const report = await prisma.report.findUnique({ where: { id: reportId } });
-  if (!report) return { ok: false, error: "Reporte no encontrado.", sent: 0 };
+  const found = await prisma.report.findUnique({ where: { id: reportId } });
+  if (!found) return { ok: false, error: "Reporte no encontrado.", sent: 0 };
+  // Unifica identidades (alias + duplicados cross-app) antes de armar el email/CSV.
+  const report = await withUnifiedReportPeople(found, locale);
 
   const day = new Date(report.periodEnd).toISOString().slice(0, 10);
   const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getReportAccess, redactReportForAccess } from "@/lib/reports/access";
 import { buildReportCsv } from "@/lib/reports/csv";
+import { withUnifiedReportPeople } from "@/lib/reports/people-unify";
 import { getLocale } from "@/lib/i18n/server";
 
 export async function GET(
@@ -22,9 +23,11 @@ export async function GET(
   if (!found)
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-  // Recorta datos por persona según el acceso antes de serializar. (SEC-07)
-  const report = redactReportForAccess(found, access);
-  const csv = buildReportCsv(report, getLocale());
+  const locale = getLocale();
+  // Unifica identidades y luego recorta datos por persona según el acceso. (SEC-07)
+  const unified = await withUnifiedReportPeople(found, locale);
+  const report = redactReportForAccess(unified, access);
+  const csv = buildReportCsv(report, locale);
   const day = new Date(report.periodEnd).toISOString().slice(0, 10);
 
   // BOM so Excel opens UTF-8 accents correctly.

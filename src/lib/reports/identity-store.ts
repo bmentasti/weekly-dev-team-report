@@ -54,10 +54,19 @@ const db = prisma as unknown as {
 
 /** Config de identidad del proyecto lista para construir el resolver. */
 export async function getIdentityConfig(projectId: string): Promise<IdentityConfig> {
-  const rows = await db.personIdentity.findMany({
-    where: { projectId },
-    include: { aliases: true },
-  });
+  let rows: PersonIdentityRow[];
+  try {
+    rows = await db.personIdentity.findMany({
+      where: { projectId },
+      include: { aliases: true },
+    });
+  } catch (err) {
+    // Si las tablas todavía no existen (falta correr `prisma db push`/migrate)
+    // o hay un error transitorio, degradamos a config vacía: sin unificación
+    // manual, pero sin romper la generación de reportes ni la matriz.
+    console.error("[identity] getIdentityConfig falló, uso config vacía:", err);
+    return { identities: [], aliases: [] };
+  }
   const identities: IdentityRecord[] = rows.map((r) => ({
     key: r.key,
     displayName: r.displayName,

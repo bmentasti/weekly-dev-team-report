@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveActiveProject, canManageProject } from "@/lib/project";
 import { canAccessPeople } from "@/lib/reports/people-access";
 import { makeResolver } from "@/lib/reports/identity";
+import { suggestMerges } from "@/lib/reports/identity-suggest";
 import {
   getIdentityConfig,
   listIdentities,
@@ -62,8 +63,10 @@ export async function GET(req: Request) {
     canonicalPeople(project.id),
     listIdentities(project.id),
   ]);
+  const suggestions = suggestMerges(people.map((p) => ({ id: p.id, name: p.name })));
   return NextResponse.json({
     people,
+    suggestions,
     identities: identities.map((i) => ({
       id: i.id,
       key: i.key,

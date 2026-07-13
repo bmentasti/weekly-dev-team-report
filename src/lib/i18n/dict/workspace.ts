@@ -267,6 +267,12 @@ export const es: Record<string, string> = {
   "ws.identity.merging": "Fusionando…",
   "ws.identity.selectedCount": "seleccionadas",
   "ws.identity.restricted": "No tenés permiso para gestionar identidades.",
+  "ws.identity.suggestionsTitle": "Sugerencias de fusión",
+  "ws.identity.suggestionsSubtitle":
+    "Detectamos personas que probablemente sean la misma. Revisá y fusioná con un click.",
+  "ws.identity.confidenceHigh": "Confianza alta",
+  "ws.identity.confidenceMedium": "Confianza media",
+  "ws.identity.mergeAs": "Fusionar como",
   // Team alerts
   "ws.alerts.title": "Desempeño sostenido a seguir",
   "ws.alerts.disclaimer":
@@ -691,6 +697,12 @@ export const en: Record<string, string> = {
   "ws.identity.merging": "Merging…",
   "ws.identity.selectedCount": "selected",
   "ws.identity.restricted": "You don't have permission to manage identities.",
+  "ws.identity.suggestionsTitle": "Merge suggestions",
+  "ws.identity.suggestionsSubtitle":
+    "We detected people who are probably the same. Review and merge with one click.",
+  "ws.identity.confidenceHigh": "High confidence",
+  "ws.identity.confidenceMedium": "Medium confidence",
+  "ws.identity.mergeAs": "Merge as",
   // Team alerts
   "ws.alerts.title": "Sustained performance to track",
   "ws.alerts.disclaimer":

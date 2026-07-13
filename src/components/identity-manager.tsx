@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Users, Merge, X } from "lucide-react";
+import { Users, Merge, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,11 +21,19 @@ interface Identity {
   aliases: { source: string; handle: string }[];
 }
 
+interface Suggestion {
+  ids: string[];
+  displayName: string;
+  confidence: "alta" | "media";
+  reason: string;
+}
+
 export function IdentityManager({ projectId }: { projectId?: string }) {
   const { t } = useT();
   const { prompt, confirm } = useDialogs();
   const [people, setPeople] = useState<Person[]>([]);
   const [identities, setIdentities] = useState<Identity[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -39,10 +47,24 @@ export function IdentityManager({ projectId }: { projectId?: string }) {
       const json = await res.json();
       setPeople(json.people ?? []);
       setIdentities(json.identities ?? []);
+      setSuggestions(json.suggestions ?? []);
     }
     setSelected(new Set());
     setLoaded(true);
   }, [qs]);
+
+  const nameById = new Map(people.map((p) => [p.id, p.name]));
+
+  async function applyMerge(primaryId: string, mergeIds: string[], displayName: string) {
+    setBusy(true);
+    await fetch(`/api/people/identities${qs}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ primaryId, displayName, mergeIds }),
+    });
+    setBusy(false);
+    await load();
+  }
 
   useEffect(() => {
     load();
@@ -67,18 +89,7 @@ export function IdentityManager({ projectId }: { projectId?: string }) {
       defaultValue: primary?.name ?? "",
     });
     if (!name) return;
-    setBusy(true);
-    await fetch(`/api/people/identities${qs}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        primaryId: ids[0],
-        displayName: name,
-        mergeIds: ids.slice(1),
-      }),
-    });
-    setBusy(false);
-    await load();
+    await applyMerge(ids[0], ids.slice(1), name);
   }
 
   async function unmerge(identity: Identity) {
@@ -112,6 +123,47 @@ export function IdentityManager({ projectId }: { projectId?: string }) {
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
+        {suggestions.length > 0 && (
+          <div className="rounded-card border border-primary/30 bg-primary/5 p-3">
+            <div className="mb-1 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">{t("ws.identity.suggestionsTitle")}</span>
+            </div>
+            <p className="mb-3 text-xs text-muted-foreground">
+              {t("ws.identity.suggestionsSubtitle")}
+            </p>
+            <div className="space-y-2">
+              {suggestions.map((s, i) => (
+                <div
+                  key={i}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-input border bg-background p-2 text-sm"
+                >
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-medium">
+                      {s.ids.map((id) => nameById.get(id) ?? id).join("  =  ")}
+                    </span>
+                    <Badge variant={s.confidence === "alta" ? "success" : "warning"}>
+                      {s.confidence === "alta"
+                        ? t("ws.identity.confidenceHigh")
+                        : t("ws.identity.confidenceMedium")}
+                    </Badge>
+                    <span className="text-[11px] text-muted-foreground">{s.reason}</span>
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={() => applyMerge(s.ids[0], s.ids.slice(1), s.displayName)}
+                    disabled={busy}
+                    title={`${t("ws.identity.mergeAs")} ${s.displayName}`}
+                  >
+                    <Merge className="mr-1 h-4 w-4" />
+                    {`${t("ws.identity.merge")} → ${s.displayName}`}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {people.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("ws.identity.empty")}</p>
         ) : (

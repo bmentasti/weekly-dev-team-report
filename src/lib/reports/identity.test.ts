@@ -20,13 +20,14 @@ describe("identity resolver", () => {
     expect(r({ source: "github", handle: "ana" }).id).toBe("ana");
   });
 
-  it("IDs opacos (record ids) se namespacean por app y NO se confunden con nombres", () => {
+  it("IDs opacos (record ids) se namespacean (source-independiente) y NO se confunden con nombres", () => {
     const r = makeResolver({ identities: [], aliases: [] });
     const at = r({ source: "airtable", handle: "recAmn3IscQ6lE7Dl" });
-    expect(at.id).toBe("airtable:recamn3iscq6le7dl");
-    // El mismo record id en otra app queda separado (no asumimos que sean iguales).
-    const nn = r({ source: "notion", handle: "recAmn3IscQ6lE7Dl" });
-    expect(nn.id).toBe("notion:recamn3iscq6le7dl");
+    expect(at.id).toBe("rec:recamn3iscq6le7dl");
+    // El MISMO record id da el MISMO ID canónico aunque se lea sin saber la app
+    // (así se alinean reportes viejos y nuevos).
+    const readBack = r({ source: null, handle: "recAmn3IscQ6lE7Dl" });
+    expect(readBack.id).toBe(at.id);
   });
 
   it("alias fusiona un record id de Airtable con el login de GitHub", () => {
@@ -64,7 +65,7 @@ describe("identity resolver", () => {
         },
       ],
     });
-    const stored = r({ source: null, handle: "airtable:recamn3iscq6le7dl" });
+    const stored = r({ source: null, handle: "rec:recamn3iscq6le7dl" });
     expect(stored.id).toBe("gonzaloavalos29");
   });
 
