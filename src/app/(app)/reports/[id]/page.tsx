@@ -430,6 +430,7 @@ export default function ReportPreviewPage() {
                           <Area type="monotone" dataKey="velocityPoints" name={t("rep.seriesVelocity")} stroke={SERIES.velocity} strokeWidth={2.5} fill={`url(#${gradientId("rep-velocity")})`} activeDot={{ r: 4 }} />
                           <Area type="monotone" dataKey="done" name={t("rep.seriesDone")} stroke={SERIES.done} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
                           <Area type="monotone" dataKey="merged" name={t("rep.seriesMerged")} stroke={SERIES.merged} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
+                          <Area type="monotone" dataKey="blocked" name={t("rep.seriesBlocked")} stroke={SERIES.blocked} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
@@ -439,6 +440,7 @@ export default function ReportPreviewPage() {
                           { label: t("rep.seriesVelocity"), color: SERIES.velocity },
                           { label: t("rep.seriesDone"), color: SERIES.done },
                           { label: t("rep.seriesMerged"), color: SERIES.merged },
+                          { label: t("rep.seriesBlocked"), color: SERIES.blocked },
                         ]}
                       />
                     </div>
@@ -454,8 +456,8 @@ export default function ReportPreviewPage() {
 
           <AutomatedAnalysis metrics={m} />
 
-          {/* Blockers / Work by status / Recommendations */}
-          <div className="grid gap-4 lg:grid-cols-3">
+          {/* Blockers / Work by status / PR review / Recommendations */}
+          <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -489,6 +491,15 @@ export default function ReportPreviewPage() {
               </CardHeader>
               <CardContent>
                 <WorkByStatus metrics={m} t={t} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">{t("rep.prReviewTitle")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PrReviewStatus metrics={m} t={t} />
               </CardContent>
             </Card>
 
@@ -603,6 +614,65 @@ export default function ReportPreviewPage() {
 
       <ReportShares reportId={params.id} />
       <ReportNotes reportId={params.id} />
+    </div>
+  );
+}
+
+/**
+ * Composición de review de los PR/MR abiertos: con reviewer asignado vs
+ * "sin reviewer / re-review" (nunca asignado, o esperando nueva revisión tras
+ * cambios solicitados — GitHub vacía requested_reviewers al enviar la review).
+ * Checks fallando y +72h se muestran aparte porque se superponen con ambos.
+ */
+function PrReviewStatus({ metrics, t }: { metrics: ReportMetrics; t: (k: string) => string }) {
+  const cc = metrics.codeChanges;
+  const awaiting = cc.withoutReviewer;
+  const withReviewer = Math.max(cc.open - awaiting, 0);
+  const data = [
+    { name: t("rep.prWithReviewer"), value: withReviewer, color: "#16C784" },
+    { name: t("rep.rvWithoutReviewer"), value: awaiting, color: "#F5A623" },
+  ].filter((d) => d.value > 0);
+
+  if (cc.open === 0)
+    return <p className="text-sm text-muted-foreground">{t("rep.noPrsOpen")}</p>;
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="relative h-32 w-32 shrink-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={data} dataKey="value" nameKey="name" innerRadius={42} outerRadius={58} paddingAngle={3} cornerRadius={5} stroke="#fff" strokeWidth={2}>
+              {data.map((d) => (
+                <Cell key={d.name} fill={d.color} />
+              ))}
+            </Pie>
+            <Tooltip content={<ChartTooltip />} cursor={{ fill: "transparent" }} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-lg font-bold">{cc.open}</span>
+          <span className="text-[10px] text-muted-foreground">{t("rep.prOpenShort")}</span>
+        </div>
+      </div>
+      <ul className="space-y-1.5 text-sm">
+        {data.map((d) => (
+          <li key={d.name} className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+            <span className="text-muted-foreground">{d.name}</span>
+            <span className="ml-auto font-semibold">{d.value}</span>
+          </li>
+        ))}
+        <li className="flex items-center gap-2 border-t pt-1.5">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#E5484D" }} />
+          <span className="text-muted-foreground">{t("rep.rvChecksFailing")}</span>
+          <span className="ml-auto font-semibold">{cc.checksFailing}</span>
+        </li>
+        <li className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#94A3B8" }} />
+          <span className="text-muted-foreground">{t("rep.rvOpen72h")}</span>
+          <span className="ml-auto font-semibold">{cc.old}</span>
+        </li>
+      </ul>
     </div>
   );
 }

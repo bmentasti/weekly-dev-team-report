@@ -247,18 +247,59 @@ function nextStepFor(p: PersonInsight, t: TFunc): string {
   return t(`gen.nextStep.${p.category}`);
 }
 
+function fmtDay(d: Date, locale: Locale): string {
+  return d.toLocaleDateString(locale === "en" ? "en-US" : "es-AR", {
+    day: "numeric",
+    month: "numeric",
+  });
+}
+
+/**
+ * Etiqueta de un punto de tendencia: el RANGO del período (ej. "30/6–13/7").
+ * Antes se usaba solo periodEnd, y como los presets siempre terminan "hoy",
+ * todos los reportes generados el mismo día mostraban la misma fecha.
+ */
+function periodLabel(start: Date, end: Date, locale: Locale): string {
+  return `${fmtDay(start, locale)}–${fmtDay(end, locale)}`;
+}
+
 async function buildTrend(
   projectId: string,
   current: TrendPoint,
+  locale: Locale,
+  currentPeriod?: { start: Date; end: Date },
 ): Promise<TrendPoint[]> {
+  // Ordenado por PERÍODO (no por fecha de creación) para que el eje sea
+  // cronológico. Traemos de más para poder dedupear períodos regenerados.
   const previous = await prisma.report.findMany({
     where: { projectId },
-    orderBy: { createdAt: "desc" },
-    take: 5,
-    select: { metrics: true, healthStatus: true, periodEnd: true },
+    orderBy: [{ periodEnd: "desc" }, { createdAt: "desc" }],
+    take: 15,
+    select: {
+      metrics: true,
+      healthStatus: true,
+      periodStart: true,
+      periodEnd: true,
+    },
   });
 
-  const points: TrendPoint[] = previous
+  // Un punto por período: si el mismo rango se regeneró, gana el más reciente.
+  // El período del reporte ACTUAL se excluye (ya está como punto "Actual").
+  const seen = new Set<string>();
+  if (currentPeriod)
+    seen.add(
+      `${currentPeriod.start.toISOString()}|${currentPeriod.end.toISOString()}`,
+    );
+  const unique = previous
+    .filter((r) => {
+      const key = `${r.periodStart.toISOString()}|${r.periodEnd.toISOString()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 5);
+
+  const points: TrendPoint[] = unique
     .reverse()
     .map((r) => {
       const m = r.metrics as {
@@ -267,10 +308,11 @@ async function buildTrend(
         capacity?: { velocityPoints?: number };
       } | null;
       return {
-        label: new Date(r.periodEnd).toLocaleDateString("es-AR", {
-          day: "2-digit",
-          month: "2-digit",
-        }),
+        label: periodLabel(
+          new Date(r.periodStart),
+          new Date(r.periodEnd),
+          locale,
+        ),
         done: m?.workItems?.done ?? 0,
         merged: m?.codeChanges?.merged ?? 0,
         blocked: m?.workItems?.blocked ?? 0,
@@ -463,14 +505,19 @@ export async function generateReportComputation(
     score >= 4 ? "HIGH_RISK" : score >= 2 ? "MEDIUM_RISK" : "HEALTHY";
 
   // ---- Trend ----
-  const trend = await buildTrend(projectId, {
-    label: t("gen.trend.current"),
-    done: wi.done,
-    merged: cc.merged,
-    blocked: wi.blocked,
-    velocityPoints: completedPoints,
-    health: healthStatus,
-  });
+  const trend = await buildTrend(
+    projectId,
+    {
+      label: t("gen.trend.current"),
+      done: wi.done,
+      merged: cc.merged,
+      blocked: wi.blocked,
+      velocityPoints: completedPoints,
+      health: healthStatus,
+    },
+    locale,
+    { start: periodStart, end: periodEnd },
+  );
 
   // ---- Planning ----
   const carryOver = workItems.filter((i) => i.bucket !== "DONE");

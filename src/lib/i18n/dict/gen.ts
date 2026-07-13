@@ -18,9 +18,9 @@ export const es: Record<string, string> = {
   "gen.risk.blocked.title": "{count} tarea(s) bloqueada(s)",
   "gen.risk.oldPrs.title": "{count} PR/MR abierto(s) hace más de 72h",
   "gen.risk.oldPrs.detail": "Acumulación de trabajo pendiente de merge.",
-  "gen.risk.noReviewer.title": "{count} PR/MR sin reviewer",
+  "gen.risk.noReviewer.title": "{count} PR/MR sin reviewer / re-review",
   "gen.risk.noReviewer.detail":
-    "Hay cambios abiertos sin nadie asignado para revisarlos.",
+    "Hay cambios abiertos sin nadie asignado para revisarlos, o esperando nueva revisión tras cambios solicitados.",
   "gen.risk.checksFailing.title": "{count} PR/MR con checks fallando",
   "gen.risk.checksFailing.detail": "Tests o CI en rojo en cambios abiertos.",
   "gen.risk.overloaded.title": "Posible sobrecarga: {name}",
@@ -52,7 +52,7 @@ export const es: Record<string, string> = {
   "gen.concern.criticalStale": "{count} crítica(s) sin movimiento",
   "gen.concern.blocked": "{count} bloqueada(s)",
   "gen.concern.oldPrs": "{count} PR/MR viejo(s)",
-  "gen.concern.noReviewer": "{count} sin reviewer",
+  "gen.concern.noReviewer": "{count} sin reviewer / re-review",
 
   // Planning focus reason
   "gen.focus.blocked": "Bloqueada",
@@ -129,9 +129,9 @@ export const en: Record<string, string> = {
   "gen.risk.blocked.title": "{count} blocked task(s)",
   "gen.risk.oldPrs.title": "{count} PR/MR open for more than 72h",
   "gen.risk.oldPrs.detail": "Work piling up waiting to be merged.",
-  "gen.risk.noReviewer.title": "{count} PR/MR without a reviewer",
+  "gen.risk.noReviewer.title": "{count} PR/MR without reviewer / re-review",
   "gen.risk.noReviewer.detail":
-    "There are open changes with no one assigned to review them.",
+    "There are open changes with no one assigned to review them, or waiting for a new review after requested changes.",
   "gen.risk.checksFailing.title": "{count} PR/MR with failing checks",
   "gen.risk.checksFailing.detail": "Tests or CI red on open changes.",
   "gen.risk.overloaded.title": "Possible overload: {name}",
@@ -161,7 +161,7 @@ export const en: Record<string, string> = {
   "gen.concern.criticalStale": "{count} critical stale",
   "gen.concern.blocked": "{count} blocked",
   "gen.concern.oldPrs": "{count} old PR/MR",
-  "gen.concern.noReviewer": "{count} without reviewer",
+  "gen.concern.noReviewer": "{count} without reviewer / re-review",
 
   // Planning focus reason
   "gen.focus.blocked": "Blocked",

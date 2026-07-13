@@ -23,7 +23,7 @@ const METRIC_DEFS: MetricDef[] = [
   { key: "bugs", label: "Bugs abiertos", get: (m) => m.quality?.bugsOpen ?? 0, lower: true, roles: ["TL", "PO"] },
   { key: "merged", label: "PR/MR mergeados", get: (m) => m.codeChanges.merged, lower: false, roles: ["TL"] },
   { key: "oldpr", label: "PR/MR >72h", get: (m) => m.codeChanges.old, lower: true, roles: ["TL"] },
-  { key: "norev", label: "PR/MR sin reviewer", get: (m) => m.codeChanges.withoutReviewer, lower: true, roles: ["TL"] },
+  { key: "norev", label: "PR/MR sin reviewer / re-review", get: (m) => m.codeChanges.withoutReviewer, lower: true, roles: ["TL"] },
   { key: "ci", label: "CI tasa de fallo (%)", get: (m) => m.ci?.failureRatePct ?? 0, lower: true, roles: ["TL", "DIR"] },
 ];
 
