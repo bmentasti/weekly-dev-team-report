@@ -213,12 +213,37 @@ interface AssigneeDirectory {
   nameById: Map<string, string>;
   /** record id → email (si la tabla de personas lo tiene). */
   emailById: Map<string, string>;
+  /** true si NO se pudo leer el esquema (falta scope schema.bases:read). */
+  schemaBlocked: boolean;
 }
 
+/** Nombre "humano" de un record de una tabla, usando su campo primario. */
+function recordName(
+  f: Record<string, unknown>,
+  primaryFieldName: string | undefined,
+): string {
+  return (
+    (primaryFieldName ? toStr(f[primaryFieldName]) : "") ||
+    toStr(f["Name"]) ||
+    toStr(f["Full Name"]) ||
+    toStr(f["Nombre"]) ||
+    toStr(f["Title"]) ||
+    toStr(f["Email"])
+  ).trim();
+}
+
+// Tope defensivo de tablas a escanear para resolver record ids.
+const MAX_LINKED_TABLES = 25;
+
+/**
+ * Construye un directorio GLOBAL record id → nombre/email escaneando las tablas
+ * de la base (los record ids son únicos dentro de la base, así que un id de
+ * responsable se resuelve sin depender de conocer el nombre exacto del campo o
+ * de la tabla vinculada). Requiere scope `schema.bases:read`; si falta, marca
+ * `schemaBlocked` y cae al fallback por config.
+ */
 async function buildAssigneeNameMap(
   baseId: string,
-  table: string,
-  assigneeField: string,
   token: string,
   cfgTable: string,
   cfgNameField: string,
@@ -226,46 +251,51 @@ async function buildAssigneeNameMap(
   const nameById = new Map<string, string>();
   const emailById = new Map<string, string>();
 
-  let linkedTable = cfgTable;
-  let nameField = cfgNameField;
-
   const schema = await fetchBaseSchema(baseId, token);
-  if (schema) {
-    const main = schema.find((t) => t.name === table);
-    const linkField = main?.fields.find((f) => f.name === assigneeField);
-    const linkedId = linkField?.options?.linkedTableId;
-    if (linkedId) {
-      const linked = schema.find((t) => t.id === linkedId);
-      if (linked) {
-        linkedTable = linked.name;
-        // En modo auto (sin tabla configurada) usamos el campo primario.
-        if (!cfgTable) {
-          const primary = linked.fields.find((f) => f.id === linked.primaryFieldId);
-          if (primary) nameField = primary.name;
-        }
-      }
-    }
-  }
 
-  if (!linkedTable) return { nameById, emailById };
-
-  try {
-    const people = await atFetchAll(baseId, linkedTable, token);
-    for (const rec of people) {
+  const ingest = (
+    recs: RawRecord[],
+    primaryFieldName: string | undefined,
+    nameFieldOverride?: string,
+  ) => {
+    for (const rec of recs) {
       const f = rec.fields ?? {};
-      const nm =
-        toStr(f[nameField]) ||
-        toStr(f["Name"]) ||
-        toStr(f["Full Name"]) ||
-        toStr(f["Email"]);
+      const nm = nameFieldOverride
+        ? toStr(f[nameFieldOverride]) || recordName(f, primaryFieldName)
+        : recordName(f, primaryFieldName);
       if (nm) nameById.set(rec.id, nm);
       const email = pickEmail(f);
       if (email) emailById.set(rec.id, email);
     }
-  } catch {
-    // permisos / tabla inexistente: seguimos con los record ids.
+  };
+
+  if (schema) {
+    // Modo automático: mapa global desde todas las tablas (acotado).
+    for (const tbl of schema.slice(0, MAX_LINKED_TABLES)) {
+      const primary = tbl.fields.find((fl) => fl.id === tbl.primaryFieldId);
+      try {
+        const recs = await atFetchAll(baseId, tbl.name, token);
+        ingest(recs, primary?.name);
+      } catch {
+        // ignorar tabla que no se pueda leer.
+      }
+    }
+    return { nameById, emailById, schemaBlocked: false };
   }
-  return { nameById, emailById };
+
+  // Sin acceso a esquema: fallback a la tabla de personas configurada a mano.
+  if (cfgTable) {
+    try {
+      const recs = await atFetchAll(baseId, cfgTable, token);
+      ingest(recs, undefined, cfgNameField);
+    } catch {
+      // permisos / tabla inexistente.
+    }
+    return { nameById, emailById, schemaBlocked: false };
+  }
+
+  // Ni esquema ni config: no se pueden resolver los record ids.
+  return { nameById, emailById, schemaBlocked: true };
 }
 
 export const airtableAdapter: ProviderAdapter = {
@@ -286,7 +316,12 @@ export const airtableAdapter: ProviderAdapter = {
         return { ok: false, error: "No se encontró la base o la tabla." };
       if (!res.ok)
         return { ok: false, error: `Airtable respondió ${res.status}.` };
-      return { ok: true, detail: `Tabla "${table}"` };
+      // Avisamos si el token puede resolver nombres de personas (scope de esquema).
+      const schema = await fetchBaseSchema(baseId, ctx.secret);
+      const detail = schema
+        ? `Tabla "${table}" · nombres de personas: automáticos`
+        : `Tabla "${table}" · agregá el scope schema.bases:read al token para mostrar nombres reales (hoy verías record ids)`;
+      return { ok: true, detail };
     } catch (err) {
       return {
         ok: false,
@@ -314,12 +349,9 @@ export const airtableAdapter: ProviderAdapter = {
     const now = Date.now();
 
     // Mapea record ids de responsables vinculados a nombres reales (y emails).
-    // Automático vía Metadata API (detecta la tabla de personas) con fallback
-    // a la config.
-    const { nameById, emailById } = await buildAssigneeNameMap(
+    // Automático vía Metadata API (mapa global de la base) con fallback a config.
+    const { nameById, emailById, schemaBlocked } = await buildAssigneeNameMap(
       baseId,
-      table,
-      assigneeField,
       ctx.secret,
       assigneeTable,
       assigneeNameField,
@@ -372,6 +404,19 @@ export const airtableAdapter: ProviderAdapter = {
         resolvedAt: isDone ? updatedRaw : null,
       };
     });
+
+    // Diagnóstico: si el responsable quedó como record id sin resolver y no
+    // pudimos leer el esquema, avisamos qué falta (scope o config).
+    if (
+      schemaBlocked &&
+      workItems.some((w) => w.assignee && looksLikeRecordId(w.assignee))
+    ) {
+      console.warn(
+        "[airtable] Hay responsables como record id sin resolver. " +
+          "Agregá el scope 'schema.bases:read' al token (o configurá la tabla de personas) " +
+          "para mostrar nombres reales.",
+      );
+    }
 
     return { workItems, personEmails };
   },
