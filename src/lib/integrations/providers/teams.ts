@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type { ActivitySignal, ProviderAdapter } from "../types";
 import { BLOCKER_PATTERN, stripHtml } from "../blocker";
 
@@ -18,7 +19,7 @@ export const teamsAdapter: ProviderAdapter = {
   async testConnection(ctx) {
     const { teamId, channelId } = ctx.config;
     try {
-      const res = await fetch(`${GRAPH}/teams/${teamId}/channels/${channelId}`, {
+      const res = await safeFetch(`${GRAPH}/teams/${teamId}/channels/${channelId}`, {
         headers: { Authorization: `Bearer ${ctx.secret}` },
         cache: "no-store",
       });
@@ -34,7 +35,7 @@ export const teamsAdapter: ProviderAdapter = {
   },
   async fetchData(ctx) {
     const { teamId, channelId } = ctx.config;
-    const res = await fetch(
+    const res = await safeFetch(
       `${GRAPH}/teams/${teamId}/channels/${channelId}/messages?$top=50`,
       { headers: { Authorization: `Bearer ${ctx.secret}` }, cache: "no-store" },
     );

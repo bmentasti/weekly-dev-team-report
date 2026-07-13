@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type { ProviderAdapter } from "../types";
 import { mkItem, planBucket, isStale, httpError } from "./planning-helpers";
 
@@ -20,7 +21,7 @@ export const basecampAdapter: ProviderAdapter = {
   slug: "basecamp",
   async testConnection(ctx) {
     try {
-      const res = await fetch(
+      const res = await safeFetch(
         `${base(ctx.config.accountId)}/projects/${ctx.config.projectId}.json`,
         {
           headers: {
@@ -37,7 +38,7 @@ export const basecampAdapter: ProviderAdapter = {
     }
   },
   async fetchData(ctx) {
-    const res = await fetch(
+    const res = await safeFetch(
       `${base(ctx.config.accountId)}/buckets/${ctx.config.projectId}/todolists/${ctx.config.todolistId}/todos.json`,
       {
         headers: {

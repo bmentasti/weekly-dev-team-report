@@ -106,6 +106,34 @@ export const memberRoleSchema = z.object({
   role: z.enum(["ADMIN", "MEMBER", "VIEWER"]),
 });
 
+export const reportConfigSchema = z.object({
+  frequency: z.enum(["MANUAL", "WEEKLY"]).default("MANUAL"),
+  // Cota dura de destinatarios para evitar abuso de envío de emails. (COD-01)
+  recipients: z.array(z.string().email()).max(50).default([]),
+  // Idioma de los reportes generados/enviados por el cron.
+  locale: z.enum(["es", "en"]).default("es"),
+});
+
+// Nota / comentario de reporte: texto acotado. (COD-01)
+export const reportNoteSchema = z.object({
+  body: z.string().trim().min(1, "La nota está vacía.").max(5000),
+});
+
+// Prompt de IA acotado para controlar coste/abuso. (COD-01)
+export const aiAskSchema = z.object({
+  prompt: z.string().trim().min(1).max(2000),
+});
+
+export const reportShareSchema = z
+  .object({
+    userId: z.string().min(1).optional(),
+    email: z.string().email().optional(),
+    level: z.enum(["EXECUTIVE", "FULL"]).default("FULL"),
+  })
+  .refine((v) => v.userId || v.email, {
+    message: "Indicá un miembro o un email.",
+  });
+
 export const alertRuleSchema = z.object({
   metricKey: z.string().min(1),
   operator: z.enum(["gt", "lt", "gte", "lte"]),

@@ -14,6 +14,9 @@
 .DS_Store
 *.pem
 
+# FUSE / editor artifacts (archivos huérfanos de mounts FUSE)
+**/.fuse_hidden*
+
 # debug
 npm-debug.log*
 yarn-debug.log*

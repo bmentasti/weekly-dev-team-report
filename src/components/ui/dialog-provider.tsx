@@ -4,6 +4,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
+  useId,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -65,11 +68,59 @@ function Shell({
   children: ReactNode;
   onClose: () => void;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    // Foco inicial: primer elemento focusable dentro del diálogo, o el panel.
+    const focusables = panel?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+    );
+    (focusables && focusables[0] ? focusables[0] : panel)?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      // Focus trap básico con Tab.
+      if (e.key === "Tab" && panel) {
+        const items = panel.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+        );
+        if (items.length === 0) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey && active === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-navy/50" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-card border bg-background p-6 shadow-card">
-        <h2 className="text-lg font-semibold">{title}</h2>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="relative w-full max-w-md rounded-card border bg-background p-6 shadow-card outline-none"
+      >
+        <h2 id={titleId} className="text-lg font-semibold">
+          {title}
+        </h2>
         {children}
       </div>
     </div>

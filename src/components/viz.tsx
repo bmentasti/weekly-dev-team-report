@@ -1,3 +1,5 @@
+"use client";
+
 // DevMetrics — fundamento de visualización (Etapa 1 del rediseño visual).
 // Tokens de color por categoría/serie, sistema de estados accesible (color +
 // ícono + forma + etiqueta) y componentes base de dataviz en SVG.
@@ -16,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/i18n-provider";
 
 // --- Paleta por categoría (significado consistente) ------------------------
 export const CATEGORY_COLORS: Record<string, string> = {
@@ -73,6 +76,17 @@ export const STATUS_SYSTEM: Record<VizStatus, StatusToken> = {
   stale: { label: "Desactualizado", color: "#8b5cf6", icon: Clock, description: "Datos con retraso." },
 };
 
+// Claves i18n por estado (para traducir label/description sin mutar STATUS_SYSTEM).
+const STATUS_LABEL_KEY: Record<VizStatus, string> = {
+  healthy: "rep2.viz.status.healthy",
+  attention: "rep2.viz.status.attention",
+  risk: "rep2.viz.status.risk",
+  critical: "rep2.viz.status.critical",
+  "no-data": "rep2.viz.status.noData",
+  partial: "rep2.viz.status.partial",
+  stale: "rep2.viz.status.stale",
+};
+
 /** Mapea un score 0..100 (o null) a un estado visual. */
 export function statusFromScore(score: number | null): VizStatus {
   if (score === null) return "no-data";
@@ -113,7 +127,7 @@ const INTENT_STYLE: Record<
 > = {
   info: { border: "border-l-primary", icon: MinusCircle, color: "text-primary" },
   success: { border: "border-l-success", icon: CheckCircle2, color: "text-success" },
-  warning: { border: "border-l-amber-500", icon: AlertTriangle, color: "text-amber-600" },
+  warning: { border: "border-l-warning", icon: AlertTriangle, color: "text-warning" },
   danger: { border: "border-l-destructive", icon: AlertOctagon, color: "text-destructive" },
 };
 
@@ -148,6 +162,7 @@ export function EmptyVisualizationState({
   reason: string;
   recommended?: string[];
 }) {
+  const { t } = useT();
   return (
     <div className="flex flex-col items-center justify-center rounded-card border border-dashed bg-muted/30 px-6 py-10 text-center">
       <CircleDashed className="mb-2 h-8 w-8 text-muted-foreground" aria-hidden />
@@ -155,7 +170,7 @@ export function EmptyVisualizationState({
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">{reason}</p>
       {recommended && recommended.length > 0 && (
         <p className="mt-2 text-sm">
-          <span className="font-medium text-foreground">Conectá:</span> {recommended.join(", ")}
+          <span className="font-medium text-foreground">{t("rep2.viz.connect")}</span> {recommended.join(", ")}
         </p>
       )}
     </div>
@@ -167,23 +182,26 @@ export function EmptyVisualizationState({
 export function HealthRing({
   score,
   size = 120,
-  label = "Health",
+  label,
 }: {
   score: number | null;
   size?: number;
   label?: string;
 }) {
+  const { t } = useT();
   const r = 52;
   const c = 2 * Math.PI * r;
   const pct = score === null ? 0 : Math.max(0, Math.min(100, score)) / 100;
   const status = statusFromScore(score);
   const color = STATUS_SYSTEM[status].color;
+  const statusLabel = t(STATUS_LABEL_KEY[status]);
+  const resolvedLabel = label ?? t("rep2.viz.health");
   return (
     <div
       className="relative inline-flex items-center justify-center"
       style={{ width: size, height: size }}
       role="img"
-      aria-label={`${label}: ${score === null ? "sin datos" : score + " de 100"} (${STATUS_SYSTEM[status].label})`}
+      aria-label={`${resolvedLabel}: ${score === null ? t("rep2.viz.noData") : score + " " + t("rep2.viz.ofHundred")} (${statusLabel})`}
     >
       <svg viewBox="0 0 120 120" width={size} height={size}>
         <circle cx="60" cy="60" r={r} fill="none" stroke="var(--muted)" strokeWidth="10" />
@@ -206,7 +224,7 @@ export function HealthRing({
         <span className="text-2xl font-bold tabular-nums" style={{ color }}>
           {score ?? "—"}
         </span>
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{resolvedLabel}</span>
       </div>
     </div>
   );
@@ -240,6 +258,7 @@ export function ProjectHealthMap({
   dimensions: HealthMapDim[];
   size?: number;
 }) {
+  const { t } = useT();
   const cx = 130;
   const cy = 130;
   const r = 104;
@@ -250,7 +269,7 @@ export function ProjectHealthMap({
 
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox="0 0 260 260" width={size} height={size} role="img" aria-label="Mapa de salud del proyecto por dimensión">
+      <svg viewBox="0 0 260 260" width={size} height={size} role="img" aria-label={t("rep2.viz.healthMapAria")}>
         {dimensions.map((d, i) => {
           const start = i * seg + gap / 2;
           const end = (i + 1) * seg - gap / 2;
@@ -267,7 +286,7 @@ export function ProjectHealthMap({
               opacity={d.score === null ? 0.4 : 1}
             >
               <title>
-                {d.label}: {d.score === null ? "sin datos" : `${d.score}/100`}
+                {d.label}: {d.score === null ? t("rep2.viz.noData") : `${d.score}/100`}
               </title>
             </path>
           );
@@ -277,7 +296,7 @@ export function ProjectHealthMap({
           {overall ?? "—"}
         </text>
         <text x={cx} y={cy + 18} textAnchor="middle" style={{ fontSize: 11, fill: "var(--muted-foreground)" }}>
-          Health · {STATUS_SYSTEM[status].label}
+          {t("rep2.viz.health")} · {t(STATUS_LABEL_KEY[status])}
         </text>
       </svg>
       {/* Alternativa textual accesible + leyenda */}

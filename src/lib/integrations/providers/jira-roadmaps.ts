@@ -1,3 +1,4 @@
+import { safeFetch, assertSafeUrl } from "@/lib/http";
 import type { ProviderAdapter } from "../types";
 import { mkItem, planBucket, isStale, isCriticalPriority, httpError } from "./planning-helpers";
 
@@ -27,7 +28,12 @@ export const jiraRoadmapsAdapter: ProviderAdapter = {
   slug: "jira-roadmaps",
   async testConnection(ctx) {
     try {
-      const res = await fetch(`https://${ctx.config.domain}/rest/api/3/myself`, {
+      // SEC-04 / SSRF: validar el host {domain} del usuario antes del fetch.
+      await assertSafeUrl(`https://${ctx.config.domain ?? ""}`, {
+        allowInsecure: false,
+        blockPrivate: true,
+      });
+      const res = await safeFetch(`https://${ctx.config.domain}/rest/api/3/myself`, {
         headers: { Authorization: basic(ctx.config.email, ctx.secret) },
         cache: "no-store",
       });
@@ -38,10 +44,15 @@ export const jiraRoadmapsAdapter: ProviderAdapter = {
     }
   },
   async fetchData(ctx) {
+    // SEC-04 / SSRF: validar el host {domain} del usuario antes del fetch.
+    await assertSafeUrl(`https://${ctx.config.domain ?? ""}`, {
+      allowInsecure: false,
+      blockPrivate: true,
+    });
     const jql = ctx.config.projectKey
       ? encodeURIComponent(`project = ${ctx.config.projectKey} ORDER BY updated DESC`)
       : encodeURIComponent("ORDER BY updated DESC");
-    const res = await fetch(
+    const res = await safeFetch(
       `https://${ctx.config.domain}/rest/api/3/search?jql=${jql}&maxResults=100&fields=summary,status,assignee,priority,created,updated,resolutiondate,issuetype`,
       {
         headers: { Authorization: basic(ctx.config.email, ctx.secret) },

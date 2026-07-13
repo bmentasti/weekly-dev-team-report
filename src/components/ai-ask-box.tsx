@@ -4,34 +4,36 @@ import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useT } from "@/components/i18n-provider";
 
 type Role = "TL" | "PO" | "DIR";
 
-const ROLE_LABEL: Record<Role, string> = {
-  TL: "Tech Lead",
-  PO: "Product Owner",
-  DIR: "Dirección",
+const ROLE_LABEL_KEY: Record<Role, string> = {
+  TL: "rep.roleTL",
+  PO: "rep.rolePO",
+  DIR: "rep.roleDIR",
 };
 
-const SUGGESTIONS: Record<Role, string[]> = {
+const SUGGESTION_KEYS: Record<Role, string[]> = {
   TL: [
-    "¿Qué PRs o bloqueos técnicos destrabo primero?",
-    "¿Hay riesgo de calidad o CI para el cierre?",
-    "¿Quién necesita apoyo técnico?",
+    "rep.aiSuggestTLPrs",
+    "rep.aiSuggestTLQuality",
+    "rep.aiSuggestTLSupport",
   ],
   PO: [
-    "¿Llegamos al objetivo del sprint?",
-    "¿Qué saco o dejo para el próximo sprint?",
-    "¿Qué historias tienen más valor pendiente?",
+    "rep.aiSuggestPOGoal",
+    "rep.aiSuggestPONext",
+    "rep.aiSuggestPOValue",
   ],
   DIR: [
-    "¿Cómo está la salud general y la previsibilidad?",
-    "¿Qué riesgos debería escalar?",
-    "¿Vamos a cumplir la fecha comprometida?",
+    "rep.aiSuggestDIRHealth",
+    "rep.aiSuggestDIRRisks",
+    "rep.aiSuggestDIRDate",
   ],
 };
 
 export function AiAskBox({ reportId }: { reportId: string }) {
+  const { t } = useT();
   const [role, setRole] = useState<Role>("TL");
   const [prompt, setPrompt] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
@@ -52,7 +54,7 @@ export function AiAskBox({ reportId }: { reportId: string }) {
     const json = await res.json().catch(() => ({}));
     setLoading(false);
     if (json.answer) setAnswer(json.answer);
-    else setError(json.error ?? "No se pudo obtener respuesta.");
+    else setError(json.error ?? t("rep.couldNotAnswer"));
   }
 
   return (
@@ -60,7 +62,7 @@ export function AiAskBox({ reportId }: { reportId: string }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <Sparkles className="h-4 w-4 text-primary" />
-          Preguntale al reporte (IA)
+          {t("rep.askTheReport")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -73,33 +75,36 @@ export function AiAskBox({ reportId }: { reportId: string }) {
                 role === r ? "bg-primary text-white" : "text-muted-foreground"
               }`}
             >
-              {ROLE_LABEL[r]}
+              {t(ROLE_LABEL_KEY[r])}
             </button>
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
-          {SUGGESTIONS[role].map((s) => (
-            <button
-              key={s}
-              onClick={() => {
-                setPrompt(s);
-                ask(s);
-              }}
-              className="rounded-full border px-3 py-1 text-xs text-muted-foreground hover:border-primary hover:text-primary"
-            >
-              {s}
-            </button>
-          ))}
+          {SUGGESTION_KEYS[role].map((key) => {
+            const s = t(key);
+            return (
+              <button
+                key={key}
+                onClick={() => {
+                  setPrompt(s);
+                  ask(s);
+                }}
+                className="rounded-full border px-3 py-1 text-xs text-muted-foreground hover:border-primary hover:text-primary"
+              >
+                {s}
+              </button>
+            );
+          })}
         </div>
         <textarea
           className="w-full rounded-input border border-input bg-card px-3.5 py-2 text-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
           rows={3}
-          placeholder="Escribí tu pregunta sobre este reporte..."
+          placeholder={t("rep.askPlaceholder")}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
         />
         <Button onClick={() => ask()} disabled={loading || !prompt.trim()}>
-          {loading ? "Pensando..." : "Preguntar"}
+          {loading ? t("rep.thinking") : t("rep.askButton")}
         </Button>
 
         {error && (
@@ -113,7 +118,7 @@ export function AiAskBox({ reportId }: { reportId: string }) {
           </div>
         )}
         <p className="text-[11px] text-muted-foreground">
-          La IA responde usando solo los datos de este reporte.
+          {t("rep.aiOnlyReportData")}
         </p>
       </CardContent>
     </Card>

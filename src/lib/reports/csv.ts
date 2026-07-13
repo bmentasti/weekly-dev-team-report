@@ -1,4 +1,6 @@
 import type { ReportMetrics, Risk } from "./types";
+import type { Locale } from "@/lib/i18n/config";
+import { makeT } from "@/lib/i18n/dictionaries";
 
 interface ReportLike {
   periodStart: Date | string;
@@ -22,72 +24,80 @@ function row(...cells: unknown[]): string {
 
 /**
  * Builds a CSV representation of a report. Multiple labelled sections separated
- * by blank lines so it opens cleanly in Excel / Google Sheets.
+ * by blank lines so it opens cleanly in Excel / Google Sheets. Localized via the
+ * optional `locale` (defaults to Spanish for callers that don't pass one).
  */
-export function buildReportCsv(report: ReportLike): string {
+export function buildReportCsv(report: ReportLike, locale: Locale = "es"): string {
+  const t = makeT(locale);
   const m = report.metrics as ReportMetrics | null;
   const risks = (report.risks as Risk[] | null) ?? [];
   const recs = (report.recommendations as string[] | null) ?? [];
   const lines: string[] = [];
 
-  const d = (v: Date | string) => new Date(v).toLocaleDateString();
+  const d = (v: Date | string) =>
+    new Date(v).toLocaleDateString(locale === "en" ? "en-US" : "es-AR");
 
-  lines.push(row("Reporte del equipo"));
-  lines.push(row("Período", `${d(report.periodStart)} - ${d(report.periodEnd)}`));
-  lines.push(row("Estado de salud", report.healthStatus ?? ""));
-  lines.push(row("Resumen", report.summary ?? ""));
+  lines.push(row(t("exp.teamReport")));
+  lines.push(row(t("exp.period"), `${d(report.periodStart)} - ${d(report.periodEnd)}`));
+  lines.push(
+    row(
+      t("exp.healthStatus"),
+      report.healthStatus ? t(`lib.health.${report.healthStatus}`) : "",
+    ),
+  );
+  lines.push(row(t("exp.summary"), report.summary ?? ""));
   lines.push("");
 
   if (m) {
-    lines.push(row("Métricas"));
-    lines.push(row("Métrica", "Valor"));
-    lines.push(row("Story points comprometidos", m.capacity.committedPoints));
-    lines.push(row("Story points completados", m.capacity.completedPoints));
-    lines.push(row("Velocity", m.capacity.velocityPoints));
-    lines.push(row("Puntos restantes", m.capacity.remainingPoints));
-    lines.push(row("Cycle time (días)", m.capacity.cycleTimeAvgDays ?? ""));
-    lines.push(row("Avance por SP (%)", m.projectProgress.completionByPoints));
-    lines.push(row("Avance por tareas (%)", m.projectProgress.completionByCount));
-    lines.push(row("Tareas finalizadas", m.workItems.done));
-    lines.push(row("Tareas en progreso", m.workItems.inProgress));
-    lines.push(row("Tareas bloqueadas", m.workItems.blocked));
-    lines.push(row("Tareas sin movimiento", m.workItems.stale));
-    lines.push(row("Tareas críticas", m.workItems.critical));
-    lines.push(row("PR/MR abiertos", m.codeChanges.open));
-    lines.push(row("PR/MR mergeados", m.codeChanges.merged));
-    lines.push(row("PR/MR sin reviewer", m.codeChanges.withoutReviewer));
-    lines.push(row("PR/MR > 72h", m.codeChanges.old));
-    lines.push(row("Carry-over (puntos)", m.planning.carryOverPoints));
-    lines.push(row("Forecast (puntos)", m.planning.forecastPoints));
+    lines.push(row(t("exp.metrics")));
+    lines.push(row(t("exp.metric"), t("exp.value")));
+    lines.push(row(t("exp.committedPoints"), m.capacity.committedPoints));
+    lines.push(row(t("exp.completedPoints"), m.capacity.completedPoints));
+    lines.push(row(t("exp.velocity"), m.capacity.velocityPoints));
+    lines.push(row(t("exp.remainingPoints"), m.capacity.remainingPoints));
+    lines.push(row(t("exp.cycleTimeDays"), m.capacity.cycleTimeAvgDays ?? ""));
+    lines.push(row(t("exp.completionByPoints"), m.projectProgress.completionByPoints));
+    lines.push(row(t("exp.completionByCount"), m.projectProgress.completionByCount));
+    lines.push(row(t("exp.tasksDone"), m.workItems.done));
+    lines.push(row(t("exp.tasksInProgress"), m.workItems.inProgress));
+    lines.push(row(t("exp.tasksBlocked"), m.workItems.blocked));
+    lines.push(row(t("exp.tasksStale"), m.workItems.stale));
+    lines.push(row(t("exp.tasksCritical"), m.workItems.critical));
+    lines.push(row(t("exp.prOpen"), m.codeChanges.open));
+    lines.push(row(t("exp.prMerged"), m.codeChanges.merged));
+    lines.push(row(t("exp.prWithoutReviewer"), m.codeChanges.withoutReviewer));
+    lines.push(row(t("exp.prOld"), m.codeChanges.old));
+    lines.push(row(t("exp.carryOverPoints"), m.planning.carryOverPoints));
+    lines.push(row(t("exp.forecastPoints"), m.planning.forecastPoints));
     if (m.quality) {
-      lines.push(row("Bugs (total)", m.quality.bugs));
-      lines.push(row("Bugs abiertos", m.quality.bugsOpen));
-      lines.push(row("Defect rate (%)", m.quality.defectRatePct));
-      lines.push(row("Scope creep (%)", m.quality.scopeCreepPct));
-      lines.push(row("Listas para QA/demo", m.quality.readyForQa));
+      lines.push(row(t("exp.bugsTotal"), m.quality.bugs));
+      lines.push(row(t("exp.bugsOpen"), m.quality.bugsOpen));
+      lines.push(row(t("exp.defectRate"), m.quality.defectRatePct));
+      lines.push(row(t("exp.scopeCreep"), m.quality.scopeCreepPct));
+      lines.push(row(t("exp.readyForQa"), m.quality.readyForQa));
     }
     if (m.ci) {
-      lines.push(row("CI corridas", m.ci.total));
-      lines.push(row("CI fallidas", m.ci.failed));
-      lines.push(row("CI tasa de fallo (%)", m.ci.failureRatePct));
-      lines.push(row("Deploys fallidos", m.ci.deployFailed));
+      lines.push(row(t("exp.ciTotal"), m.ci.total));
+      lines.push(row(t("exp.ciFailed"), m.ci.failed));
+      lines.push(row(t("exp.ciFailureRate"), m.ci.failureRatePct));
+      lines.push(row(t("exp.deployFailed"), m.ci.deployFailed));
     }
     lines.push("");
 
     if (m.people.length > 0) {
-      lines.push(row("Por persona"));
+      lines.push(row(t("exp.perPerson")));
       lines.push(
         row(
-          "Ranking",
-          "Persona",
-          "Señal",
-          "Score",
-          "SP completados",
-          "Finalizadas",
-          "En progreso",
-          "Bloqueadas",
-          "PR abiertos",
-          "PR mergeados",
+          t("exp.colRanking"),
+          t("exp.colPerson"),
+          t("exp.colSignal"),
+          t("exp.colScore"),
+          t("exp.colCompletedPoints"),
+          t("exp.colDone"),
+          t("exp.colInProgress"),
+          t("exp.colBlocked"),
+          t("exp.colPrOpen"),
+          t("exp.colPrMerged"),
         ),
       );
       for (const p of m.people) {
@@ -95,7 +105,7 @@ export function buildReportCsv(report: ReportLike): string {
           row(
             p.rank,
             p.name,
-            p.category,
+            t(`lib.personCategory.${p.category}`),
             p.score,
             p.completedPoints,
             p.tasksDone,
@@ -111,14 +121,14 @@ export function buildReportCsv(report: ReportLike): string {
   }
 
   if (risks.length > 0) {
-    lines.push(row("Riesgos"));
-    lines.push(row("Nivel", "Título", "Detalle"));
+    lines.push(row(t("exp.risks")));
+    lines.push(row(t("exp.colLevel"), t("exp.colTitle"), t("exp.colDetail")));
     for (const r of risks) lines.push(row(r.level, r.title, r.detail));
     lines.push("");
   }
 
   if (recs.length > 0) {
-    lines.push(row("Recomendaciones"));
+    lines.push(row(t("exp.recommendations")));
     for (const r of recs) lines.push(row(r));
   }
 

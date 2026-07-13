@@ -3,15 +3,15 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { HEALTH_LABEL, healthBadgeVariant } from "@/lib/reports/health";
+import { healthBadgeVariant } from "@/lib/reports/health";
 import {
   computeAlerts,
   alertsForRole,
-  ROLE_LABELS,
   type Alert,
   type AlertRole,
 } from "@/lib/reports/alerts";
 import type { HealthLevel, ReportMetrics } from "@/lib/reports/types";
+import { useT } from "@/components/i18n-provider";
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
@@ -22,17 +22,17 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function levelBadge(level: Alert["level"]) {
-  if (level === "high") return <Badge variant="destructive">Alta</Badge>;
-  if (level === "medium") return <Badge variant="warning">Media</Badge>;
-  return <Badge variant="secondary">Baja</Badge>;
+function levelBadge(level: Alert["level"], t: (k: string) => string) {
+  if (level === "high") return <Badge variant="destructive">{t("rep.levelHigh")}</Badge>;
+  if (level === "medium") return <Badge variant="warning">{t("rep.levelMedium")}</Badge>;
+  return <Badge variant="secondary">{t("rep.levelLow")}</Badge>;
 }
 
-function AlertList({ alerts }: { alerts: Alert[] }) {
+function AlertList({ alerts, t }: { alerts: Alert[]; t: (k: string) => string }) {
   if (alerts.length === 0)
     return (
       <p className="text-sm text-muted-foreground">
-        Sin alertas para este rol. 🎉
+        {t("rep.noAlertsForRole")}
       </p>
     );
   return (
@@ -40,16 +40,16 @@ function AlertList({ alerts }: { alerts: Alert[] }) {
       {alerts.map((a) => (
         <div key={a.id} className="rounded-input border p-3">
           <div className="flex items-center gap-2">
-            {levelBadge(a.level)}
+            {levelBadge(a.level, t)}
             <span className="font-medium">{a.title}</span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">{a.meaning}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Impacto:</span>{" "}
+            <span className="font-medium text-foreground">{t("rep.impact")}</span>{" "}
             {a.impact}
           </p>
           <p className="mt-1 text-xs">
-            <span className="font-medium text-primary">Acción:</span> {a.action}
+            <span className="font-medium text-primary">{t("rep.action")}</span> {a.action}
           </p>
         </div>
       ))}
@@ -64,8 +64,9 @@ export function ReportRoleViews({
   metrics: ReportMetrics;
   healthStatus: HealthLevel | null;
 }) {
+  const { t } = useT();
   const [role, setRole] = useState<AlertRole>("TL");
-  const alerts = computeAlerts(metrics);
+  const alerts = computeAlerts(metrics, t);
   const roleAlerts = alertsForRole(alerts, role);
 
   const m = metrics;
@@ -81,10 +82,10 @@ export function ReportRoleViews({
       prev === 0
         ? "—"
         : cur >= prev * 0.9
-          ? "Alta"
+          ? t("rep.predHigh")
           : cur >= prev * 0.7
-            ? "Media"
-            : "Baja";
+            ? t("rep.predMedium")
+            : t("rep.predLow");
   }
   const highCount = alerts.filter((a) => a.level === "high").length;
 
@@ -92,7 +93,7 @@ export function ReportRoleViews({
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-lg">Lectura por rol</CardTitle>
+          <CardTitle className="text-lg">{t("rep.readingByRole")}</CardTitle>
           <div className="inline-flex rounded-full border bg-card p-1 text-sm">
             {roles.map((r) => (
               <button
@@ -102,7 +103,7 @@ export function ReportRoleViews({
                   role === r ? "bg-primary text-white" : "text-muted-foreground"
                 }`}
               >
-                {ROLE_LABELS[r]}
+                {t(`lib.role.${r}`)}
               </button>
             ))}
           </div>
@@ -111,54 +112,54 @@ export function ReportRoleViews({
       <CardContent className="space-y-5">
         {role === "TL" && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <Stat label="PR/MR abiertos" value={m.codeChanges.open} />
-            <Stat label="Sin reviewer" value={m.codeChanges.withoutReviewer} />
-            <Stat label="Abiertos +72h" value={m.codeChanges.old} />
-            <Stat label="Checks fallando" value={m.codeChanges.checksFailing} />
-            <Stat label="Bloqueadas" value={m.workItems.blocked} />
-            <Stat label="Bugs abiertos" value={m.quality?.bugsOpen ?? 0} />
-            <Stat label="Defect rate" value={`${m.quality?.defectRatePct ?? 0}%`} />
+            <Stat label={t("rep.rvPrOpen")} value={m.codeChanges.open} />
+            <Stat label={t("rep.rvWithoutReviewer")} value={m.codeChanges.withoutReviewer} />
+            <Stat label={t("rep.rvOpen72h")} value={m.codeChanges.old} />
+            <Stat label={t("rep.rvChecksFailing")} value={m.codeChanges.checksFailing} />
+            <Stat label={t("rep.rvBlocked")} value={m.workItems.blocked} />
+            <Stat label={t("rep.rvBugsOpen")} value={m.quality?.bugsOpen ?? 0} />
+            <Stat label={t("rep.rvDefectRate")} value={`${m.quality?.defectRatePct ?? 0}%`} />
             <Stat
-              label="CI fallando"
+              label={t("rep.rvCiFailing")}
               value={m.ci ? `${m.ci.failed}/${m.ci.total}` : "—"}
             />
             <Stat
-              label="Cycle time"
+              label={t("rep.rvCycleTime")}
               value={m.capacity.cycleTimeAvgDays != null ? `${m.capacity.cycleTimeAvgDays}d` : "—"}
             />
           </div>
         )}
         {role === "PO" && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            <Stat label="Avance (SP)" value={`${m.projectProgress.completionByPoints}%`} />
-            <Stat label="Finalizadas" value={`${m.workItems.done}/${m.workItems.total}`} />
-            <Stat label="Bloqueadas" value={m.workItems.blocked} />
-            <Stat label="Críticas" value={m.workItems.critical} />
-            <Stat label="Carry-over" value={m.planning.carryOverItems} />
-            <Stat label="Scope creep" value={`${m.quality?.scopeCreepPct ?? 0}%`} />
-            <Stat label="Listas QA/demo" value={m.quality?.readyForQa ?? 0} />
+            <Stat label={t("rep.rvProgressSP")} value={`${m.projectProgress.completionByPoints}%`} />
+            <Stat label={t("rep.rvDone")} value={`${m.workItems.done}/${m.workItems.total}`} />
+            <Stat label={t("rep.rvBlocked")} value={m.workItems.blocked} />
+            <Stat label={t("rep.rvCritical")} value={m.workItems.critical} />
+            <Stat label={t("rep.rvCarryOver")} value={m.planning.carryOverItems} />
+            <Stat label={t("rep.rvScopeCreep")} value={`${m.quality?.scopeCreepPct ?? 0}%`} />
+            <Stat label={t("rep.rvReadyQa")} value={m.quality?.readyForQa ?? 0} />
           </div>
         )}
         {role === "DIR" && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <div className="rounded-input border p-3">
               <Badge variant={healthBadgeVariant(healthStatus)}>
-                {healthStatus ? HEALTH_LABEL[healthStatus] : "—"}
+                {healthStatus ? t(`lib.health.${healthStatus}`) : "—"}
               </Badge>
-              <div className="mt-1 text-xs text-muted-foreground">Semáforo</div>
+              <div className="mt-1 text-xs text-muted-foreground">{t("rep.rvSemaphore")}</div>
             </div>
-            <Stat label="Avance" value={`${m.projectProgress.completionByPoints}%`} />
-            <Stat label="Velocity" value={`${m.capacity.velocityPoints} pts`} />
-            <Stat label="Previsibilidad" value={predictability} />
-            <Stat label="A escalar" value={highCount} />
+            <Stat label={t("rep.rvProgress")} value={`${m.projectProgress.completionByPoints}%`} />
+            <Stat label={t("rep.rvVelocity")} value={`${m.capacity.velocityPoints} ${t("rep.pts")}`} />
+            <Stat label={t("rep.rvPredictability")} value={predictability} />
+            <Stat label={t("rep.rvToEscalate")} value={highCount} />
           </div>
         )}
 
         <div>
           <h3 className="mb-2 text-sm font-semibold">
-            Alertas para {ROLE_LABELS[role]}
+            {t("rep.alertsForRolePre")} {t(`lib.role.${role}`)}
           </h3>
-          <AlertList alerts={roleAlerts} />
+          <AlertList alerts={roleAlerts} t={t} />
         </div>
       </CardContent>
     </Card>

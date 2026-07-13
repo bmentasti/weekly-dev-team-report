@@ -6,6 +6,7 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PaymentModal } from "@/components/payment-modal";
+import { useT } from "@/components/i18n-provider";
 import {
   PLANS,
   PLAN_ORDER,
@@ -15,21 +16,30 @@ import {
   type BillingPeriodName,
 } from "@/lib/plans";
 
-const FEATURES: Record<PlanTierName, string[]> = {
-  FREE: ["1 proyecto", "Jira + GitHub", "Reporte manual + CSV", "Hasta 5 usuarios"],
-  TEAM: [
-    "Todas las integraciones",
-    "Riesgos, capacidad y recomendaciones",
-    "Email + compartir + notas",
-    "Hasta 45 usuarios",
-  ],
-  PRO: [
-    "Multi-proyecto",
-    "Comparativas y ejecutivos",
-    "Envío a Slack",
-    "Usuarios ilimitados",
-  ],
-};
+function featuresFor(
+  t: (key: string) => string,
+): Record<PlanTierName, string[]> {
+  return {
+    FREE: [
+      t("ws.billing.freeF1"),
+      t("ws.billing.freeF2"),
+      t("ws.billing.freeF3"),
+      t("ws.billing.freeF4"),
+    ],
+    TEAM: [
+      t("ws.billing.teamF1"),
+      t("ws.billing.teamF2"),
+      t("ws.billing.teamF3"),
+      t("ws.billing.teamF4"),
+    ],
+    PRO: [
+      t("ws.billing.proF1"),
+      t("ws.billing.proF2"),
+      t("ws.billing.proF3"),
+      t("ws.billing.proF4"),
+    ],
+  };
+}
 
 export function BillingManager({
   currentPlan,
@@ -39,6 +49,8 @@ export function BillingManager({
   currentPeriod: BillingPeriodName;
 }) {
   const router = useRouter();
+  const { t } = useT();
+  const FEATURES = featuresFor(t);
   const [annual, setAnnual] = useState(currentPeriod === "ANNUAL");
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -60,10 +72,10 @@ export function BillingManager({
     const json = await res.json().catch(() => ({}));
     setBusy(null);
     if (json.ok) {
-      setMsg("Plan actualizado.");
+      setMsg(t("ws.billing.planUpdated"));
       router.refresh();
     } else {
-      setMsg(json.error ?? "No se pudo cambiar el plan.");
+      setMsg(json.error ?? t("ws.billing.cantChange"));
     }
   }
 
@@ -75,13 +87,13 @@ export function BillingManager({
             onClick={() => setAnnual(false)}
             className={`rounded-full px-4 py-1.5 font-medium ${!annual ? "bg-primary text-white" : "text-muted-foreground"}`}
           >
-            Mensual
+            {t("ws.billing.monthly")}
           </button>
           <button
             onClick={() => setAnnual(true)}
             className={`rounded-full px-4 py-1.5 font-medium ${annual ? "bg-primary text-white" : "text-muted-foreground"}`}
           >
-            Anual (2 meses gratis)
+            {t("ws.billing.annual")}
           </button>
         </div>
         {msg && <span className="text-sm text-muted-foreground">{msg}</span>}
@@ -99,7 +111,7 @@ export function BillingManager({
                   <h3 className="text-lg font-semibold">{def.name}</h3>
                   {isCurrent && (
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                      Actual
+                      {t("ws.billing.current")}
                     </span>
                   )}
                 </div>
@@ -109,12 +121,12 @@ export function BillingManager({
                   ) : annual ? (
                     <>
                       <span className="text-3xl font-bold">${total}</span>
-                      <span className="text-muted-foreground"> /año</span>
+                      <span className="text-muted-foreground">{t("ws.billing.perYear")}</span>
                     </>
                   ) : (
                     <>
                       <span className="text-3xl font-bold">${def.monthly}</span>
-                      <span className="text-muted-foreground"> /mes</span>
+                      <span className="text-muted-foreground">{t("ws.billing.perMonth")}</span>
                     </>
                   )}
                 </div>
@@ -126,8 +138,8 @@ export function BillingManager({
                     </li>
                   ))}
                   <li className="pt-1 text-xs text-muted-foreground">
-                    Proyectos: {limitLabel(def.maxProjects)} · Usuarios:{" "}
-                    {limitLabel(def.maxMembers)}
+                    {t("ws.billing.projectsLabel")} {limitLabel(def.maxProjects, t)} · {t("ws.billing.usersLabel")}{" "}
+                    {limitLabel(def.maxMembers, t)}
                   </li>
                 </ul>
                 <Button
@@ -136,7 +148,11 @@ export function BillingManager({
                   disabled={isCurrent || busy !== null}
                   onClick={() => change(tier)}
                 >
-                  {isCurrent ? "Plan actual" : busy === tier ? "Cambiando..." : `Cambiar a ${def.name}`}
+                  {isCurrent
+                    ? t("ws.billing.currentPlan")
+                    : busy === tier
+                      ? t("ws.billing.changing")
+                      : `${t("ws.billing.changeToPrefix")} ${def.name}`}
                 </Button>
               </CardContent>
             </Card>
@@ -145,8 +161,7 @@ export function BillingManager({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Sin credenciales de Mercado Pago / PayPal, el cambio de plan se aplica al
-        instante (modo demo). Con credenciales, el botón abre el checkout real.
+        {t("ws.billing.demoNote")}
       </p>
 
       {payFor && (

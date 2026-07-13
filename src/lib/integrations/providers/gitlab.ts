@@ -6,15 +6,22 @@ import type {
   UnifiedCodeChange,
 } from "../types";
 import { demoDataFor, isDemo, periodDaysFrom } from "../demo";
+import { safeFetch, assertSafeUrl } from "@/lib/http";
 
 // GitLab adapter — REST v4. Uses a Personal Access Token (read_api) via the
 // PRIVATE-TOKEN header. Supports gitlab.com and self-hosted instances.
 
 const OLD_HOURS = 72;
 
-function baseUrl(config: Record<string, string>): string {
-  const raw = (config.baseUrl ?? "https://gitlab.com").trim().replace(/\/+$/, "");
-  return raw || "https://gitlab.com";
+/**
+ * Resuelve y valida el baseUrl del usuario (SEC-04 / SSRF). Sólo https:
+ * (self-hosted incluido) y se bloquean hosts privados/loopback. Lanza Error si
+ * es inseguro; los callers (testConnection/fetchData) capturan y devuelven el
+ * resultado de error del provider.
+ */
+async function safeBaseUrl(config: Record<string, string>): Promise<string> {
+  const raw = (config.baseUrl ?? "").trim() || "https://gitlab.com";
+  return assertSafeUrl(raw, { allowInsecure: false, blockPrivate: true });
 }
 
 function projectPath(config: Record<string, string>): string {
@@ -26,7 +33,7 @@ async function glFetch(
   path: string,
   token: string,
 ): Promise<Response> {
-  return fetch(`${base}/api/v4${path}`, {
+  return safeFetch(`${base}/api/v4${path}`, {
     headers: { "PRIVATE-TOKEN": token },
     cache: "no-store",
   });
@@ -98,8 +105,9 @@ export const gitlabAdapter: ProviderAdapter = {
   async testConnection(ctx) {
     if (isDemo(ctx.config)) return { ok: true, detail: "Modo demo" };
     try {
+      const base = await safeBaseUrl(ctx.config);
       const res = await glFetch(
-        baseUrl(ctx.config),
+        base,
         `/projects/${projectPath(ctx.config)}`,
         ctx.secret,
       );
@@ -129,7 +137,7 @@ export const gitlabAdapter: ProviderAdapter = {
 
   async fetchData(ctx, opts) {
     if (isDemo(ctx.config)) return demoDataFor("gitlab", periodDaysFrom(opts));
-    const base = baseUrl(ctx.config);
+    const base = await safeBaseUrl(ctx.config);
     const proj = projectPath(ctx.config);
     const now = Date.now();
     const since =

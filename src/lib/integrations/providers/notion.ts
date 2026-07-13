@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type {
   ProviderAdapter,
   UnifiedWorkItem,
@@ -61,7 +62,7 @@ export const notionAdapter: ProviderAdapter = {
   slug: "notion",
   async testConnection(ctx) {
     try {
-      const res = await fetch(`${API}/databases/${ctx.config.databaseId}`, {
+      const res = await safeFetch(`${API}/databases/${ctx.config.databaseId}`, {
         headers: headers(ctx.secret),
         cache: "no-store",
       });
@@ -78,7 +79,7 @@ export const notionAdapter: ProviderAdapter = {
     }
   },
   async fetchData(ctx) {
-    const res = await fetch(`${API}/databases/${ctx.config.databaseId}/query`, {
+    const res = await safeFetch(`${API}/databases/${ctx.config.databaseId}/query`, {
       method: "POST",
       headers: headers(ctx.secret),
       body: JSON.stringify({ page_size: 100 }),

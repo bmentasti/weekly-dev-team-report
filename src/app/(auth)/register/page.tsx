@@ -49,11 +49,14 @@ export default function RegisterPage() {
       redirect: false,
     });
 
-    setLoading(false);
     if (signInRes?.error) {
-      router.push("/login");
+      setLoading(false);
+      setError(
+        "Tu cuenta se creó, pero no pudimos iniciar sesión automáticamente. Iniciá sesión manualmente desde el login.",
+      );
       return;
     }
+    setLoading(false);
     // Primero el workspace: crea el espacio y un proyecto "General" por
     // defecto. Sin este paso el usuario entra sin workspace y todo lo que lo
     // requiere (crear proyecto, integraciones, reportes) falla con 400.

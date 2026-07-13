@@ -43,6 +43,12 @@ export async function POST(
   const text = (body.body ?? "").trim();
   if (!text)
     return NextResponse.json({ error: "La nota está vacía." }, { status: 400 });
+  // Cota de longitud para evitar texto ilimitado. (COD-01)
+  if (text.length > 5000)
+    return NextResponse.json(
+      { error: "La nota es demasiado larga (máx. 5000 caracteres)." },
+      { status: 400 },
+    );
 
   const note = await prisma.reportNote.create({
     data: {

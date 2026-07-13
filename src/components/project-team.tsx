@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useT } from "@/components/i18n-provider";
 
 interface Member {
   id: string;
@@ -20,13 +21,13 @@ interface WsMember {
   email: string;
 }
 
-const ROLE_LABEL: Record<string, string> = {
-  OWNER: "Owner",
-  ADMIN: "Admin",
-  MEMBER: "Miembro",
-};
-
 export function ProjectTeam({ projectId }: { projectId: string }) {
+  const { t } = useT();
+  const roleLabel: Record<string, string> = {
+    OWNER: "Owner",
+    ADMIN: "Admin",
+    MEMBER: t("ws.projectTeam.member"),
+  };
   const [members, setMembers] = useState<Member[]>([]);
   const [wsMembers, setWsMembers] = useState<WsMember[]>([]);
   const [selected, setSelected] = useState("");
@@ -58,7 +59,7 @@ export function ProjectTeam({ projectId }: { projectId: string }) {
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error ?? "No se pudo agregar.");
+      setError(j.error ?? t("ws.projectTeam.cantAdd"));
       return;
     }
     setSelected("");
@@ -92,14 +93,14 @@ export function ProjectTeam({ projectId }: { projectId: string }) {
               </div>
               <div className="flex flex-col items-end gap-1">
                 <Badge variant={m.role === "OWNER" ? "default" : "secondary"}>
-                  {ROLE_LABEL[m.role] ?? m.role}
+                  {roleLabel[m.role] ?? m.role}
                 </Badge>
                 {m.role !== "OWNER" && (
                   <button
                     onClick={() => remove(m.id)}
                     className="text-xs text-muted-foreground hover:text-destructive"
                   >
-                    Quitar
+                    {t("ws.projectTeam.remove")}
                   </button>
                 )}
               </div>
@@ -110,7 +111,7 @@ export function ProjectTeam({ projectId }: { projectId: string }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Agregar al proyecto</CardTitle>
+          <CardTitle className="text-base">{t("ws.projectTeam.addToProject")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {error && (
@@ -120,7 +121,7 @@ export function ProjectTeam({ projectId }: { projectId: string }) {
           )}
           {available.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Todos los integrantes del workspace ya están en este proyecto.
+              {t("ws.projectTeam.allInProject")}
             </p>
           ) : (
             <div className="flex gap-2">
@@ -129,7 +130,7 @@ export function ProjectTeam({ projectId }: { projectId: string }) {
                 value={selected}
                 onChange={(e) => setSelected(e.target.value)}
               >
-                <option value="">Elegir integrante...</option>
+                <option value="">{t("ws.projectTeam.chooseMember")}</option>
                 {available.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.name} ({w.email})
@@ -137,7 +138,7 @@ export function ProjectTeam({ projectId }: { projectId: string }) {
                 ))}
               </select>
               <Button onClick={add} disabled={!selected}>
-                Agregar
+                {t("ws.projectTeam.add")}
               </Button>
             </div>
           )}

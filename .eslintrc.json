@@ -1,3 +1,10 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "eqeqeq": ["warn", "smart"],
+    "no-var": "error",
+    "prefer-const": "warn",
+    "no-throw-literal": "warn"
+  }
 }

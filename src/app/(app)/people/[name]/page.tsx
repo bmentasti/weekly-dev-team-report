@@ -26,31 +26,47 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BackButton } from "@/components/back-button";
 import { PersonContextForm } from "@/components/person-context-form";
+import { useT } from "@/components/i18n-provider";
 import {
-  TIER_LABEL,
   tierVariant,
   contextHypotheses,
   coachingSteps,
-  COACHING_QUESTIONS,
+  COACHING_QUESTION_KEYS,
   sustainedLow,
   type PersonProfile,
 } from "@/lib/reports/people-profile";
 
 export default function PersonProfilePage() {
+  const { t } = useT();
   const params = useParams<{ name: string }>();
   const name = decodeURIComponent(params.name);
   const [profile, setProfile] = useState<PersonProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [ai, setAi] = useState<string | null>(null);
   const [aiErr, setAiErr] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
     (async () => {
-      const res = await fetch(`/api/people/${encodeURIComponent(name)}`);
-      if (res.ok) setProfile((await res.json()).profile);
-      setLoading(false);
+      try {
+        const res = await fetch(`/api/people/${encodeURIComponent(name)}`, {
+          signal: controller.signal,
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error ?? t("ws.people.loadError"));
+        setProfile(json.profile);
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+        setError(err instanceof Error ? err.message : t("ws.people.netError"));
+      } finally {
+        setLoading(false);
+      }
     })();
+    return () => controller.abort();
   }, [name]);
 
   async function coach() {
@@ -63,24 +79,31 @@ export default function PersonProfilePage() {
     const json = await res.json().catch(() => ({}));
     setAiLoading(false);
     if (json.answer) setAi(json.answer);
-    else setAiErr(json.error ?? "No se pudo generar el análisis.");
+    else setAiErr(json.error ?? t("ws.people.aiError"));
   }
 
   if (loading)
-    return <p className="text-sm text-muted-foreground">Cargando...</p>;
+    return <p className="text-sm text-muted-foreground">{t("ws.people.loading")}</p>;
+  if (error)
+    return (
+      <div className="space-y-4">
+        <BackButton />
+        <p className="text-sm text-destructive">{error}</p>
+      </div>
+    );
   if (!profile || profile.points.length === 0)
     return (
       <div className="space-y-4">
         <BackButton />
         <p className="text-sm text-muted-foreground">
-          No hay datos de {name} en los reportes de este proyecto todavía.
+          {`${t("ws.people.noDataPrefix")} ${name} ${t("ws.people.noDataSuffix")}`}
         </p>
       </div>
     );
 
   const latest = profile.latest;
-  const hypotheses = contextHypotheses(latest);
-  const steps = coachingSteps(profile.tier);
+  const hypotheses = contextHypotheses(latest, t);
+  const steps = coachingSteps(profile.tier, t);
   const sustained = sustainedLow(profile.points.map((p) => p.tier));
 
   return (
@@ -94,19 +117,17 @@ export default function PersonProfilePage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{name}</h1>
             <p className="text-sm text-muted-foreground">
-              Perfil de desempeño · últimos {profile.points.length} sprints
+              {`${t("ws.people.perfProfilePrefix")} ${profile.points.length} ${t("ws.people.perfProfileSuffix")}`}
             </p>
           </div>
         </div>
         <Badge variant={tierVariant(profile.tier)}>
-          {TIER_LABEL[profile.tier]}
+          {t(`lib.tier.${profile.tier}`)}
         </Badge>
       </div>
 
       <p className="rounded-input bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-        Clasificación tentativa a partir de proxies (tareas y PRs). Es un punto de
-        partida para conversar y acompañar — no un veredicto. Validá el contexto
-        antes de concluir.
+        {t("ws.people.disclaimer")}
       </p>
 
       {sustained && (
@@ -114,13 +135,12 @@ export default function PersonProfilePage() {
           className={`rounded-input px-3 py-2 text-sm ${
             sustained.severity === "alta"
               ? "bg-destructive/10 text-destructive"
-              : "bg-amber-50 text-amber-800"
+              : "bg-warning-soft text-warning"
           }`}
         >
-          Señal sostenida: {sustained.sprints} sprints seguidos en &quot;necesita
-          apoyo&quot;. Recomendado un 1:1 y plan de acompañamiento
+          {`${t("ws.people.sustainedPrefix")} ${sustained.sprints} ${t("ws.people.sustainedMid")}`}
           {sustained.escalate
-            ? "; si ya hubo acompañamiento sin mejora, evaluar escalar."
+            ? t("ws.people.sustainedEscalate")
             : "."}
         </p>
       )}
@@ -128,10 +148,10 @@ export default function PersonProfilePage() {
       {/* Evolución */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Evolución</CardTitle>
+          <CardTitle className="text-lg">{t("ws.people.evolution")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-56">
+          <div className="h-48 sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={profile.points}>
                 <defs>
@@ -141,18 +161,18 @@ export default function PersonProfilePage() {
                 <XAxis dataKey="label" {...axisProps} />
                 <YAxis {...axisProps} allowDecimals={false} width={28} />
                 <Tooltip content={<ChartTooltip />} cursor={{ stroke: CHART.track }} />
-                <Area type="monotone" dataKey="throughput" name="Throughput" stroke={SERIES.throughput} strokeWidth={2.5} fill={`url(#${gradientId("person-tp")})`} activeDot={{ r: 4 }} />
-                <Area type="monotone" dataKey="completedPoints" name="SP completados" stroke={SERIES.completedPoints} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
-                <Area type="monotone" dataKey="blocked" name="Bloqueadas" stroke={SERIES.blocked} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
+                <Area type="monotone" dataKey="throughput" name={t("ws.people.throughput")} stroke={SERIES.throughput} strokeWidth={2.5} fill={`url(#${gradientId("person-tp")})`} activeDot={{ r: 4 }} />
+                <Area type="monotone" dataKey="completedPoints" name={t("ws.people.completedPoints")} stroke={SERIES.completedPoints} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
+                <Area type="monotone" dataKey="blocked" name={t("ws.people.blocked")} stroke={SERIES.blocked} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
           <div className="mt-2">
             <ChartLegend
               items={[
-                { label: "Throughput", color: SERIES.throughput },
-                { label: "SP completados", color: SERIES.completedPoints },
-                { label: "Bloqueadas", color: SERIES.blocked },
+                { label: t("ws.people.throughput"), color: SERIES.throughput },
+                { label: t("ws.people.completedPoints"), color: SERIES.completedPoints },
+                { label: t("ws.people.blocked"), color: SERIES.blocked },
               ]}
             />
           </div>
@@ -162,17 +182,17 @@ export default function PersonProfilePage() {
       {latest && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Último sprint</CardTitle>
+            <CardTitle className="text-lg">{t("ws.people.lastSprint")}</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Finalizadas" value={latest.tasksDone} />
-            <Stat label="SP completados" value={latest.completedPoints} />
-            <Stat label="WIP" value={latest.wip} />
-            <Stat label="Bloqueadas" value={latest.tasksBlocked} />
-            <Stat label="PR mergeados" value={latest.prsMerged} />
-            <Stat label="Sin movimiento" value={latest.tasksStale} />
-            <Stat label="Throughput" value={latest.throughput} />
-            <Stat label="Tendencia" value={profile.trend === "up" ? "▲" : profile.trend === "down" ? "▼" : "="} />
+            <Stat label={t("ws.people.done")} value={latest.tasksDone} />
+            <Stat label={t("ws.people.completedPoints")} value={latest.completedPoints} />
+            <Stat label={t("ws.people.wip")} value={latest.wip} />
+            <Stat label={t("ws.people.blocked")} value={latest.tasksBlocked} />
+            <Stat label={t("ws.people.prsMerged")} value={latest.prsMerged} />
+            <Stat label={t("ws.people.stale")} value={latest.tasksStale} />
+            <Stat label={t("ws.people.throughput")} value={latest.throughput} />
+            <Stat label={t("ws.people.trend")} value={profile.trend === "up" ? "▲" : profile.trend === "down" ? "▼" : "="} />
           </CardContent>
         </Card>
       )}
@@ -180,7 +200,7 @@ export default function PersonProfilePage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Posibles hipótesis de contexto</CardTitle>
+            <CardTitle className="text-lg">{t("ws.people.hypotheses")}</CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
@@ -193,7 +213,7 @@ export default function PersonProfilePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Plan de acompañamiento</CardTitle>
+            <CardTitle className="text-lg">{t("ws.people.coachingPlan")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <ul className="list-disc space-y-1.5 pl-5">
@@ -202,10 +222,10 @@ export default function PersonProfilePage() {
               ))}
             </ul>
             <div>
-              <p className="font-medium">Preguntas para el 1:1</p>
+              <p className="font-medium">{t("ws.people.oneOnOneQuestions")}</p>
               <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
-                {COACHING_QUESTIONS.slice(0, 5).map((q, i) => (
-                  <li key={i}>{q}</li>
+                {COACHING_QUESTION_KEYS.slice(0, 5).map((q, i) => (
+                  <li key={i}>{t(q)}</li>
                 ))}
               </ul>
             </div>
@@ -218,11 +238,11 @@ export default function PersonProfilePage() {
       {/* AI 1:1 (Pro) */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Análisis 1:1 con IA (Pro)</CardTitle>
+          <CardTitle className="text-lg">{t("ws.people.aiTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Button onClick={coach} disabled={aiLoading}>
-            {aiLoading ? "Generando..." : "Generar análisis 1:1"}
+            {aiLoading ? t("ws.people.aiGenerating") : t("ws.people.aiGenerate")}
           </Button>
           {aiErr && (
             <p className="rounded-input bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -235,7 +255,7 @@ export default function PersonProfilePage() {
             </div>
           )}
           <p className="text-[11px] text-muted-foreground">
-            La IA usa solo los datos de desempeño de la persona en el proyecto.
+            {t("ws.people.aiNote")}
           </p>
         </CardContent>
       </Card>

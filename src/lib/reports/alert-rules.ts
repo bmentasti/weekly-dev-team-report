@@ -74,10 +74,17 @@ export function evaluateAlertRules(
     });
 }
 
-/** Texto legible de una regla, ej: "Bugs abiertos máx. mayor que 8". */
-export function ruleText(rule: AlertRuleInput): string {
+/**
+ * Texto legible de una regla, ej: "Bugs abiertos máx. mayor que 8".
+ * `t` es opcional: si se pasa, el operador sale traducido; si no, cae a español.
+ */
+export function ruleText(
+  rule: AlertRuleInput,
+  t?: (key: string) => string,
+): string {
   const def = METRIC_DEFS.find((d) => d.key === rule.metricKey);
   const label = def?.label ?? rule.metricKey;
   const unit = def?.unit ? ` ${def.unit}` : "";
-  return `${label} ${OPERATOR_LABEL[rule.operator]} ${rule.threshold}${unit}`;
+  const operator = t ? t(`lib.operator.${rule.operator}`) : OPERATOR_LABEL[rule.operator];
+  return `${label} ${operator} ${rule.threshold}${unit}`;
 }

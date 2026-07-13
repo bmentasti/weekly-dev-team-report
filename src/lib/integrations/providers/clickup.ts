@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type {
   ProviderAdapter,
   UnifiedWorkItem,
@@ -34,7 +35,7 @@ export const clickupAdapter: ProviderAdapter = {
   slug: "clickup",
   async testConnection(ctx) {
     try {
-      const res = await fetch(`${API}/list/${ctx.config.listId}`, {
+      const res = await safeFetch(`${API}/list/${ctx.config.listId}`, {
         headers: { Authorization: ctx.secret },
         cache: "no-store",
       });
@@ -47,7 +48,7 @@ export const clickupAdapter: ProviderAdapter = {
     }
   },
   async fetchData(ctx) {
-    const res = await fetch(`${API}/list/${ctx.config.listId}/task`, {
+    const res = await safeFetch(`${API}/list/${ctx.config.listId}/task`, {
       headers: { Authorization: ctx.secret },
       cache: "no-store",
     });

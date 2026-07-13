@@ -36,7 +36,19 @@ const config: Config = {
         success: {
           DEFAULT: "var(--success)",
           foreground: "#ffffff",
+          soft: "var(--success-soft)",
         },
+        "success-soft": "var(--success-soft)",
+        warning: {
+          DEFAULT: "var(--warning)",
+          soft: "var(--warning-soft)",
+        },
+        "warning-soft": "var(--warning-soft)",
+        danger: {
+          DEFAULT: "var(--danger)",
+          soft: "var(--danger-soft)",
+        },
+        "danger-soft": "var(--danger-soft)",
         muted: {
           DEFAULT: "var(--muted)",
           foreground: "var(--muted-foreground)",

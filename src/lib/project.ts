@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { resolveWorkspaceRole } from "@/lib/workspace";
+import { can } from "@/lib/permissions";
 
 export const ACTIVE_PROJECT_COOKIE = "activeProjectId";
 
@@ -56,4 +58,23 @@ export async function canAccessProject(
     select: { id: true },
   });
   return !!project;
+}
+
+/**
+ * Whether the user can ADMINISTER a project (rename, delete, manage members).
+ * A diferencia de `canAccessProject` (que sólo comprueba visibilidad), esto
+ * exige la capability `manageProjects` (OWNER/ADMIN del workspace). Evita que
+ * un MEMBER/VIEWER pueda renombrar/borrar proyectos o tocar la membresía. (SEC-01)
+ */
+export async function canManageProject(
+  userId: string,
+  projectId: string,
+): Promise<boolean> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { workspaceId: true },
+  });
+  if (!project) return false;
+  const role = await resolveWorkspaceRole(userId, project.workspaceId);
+  return can(role, "manageProjects");
 }

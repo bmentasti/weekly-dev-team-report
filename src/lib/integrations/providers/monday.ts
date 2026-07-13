@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type { ProviderAdapter } from "../types";
 import { mkItem, planBucket, isStale, httpError } from "./planning-helpers";
 
@@ -17,7 +18,7 @@ interface Resp {
 }
 
 async function gql(token: string, query: string): Promise<Resp> {
-  const res = await fetch(API, {
+  const res = await safeFetch(API, {
     method: "POST",
     headers: {
       Authorization: token,

@@ -5,108 +5,114 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useT } from "@/components/i18n-provider";
 
 interface Plan {
   name: string;
   monthly: number; // USD/mes
-  tagline: string;
-  features: string[];
+  taglineKey: string;
+  featureKeys: string[];
   highlighted: boolean;
-  cta: string;
+  ctaKey: string;
 }
 
 const PLANS: Plan[] = [
   {
     name: "Free",
     monthly: 0,
-    tagline: "Para probar el valor con datos reales.",
-    features: [
-      "1 proyecto · hasta 5 usuarios",
-      "Jira + GitHub (en vivo)",
-      "Reporte + lecturas por rol",
-      "Comparación de sprints",
-      "Export a CSV",
+    taglineKey: "mc.pricing.free.tagline",
+    featureKeys: [
+      "mc.pricing.free.f1",
+      "mc.pricing.free.f2",
+      "mc.pricing.free.f3",
+      "mc.pricing.free.f4",
+      "mc.pricing.free.f5",
     ],
     highlighted: false,
-    cta: "Empezar gratis",
+    ctaKey: "mc.pricing.free.cta",
   },
   {
     name: "Team",
     monthly: 29,
-    tagline: "Precio plano. Todo tu equipo incluido.",
-    features: [
-      "Hasta 45 usuarios (plano)",
-      "Todas las integraciones de tareas y código",
-      "Reportes ilimitados + histórico 12 meses",
-      "Alertas, desempeño por persona y matriz",
-      "Envío por email + programado · export PDF/CSV",
+    taglineKey: "mc.pricing.team.tagline",
+    featureKeys: [
+      "mc.pricing.team.f1",
+      "mc.pricing.team.f2",
+      "mc.pricing.team.f3",
+      "mc.pricing.team.f4",
+      "mc.pricing.team.f5",
     ],
     highlighted: true,
-    cta: "Empezar",
+    ctaKey: "mc.pricing.team.cta",
   },
   {
     name: "Pro",
     monthly: 79,
-    tagline: "Varias squads, comunicación e IA.",
-    features: [
-      "Multi-proyecto · usuarios ilimitados",
-      "Comunicación: Slack, Teams, Discord",
-      "Análisis con IA + preguntá al reporte",
-      "Umbrales por proyecto, reglas de alerta y auditoría",
-      "Histórico ilimitado · soporte prioritario",
+    taglineKey: "mc.pricing.pro.tagline",
+    featureKeys: [
+      "mc.pricing.pro.f1",
+      "mc.pricing.pro.f2",
+      "mc.pricing.pro.f3",
+      "mc.pricing.pro.f4",
+      "mc.pricing.pro.f5",
     ],
     highlighted: false,
-    cta: "Empezar",
+    ctaKey: "mc.pricing.pro.cta",
   },
 ];
 
 // Tier organizacional (venta asistida, no self-serve).
 const BUSINESS = {
   name: "Business",
-  tagline: "Para organizaciones con varios equipos.",
-  features: [
-    "Todo lo de Pro",
-    "SSO/SAML + múltiples workspaces",
-    "Permisos granulares y audit log",
-    "Retención extendida y SLA",
-    "Soporte dedicado + factura/PO",
+  taglineKey: "mc.pricing.business.tagline",
+  featureKeys: [
+    "mc.pricing.business.f1",
+    "mc.pricing.business.f2",
+    "mc.pricing.business.f3",
+    "mc.pricing.business.f4",
+    "mc.pricing.business.f5",
   ],
 };
 
+// Filas de comparación: [claveEtiqueta, free, team, pro]. Los valores que son
+// claves i18n se traducen en render; los símbolos/números quedan literales.
 const COMPARISON: [string, string, string, string][] = [
-  ["Proyectos", "1", "1", "Ilimitados"],
-  ["Usuarios", "5", "45", "Ilimitados"],
-  ["Reportes por mes", "10", "Ilimitados", "Ilimitados"],
-  ["Histórico de datos", "3 meses", "12 meses", "Ilimitado"],
-  ["Integraciones", "Jira + GitHub", "Tareas y código", "Todas + comunicación"],
-  ["Lecturas por rol (TL/PO/Dir)", "✓", "✓", "✓"],
-  ["Comparación de sprints", "✓", "✓", "✓"],
-  ["Desempeño por persona + matriz", "✓", "✓", "✓"],
-  ["Umbrales de salud", "recomendados", "editables", "por proyecto + IA"],
-  ["Alertas y salud de CI", "básico", "✓", "reglas custom"],
-  ["Export", "CSV", "CSV + PDF", "CSV + PDF"],
-  ["Envío por email / programado", "—", "✓", "✓"],
+  ["mc.pricing.cmp.projects", "1", "1", "mc.pricing.cmp.unlimited"],
+  ["mc.pricing.cmp.users", "5", "45", "mc.pricing.cmp.unlimited"],
+  ["mc.pricing.cmp.reportsPerMonth", "10", "mc.pricing.cmp.unlimited", "mc.pricing.cmp.unlimited"],
+  ["mc.pricing.cmp.dataHistory", "mc.pricing.cmp.months3", "mc.pricing.cmp.months12", "mc.pricing.cmp.unlimitedF"],
+  ["mc.pricing.cmp.integrations", "mc.pricing.cmp.jiraGithub", "mc.pricing.cmp.tasksCode", "mc.pricing.cmp.allComms"],
+  ["mc.pricing.cmp.roleReads", "✓", "✓", "✓"],
+  ["mc.pricing.cmp.sprintCompare", "✓", "✓", "✓"],
+  ["mc.pricing.cmp.perPersonMatrix", "✓", "✓", "✓"],
+  ["mc.pricing.cmp.healthThresholds", "mc.pricing.cmp.recommended", "mc.pricing.cmp.editable", "mc.pricing.cmp.perProjectAi"],
+  ["mc.pricing.cmp.ciAlerts", "mc.pricing.cmp.basic", "✓", "mc.pricing.cmp.customRules"],
+  ["mc.pricing.cmp.export", "CSV", "CSV + PDF", "CSV + PDF"],
+  ["mc.pricing.cmp.emailScheduled", "—", "✓", "✓"],
   ["Slack / Teams / Discord", "—", "—", "✓"],
-  ["Análisis con IA", "—", "—", "✓"],
-  ["Auditoría y versionado", "—", "historial", "completo"],
+  ["mc.pricing.cmp.aiAnalysis", "—", "—", "✓"],
+  ["mc.pricing.cmp.audit", "—", "mc.pricing.cmp.history", "mc.pricing.cmp.complete"],
 ];
 
 // Anual = pagás 10 meses (2 gratis), abonados por adelantado.
 const ANNUAL_MONTHS = 10;
 
 export function PricingPlans() {
+  const { t } = useT();
   const [annual, setAnnual] = useState(false);
+  // Traduce solo si el valor es una clave i18n conocida; deja literales
+  // (números, símbolos, "CSV", "Slack…") tal cual.
+  const tr = (v: string) => (v.startsWith("mc.pricing.") ? t(v) : v);
 
   return (
     <section id="precios" className="bg-muted/40 py-20">
       <div className="container">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold tracking-tight">
-            Precio plano. Usuarios incluidos.
+            {t("mc.pricing.title")}
           </h2>
           <p className="mt-3 text-muted-foreground">
-            Mientras otras herramientas cobran por asiento, en DevMetrics sumás a
-            tu equipo sin costo por persona.
+            {t("mc.pricing.subtitle")}
           </p>
 
           {/* Toggle */}
@@ -117,7 +123,7 @@ export function PricingPlans() {
                 !annual ? "bg-primary text-white" : "text-muted-foreground"
               }`}
             >
-              Mensual
+              {t("mc.pricing.monthly")}
             </button>
             <button
               onClick={() => setAnnual(true)}
@@ -125,13 +131,13 @@ export function PricingPlans() {
                 annual ? "bg-primary text-white" : "text-muted-foreground"
               }`}
             >
-              Anual
+              {t("mc.pricing.annual")}
               <span
                 className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                   annual ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
                 }`}
               >
-                2 meses gratis
+                {t("mc.pricing.twoMonthsFree")}
               </span>
             </button>
           </div>
@@ -149,47 +155,47 @@ export function PricingPlans() {
                 <CardContent className="flex h-full flex-col py-6">
                   {plan.highlighted && (
                     <span className="mb-3 inline-block w-fit rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white">
-                      Más popular
+                      {t("mc.pricing.mostPopular")}
                     </span>
                   )}
                   <h3 className="text-lg font-semibold">{plan.name}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {plan.tagline}
+                    {t(plan.taglineKey)}
                   </p>
 
                   <div className="mt-4">
                     {isFree ? (
                       <>
                         <span className="text-4xl font-bold">$0</span>
-                        <span className="text-muted-foreground"> para siempre</span>
+                        <span className="text-muted-foreground"> {t("mc.pricing.forever")}</span>
                       </>
                     ) : annual ? (
                       <>
                         <span className="text-4xl font-bold">${annualTotal}</span>
-                        <span className="text-muted-foreground"> /año</span>
+                        <span className="text-muted-foreground"> {t("mc.pricing.perYear")}</span>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Pagando por mes, 12 meses te saldrían{" "}
-                          <s>${plan.monthly * 12}</s>. Ahorrás $
-                          {plan.monthly * (12 - ANNUAL_MONTHS)} (2 meses).
+                          {t("mc.pricing.payMonthlyPrefix")}{" "}
+                          <s>${plan.monthly * 12}</s>. {t("mc.pricing.saveMid")} $
+                          {plan.monthly * (12 - ANNUAL_MONTHS)} {t("mc.pricing.saveSuffix")}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Equivale a ~${Math.round(annualTotal / 12)}/mes · se
-                          abona por adelantado.
+                          {t("mc.pricing.equivalentPrefix")}${Math.round(annualTotal / 12)}
+                          {t("mc.pricing.equivalentSuffix")}
                         </p>
                       </>
                     ) : (
                       <>
                         <span className="text-4xl font-bold">${plan.monthly}</span>
-                        <span className="text-muted-foreground"> /mes</span>
+                        <span className="text-muted-foreground"> {t("mc.pricing.perMonth")}</span>
                       </>
                     )}
                   </div>
 
                   <ul className="mt-6 space-y-2 text-sm">
-                    {plan.features.map((feat) => (
-                      <li key={feat} className="flex items-center gap-2">
+                    {plan.featureKeys.map((featKey) => (
+                      <li key={featKey} className="flex items-center gap-2">
                         <Check className="h-4 w-4 text-primary" />
-                        {feat}
+                        {t(featKey)}
                       </li>
                     ))}
                   </ul>
@@ -198,7 +204,7 @@ export function PricingPlans() {
                     className="mt-6 w-full"
                     variant={plan.highlighted ? "default" : "outline"}
                   >
-                    <Link href="/register">{plan.cta}</Link>
+                    <Link href="/register">{t(plan.ctaKey)}</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -212,7 +218,7 @@ export function PricingPlans() {
             <thead>
               <tr className="border-b text-left">
                 <th className="py-2 pr-4 font-medium text-muted-foreground">
-                  Qué incluye
+                  {t("mc.pricing.whatIncludes")}
                 </th>
                 <th className="py-2 pr-4 text-center font-semibold">Free</th>
                 <th className="py-2 pr-4 text-center font-semibold text-primary">
@@ -224,13 +230,13 @@ export function PricingPlans() {
             <tbody>
               {COMPARISON.map((row) => (
                 <tr key={row[0]} className="border-b last:border-0">
-                  <td className="py-2 pr-4 text-muted-foreground">{row[0]}</td>
+                  <td className="py-2 pr-4 text-muted-foreground">{tr(row[0])}</td>
                   {[row[1], row[2], row[3]].map((v, i) => (
                     <td
                       key={i}
                       className={`py-2 pr-4 text-center ${v === "✓" ? "text-emerald-600" : v === "—" ? "text-muted-foreground/50" : ""}`}
                     >
-                      {v}
+                      {tr(v)}
                     </td>
                   ))}
                 </tr>
@@ -240,9 +246,7 @@ export function PricingPlans() {
         </div>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          Un equipo de 10 en un plan por asiento a US$20/usuario paga ~US$200/mes.
-          En DevMetrics, Team cuesta US$29/mes fijo (o ~US$24/mes en el plan
-          anual) — todo el equipo incluido, sin costo por asiento.
+          {t("mc.pricing.footnote")}
         </p>
 
         {/* Business (venta asistida) */}
@@ -251,21 +255,21 @@ export function PricingPlans() {
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold">{BUSINESS.name}</h3>
               <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs">
-                Para organizaciones
+                {t("mc.pricing.forOrgs")}
               </span>
             </div>
-            <p className="mt-1 text-sm text-white/70">{BUSINESS.tagline}</p>
+            <p className="mt-1 text-sm text-white/70">{t(BUSINESS.taglineKey)}</p>
             <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/80">
-              {BUSINESS.features.map((f) => (
-                <li key={f} className="flex items-center gap-1.5">
+              {BUSINESS.featureKeys.map((fKey) => (
+                <li key={fKey} className="flex items-center gap-1.5">
                   <Check className="h-4 w-4 text-primary" />
-                  {f}
+                  {t(fKey)}
                 </li>
               ))}
             </ul>
           </div>
           <Button asChild size="lg" className="h-12 shrink-0">
-            <Link href="/#contacto">Consultanos</Link>
+            <Link href="/#contacto">{t("mc.pricing.consultUs")}</Link>
           </Button>
         </div>
       </div>

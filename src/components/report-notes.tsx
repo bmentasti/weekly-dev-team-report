@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDialogs } from "@/components/ui/dialog-provider";
+import { useT } from "@/components/i18n-provider";
 
 interface Note {
   id: string;
@@ -15,6 +16,7 @@ interface Note {
 }
 
 export function ReportNotes({ reportId }: { reportId: string }) {
+  const { t } = useT();
   const { confirm } = useDialogs();
   const [notes, setNotes] = useState<Note[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -60,8 +62,8 @@ export function ReportNotes({ reportId }: { reportId: string }) {
 
   async function remove(id: string) {
     const ok = await confirm({
-      title: "Eliminar nota",
-      confirmLabel: "Eliminar",
+      title: t("rep.deleteNote"),
+      confirmLabel: t("rep.deleteConfirmLabel"),
       danger: true,
     });
     if (!ok) return;
@@ -72,13 +74,13 @@ export function ReportNotes({ reportId }: { reportId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Notas</CardTitle>
+        <CardTitle className="text-lg">{t("rep.notes")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-3">
           {notes.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              Todavía no hay notas. Dejá la primera.
+              {t("rep.noNotesYet")}
             </p>
           )}
           {notes.map((n) => (
@@ -93,14 +95,14 @@ export function ReportNotes({ reportId }: { reportId: string }) {
                   />
                   <div className="flex gap-2">
                     <Button size="sm" onClick={() => saveEdit(n.id)}>
-                      Guardar
+                      {t("rep.save")}
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => setEditingId(null)}
                     >
-                      Cancelar
+                      {t("rep.cancel")}
                     </Button>
                   </div>
                 </div>
@@ -110,7 +112,7 @@ export function ReportNotes({ reportId }: { reportId: string }) {
                   <div className="mt-1 flex items-center justify-between">
                     <span className="text-[11px] text-muted-foreground">
                       {n.authorName} · {new Date(n.createdAt).toLocaleString()}
-                      {n.updatedAt !== n.createdAt ? " (editada)" : ""}
+                      {n.updatedAt !== n.createdAt ? ` ${t("rep.edited")}` : ""}
                     </span>
                     {currentUserId === n.authorId && (
                       <span className="flex gap-2">
@@ -121,13 +123,13 @@ export function ReportNotes({ reportId }: { reportId: string }) {
                             setEditBody(n.body);
                           }}
                         >
-                          Editar
+                          {t("rep.edit")}
                         </button>
                         <button
                           className="text-xs text-muted-foreground hover:text-destructive"
                           onClick={() => remove(n.id)}
                         >
-                          Eliminar
+                          {t("rep.delete")}
                         </button>
                       </span>
                     )}
@@ -142,12 +144,12 @@ export function ReportNotes({ reportId }: { reportId: string }) {
           <textarea
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             rows={3}
-            placeholder="Escribí una nota sobre este reporte..."
+            placeholder={t("rep.notePlaceholder")}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
           <Button size="sm" onClick={add} disabled={saving || !draft.trim()}>
-            {saving ? "Guardando..." : "Agregar nota"}
+            {saving ? t("rep.saving") : t("rep.addNote")}
           </Button>
         </div>
       </CardContent>

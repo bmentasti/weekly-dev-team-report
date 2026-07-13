@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { ProviderCatalogEntry } from "@/lib/integrations/catalog";
+import { useT } from "@/components/i18n-provider";
 
 type Feedback =
   | { type: "success"; message: string }
@@ -30,6 +31,7 @@ export function GenericConnectForm({
   connected: boolean;
 }) {
   const router = useRouter();
+  const { t } = useT();
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
@@ -56,12 +58,12 @@ export function GenericConnectForm({
     if (data.ok) {
       setFeedback({
         type: "success",
-        message: `Conexión OK${data.detail ? ` — ${data.detail}` : ""}.`,
+        message: `${t("ws.connect.connOkPrefix")}${data.detail ? ` — ${data.detail}` : ""}.`,
       });
     } else {
       setFeedback({
         type: "error",
-        message: data.error ?? `No se pudo conectar con ${entry.label}.`,
+        message: data.error ?? `${t("ws.connect.cantConnectPrefix")} ${entry.label}.`,
       });
     }
   }
@@ -83,7 +85,7 @@ export function GenericConnectForm({
     } else {
       setFeedback({
         type: "error",
-        message: data.error ?? "No se pudo guardar la integración.",
+        message: data.error ?? t("ws.connect.saveError"),
       });
     }
   }
@@ -91,9 +93,9 @@ export function GenericConnectForm({
   return (
     <Card className="w-full max-w-lg">
       <CardHeader>
-        <CardTitle>Conectar {entry.label}</CardTitle>
+        <CardTitle>{`${t("ws.connect.titlePrefix")} ${entry.label}`}</CardTitle>
         <CardDescription>
-          {entry.blurb} Tus credenciales se guardan encriptadas.
+          {`${entry.blurb} ${t("ws.connect.descSuffix")}`}
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSave}>
@@ -101,7 +103,7 @@ export function GenericConnectForm({
           {entry.guide.length > 0 && (
             <details className="group rounded-md border bg-muted/40 p-3 text-sm">
               <summary className="cursor-pointer select-none font-medium text-foreground">
-                ¿Cómo obtengo estos datos? (guía rápida)
+                {t("ws.connect.guideSummary")}
               </summary>
               <ol className="mt-3 list-decimal space-y-3 pl-5 text-muted-foreground">
                 {entry.guide.map((step, i) => (
@@ -127,16 +129,15 @@ export function GenericConnectForm({
           )}
 
           {connected && (
-            <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-              {entry.label} ya está conectado. Podés actualizar los datos
-              (reingresá el secreto para reconectar).
+            <p className="rounded-md bg-success-soft px-3 py-2 text-sm text-success">
+              {`${entry.label} ${t("ws.connect.alreadyConnectedPrefix")} ${t("ws.connect.alreadyConnectedSuffix")}`}
             </p>
           )}
           {feedback && (
             <p
               className={
                 feedback.type === "success"
-                  ? "rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+                  ? "rounded-md bg-success-soft px-3 py-2 text-sm text-success"
                   : "rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
               }
             >
@@ -150,7 +151,7 @@ export function GenericConnectForm({
                 {field.label}
                 {field.optional && (
                   <span className="ml-1 text-xs font-normal text-muted-foreground">
-                    (opcional)
+                    {t("ws.connect.optional")}
                   </span>
                 )}
               </Label>
@@ -178,10 +179,10 @@ export function GenericConnectForm({
               if (form) handleTest(form);
             }}
           >
-            {testing ? "Probando..." : "Probar conexión"}
+            {testing ? t("ws.connect.testing") : t("ws.connect.testConnection")}
           </Button>
           <Button type="submit" disabled={saving || testing}>
-            {saving ? "Guardando..." : "Guardar integración"}
+            {saving ? t("ws.connect.saving") : t("ws.connect.saveIntegration")}
           </Button>
         </CardFooter>
       </form>

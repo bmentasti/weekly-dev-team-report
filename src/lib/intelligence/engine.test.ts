@@ -38,6 +38,22 @@ describe("Health Score (Etapa 3)", () => {
     // ambas configuraciones producen overall válido
     expect(computeHealth(jiraGithub, "startup").overall).not.toBeNull();
   });
+
+  it("expone dimensiones ponderadas ausentes y cobertura del modelo (M6)", () => {
+    const h = computeHealth(jiraGithub);
+    // Con solo Jira+GitHub faltan varias dimensiones ponderadas (security, etc.).
+    expect(Array.isArray(h.missingWeightedDimensions)).toBe(true);
+    expect(h.missingWeightedDimensions).toContain("security");
+    // La cobertura del modelo de salud es una fracción 0..1 estrictamente < 1.
+    expect(h.coverageOfHealth).toBeGreaterThan(0);
+    expect(h.coverageOfHealth).toBeLessThan(1);
+  });
+
+  it("sin datos: coverageOfHealth = 0 y todas las dimensiones ponderadas faltan", () => {
+    const h = computeHealth(computeCoverage([], NOW));
+    expect(h.coverageOfHealth).toBe(0);
+    expect(h.missingWeightedDimensions.length).toBeGreaterThan(0);
+  });
 });
 
 describe("Recomendaciones (Etapa 3)", () => {

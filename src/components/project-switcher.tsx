@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Plus, Check, Pencil, Trash2 } from "lucide-react";
 import { useDialogs } from "@/components/ui/dialog-provider";
+import { useT } from "@/components/i18n-provider";
 
 interface Project {
   id: string;
@@ -12,6 +13,7 @@ interface Project {
 
 export function ProjectSwitcher() {
   const router = useRouter();
+  const { t } = useT();
   const { confirm, prompt, alert, upgrade } = useDialogs();
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -52,10 +54,10 @@ export function ProjectSwitcher() {
   async function createProject() {
     setOpen(false);
     const name = await prompt({
-      title: "Nuevo proyecto",
-      label: "Nombre del proyecto",
+      title: t("ws.switcher.newProject"),
+      label: t("ws.switcher.projectName"),
       placeholder: "Web App",
-      confirmLabel: "Crear",
+      confirmLabel: t("ws.switcher.create"),
     });
     if (!name) return;
     const res = await fetch("/api/projects", {
@@ -64,7 +66,7 @@ export function ProjectSwitcher() {
       body: JSON.stringify({ name }),
     });
     if (res.status === 403) {
-      await upgrade({ feature: "Tener más de un proyecto", suggestedPlan: "Pro" });
+      await upgrade({ feature: t("ws.switcher.moreThanOneProject"), suggestedPlan: "Pro" });
       return;
     }
     if (!res.ok) return;
@@ -77,9 +79,9 @@ export function ProjectSwitcher() {
     if (!activeId || !active) return;
     setOpen(false);
     const name = await prompt({
-      title: "Renombrar proyecto",
+      title: t("ws.switcher.renameProject"),
       defaultValue: active.name,
-      confirmLabel: "Guardar",
+      confirmLabel: t("ws.switcher.save"),
     });
     if (!name || name === active.name) return;
     const res = await fetch(`/api/projects/${activeId}`, {
@@ -96,16 +98,16 @@ export function ProjectSwitcher() {
     if (!activeId || !active) return;
     setOpen(false);
     const ok = await confirm({
-      title: `Eliminar "${active.name}"`,
-      description: "Se borran sus integraciones y reportes. No se puede deshacer.",
-      confirmLabel: "Eliminar",
+      title: `${t("ws.switcher.deletePrefix")} "${active.name}"`,
+      description: t("ws.switcher.deleteDesc"),
+      confirmLabel: t("ws.switcher.delete"),
       danger: true,
     });
     if (!ok) return;
     const res = await fetch(`/api/projects/${activeId}`, { method: "DELETE" });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      await alert({ title: "No se pudo eliminar", description: j.error });
+      await alert({ title: t("ws.switcher.cantDelete"), description: j.error });
       return;
     }
     const remaining = projects.filter((p) => p.id !== activeId);
@@ -129,14 +131,14 @@ export function ProjectSwitcher() {
           {(active?.name ?? "P").charAt(0).toUpperCase()}
         </span>
         <span className="max-w-[10rem] truncate font-medium">
-          {active?.name ?? "Proyecto"}
+          {active?.name ?? t("ws.switcher.projectFallback")}
         </span>
         <ChevronDown className="h-4 w-4 text-muted-foreground" />
       </button>
       {open && (
         <div className="absolute left-0 z-50 mt-2 w-60 rounded-card border bg-background p-1 shadow-card">
           <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Proyectos
+            {t("ws.switcher.projects")}
           </p>
           <div className="max-h-64 overflow-y-auto">
             {projects.map((p) => (
@@ -156,7 +158,7 @@ export function ProjectSwitcher() {
               className="flex w-full items-center gap-2 rounded-button px-3 py-2 text-left text-sm text-primary hover:bg-muted"
             >
               <Plus className="h-4 w-4" />
-              Nuevo proyecto
+              {t("ws.switcher.newProject")}
             </button>
             {active && (
               <button
@@ -164,7 +166,7 @@ export function ProjectSwitcher() {
                 className="flex w-full items-center gap-2 rounded-button px-3 py-2 text-left text-sm hover:bg-muted"
               >
                 <Pencil className="h-4 w-4 text-muted-foreground" />
-                Renombrar «{active.name}»
+                {`${t("ws.switcher.renamePrefix")} «${active.name}»`}
               </button>
             )}
             {active && projects.length > 1 && (
@@ -173,7 +175,7 @@ export function ProjectSwitcher() {
                 className="flex w-full items-center gap-2 rounded-button px-3 py-2 text-left text-sm text-destructive hover:bg-muted"
               >
                 <Trash2 className="h-4 w-4" />
-                Eliminar «{active.name}»
+                {`${t("ws.switcher.deletePrefix")} «${active.name}»`}
               </button>
             )}
           </div>

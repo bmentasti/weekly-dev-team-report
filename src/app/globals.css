@@ -19,7 +19,12 @@
     --accent-foreground: #0b1d3a;
     --destructive: #e5484d;
     --destructive-foreground: #ffffff;
-    --success: #16c784; /* Success Green */
+    --success: #047857; /* Success text/foreground (emerald-700, legible on soft) */
+    --success-soft: #dcfce7; /* Success tint (emerald-100) */
+    --warning: #b45309; /* Warning text (amber-700) */
+    --warning-soft: #fef3c7; /* Warning tint (amber-100) */
+    --danger: #b91c1c; /* Danger text (red-700) */
+    --danger-soft: #fee2e2; /* Danger tint (red-100) */
     --border: #dce3ee; /* Stroke */
     --input: #dce3ee;
     --ring: #2563ff;
@@ -43,7 +48,12 @@
     --accent-foreground: #e6ebf5;
     --destructive: #ff5c60;
     --destructive-foreground: #ffffff;
-    --success: #22d39a;
+    --success: #4ade80; /* Success text/foreground (legible on dark soft) */
+    --success-soft: #0f2e22; /* Success tint (dark) */
+    --warning: #fbbf24; /* Warning text (amber-400) */
+    --warning-soft: #37280a; /* Warning tint (dark) */
+    --danger: #ff8a8d; /* Danger text (light red) */
+    --danger-soft: #3a1516; /* Danger tint (dark) */
     --border: #24304a;
     --input: #24304a;
     --ring: #4f7cff;

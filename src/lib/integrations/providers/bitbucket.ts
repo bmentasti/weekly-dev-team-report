@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type {
   CodeChangeState,
   ProviderAdapter,
@@ -35,7 +36,7 @@ export const bitbucketAdapter: ProviderAdapter = {
   async testConnection(ctx) {
     const { workspace, repoSlug, username } = ctx.config;
     try {
-      const res = await fetch(`${API}/repositories/${workspace}/${repoSlug}`, {
+      const res = await safeFetch(`${API}/repositories/${workspace}/${repoSlug}`, {
         headers: { Authorization: authHeader(username ?? "", ctx.secret) },
         cache: "no-store",
       });
@@ -53,7 +54,7 @@ export const bitbucketAdapter: ProviderAdapter = {
     const now = Date.now();
 
     async function list(state: string): Promise<RawPr[]> {
-      const res = await fetch(
+      const res = await safeFetch(
         `${API}/repositories/${workspace}/${repoSlug}/pullrequests?state=${state}&pagelen=50`,
         { headers, cache: "no-store" },
       );

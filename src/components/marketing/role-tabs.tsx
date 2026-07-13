@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/i18n-provider";
 
 type RoleKey = "tl" | "po" | "dir";
 
@@ -30,12 +31,13 @@ interface RoleDef {
 /* ------------------------------ mini visuals ------------------------------ */
 
 function TlVisual() {
+  const { t } = useT();
   return (
     <div className="rounded-card border bg-white p-4 shadow-soft">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-semibold">PRs abiertos</span>
+        <span className="text-sm font-semibold">{t("mc.rt.tl.openPrs")}</span>
         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-          4 sin reviewer
+          {t("mc.rt.tl.noReviewer")}
         </span>
       </div>
       <div className="space-y-2">
@@ -70,17 +72,18 @@ function TlVisual() {
 }
 
 function PoVisual() {
+  const { t } = useT();
   return (
     <div className="rounded-card border bg-white p-4 shadow-soft">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-semibold">Avance funcional</span>
+        <span className="text-sm font-semibold">{t("mc.rt.po.functionalProgress")}</span>
         <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-          Listo para demo: 6
+          {t("mc.rt.po.readyDemo")}
         </span>
       </div>
       <div className="mb-3">
         <div className="flex justify-between text-[11px] text-muted-foreground">
-          <span>Comprometido</span>
+          <span>{t("mc.rt.po.committed")}</span>
           <span>82%</span>
         </div>
         <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -89,12 +92,10 @@ function PoVisual() {
       </div>
       <div className="space-y-1.5 text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
-          <CircleDot className="h-3.5 w-3.5 text-primary/60" /> Scope creep 13% ·
-          estable
+          <CircleDot className="h-3.5 w-3.5 text-primary/60" /> {t("mc.rt.po.scopeCreep")}
         </div>
         <div className="flex items-center gap-2">
-          <CircleDot className="h-3.5 w-3.5 text-primary/60" /> 2 historias
-          reabiertas
+          <CircleDot className="h-3.5 w-3.5 text-primary/60" /> {t("mc.rt.po.reopened")}
         </div>
       </div>
     </div>
@@ -102,17 +103,18 @@ function PoVisual() {
 }
 
 function DirVisual() {
+  const { t } = useT();
   return (
     <div className="rounded-card border bg-white p-4 shadow-soft">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-semibold">Salud del portafolio</span>
-        <span className="text-[11px] text-muted-foreground">9 proyectos</span>
+        <span className="text-sm font-semibold">{t("mc.rt.dir.portfolioHealth")}</span>
+        <span className="text-[11px] text-muted-foreground">{t("mc.rt.dir.projects")}</span>
       </div>
       <div className="space-y-2">
         {[
-          ["Checkout", "Crítico", "bg-red-100 text-red-700", "down"],
-          ["Onboarding", "Observación", "bg-amber-100 text-amber-800", "down"],
-          ["Core API", "Saludable", "bg-emerald-100 text-emerald-800", "up"],
+          [t("mc.rt.dir.checkout"), t("mc.rt.dir.critical"), "bg-red-100 text-red-700", "down"],
+          [t("mc.rt.dir.onboarding"), t("mc.rt.dir.observation"), "bg-amber-100 text-amber-800", "down"],
+          [t("mc.rt.dir.coreApi"), t("mc.rt.dir.healthy"), "bg-emerald-100 text-emerald-800", "up"],
         ].map(([name, label, tone, dir]) => (
           <div
             key={name}
@@ -136,60 +138,60 @@ function DirVisual() {
   );
 }
 
-/* --------------------------------- data ---------------------------------- */
-
-const ROLES: RoleDef[] = [
-  {
-    key: "tl",
-    tab: "Tech Lead",
-    icon: GitPullRequest,
-    role: "Tech Lead",
-    value: "Anticipá riesgos técnicos antes de que frenen la entrega.",
-    points: [
-      "PRs abiertos, viejos y sin reviewer",
-      "Bloqueos y deuda técnica",
-      "Bugs, build failures y calidad",
-      "Quién necesita acompañamiento",
-    ],
-    cta: "Ver reporte técnico",
-    visual: <TlVisual />,
-  },
-  {
-    key: "po",
-    tab: "Product Owner",
-    icon: ClipboardList,
-    role: "Product Owner",
-    value: "Sabé si el sprint entrega valor real, no solo actividad.",
-    points: [
-      "Avance funcional vs comprometido",
-      "Scope creep e historias reabiertas",
-      "Qué está listo para demo",
-      "Estado claro para stakeholders",
-    ],
-    cta: "Ver avance del sprint",
-    visual: <PoVisual />,
-  },
-  {
-    key: "dir",
-    tab: "Director / Gerente",
-    icon: GaugeCircle,
-    role: "Director / Gerente",
-    value: "El portafolio completo y dónde tomar decisiones, de un vistazo.",
-    points: [
-      "Estado general y proyectos en riesgo",
-      "Previsibilidad por equipo",
-      "Evolución mensual y tendencias",
-      "Reportes ejecutivos listos",
-    ],
-    cta: "Ver vista ejecutiva",
-    visual: <DirVisual />,
-  },
-];
-
 /* -------------------------------- component ------------------------------- */
 
 export function RoleTabs() {
+  const { t } = useT();
   const [active, setActive] = useState<RoleKey>("tl");
+
+  const ROLES: RoleDef[] = [
+    {
+      key: "tl",
+      tab: t("mc.rt.tl.tab"),
+      icon: GitPullRequest,
+      role: t("mc.rt.tl.role"),
+      value: t("mc.rt.tl.value"),
+      points: [
+        t("mc.rt.tl.p1"),
+        t("mc.rt.tl.p2"),
+        t("mc.rt.tl.p3"),
+        t("mc.rt.tl.p4"),
+      ],
+      cta: t("mc.rt.tl.cta"),
+      visual: <TlVisual />,
+    },
+    {
+      key: "po",
+      tab: t("mc.rt.po.tab"),
+      icon: ClipboardList,
+      role: t("mc.rt.po.role"),
+      value: t("mc.rt.po.value"),
+      points: [
+        t("mc.rt.po.p1"),
+        t("mc.rt.po.p2"),
+        t("mc.rt.po.p3"),
+        t("mc.rt.po.p4"),
+      ],
+      cta: t("mc.rt.po.cta"),
+      visual: <PoVisual />,
+    },
+    {
+      key: "dir",
+      tab: t("mc.rt.dir.tab"),
+      icon: GaugeCircle,
+      role: t("mc.rt.dir.role"),
+      value: t("mc.rt.dir.value"),
+      points: [
+        t("mc.rt.dir.p1"),
+        t("mc.rt.dir.p2"),
+        t("mc.rt.dir.p3"),
+        t("mc.rt.dir.p4"),
+      ],
+      cta: t("mc.rt.dir.cta"),
+      visual: <DirVisual />,
+    },
+  ];
+
   const current = ROLES.find((r) => r.key === active)!;
 
   return (
@@ -197,7 +199,7 @@ export function RoleTabs() {
       {/* Tabs */}
       <div
         role="tablist"
-        aria-label="Valor por rol"
+        aria-label={t("mc.rt.aria")}
         className="mx-auto flex max-w-2xl flex-wrap justify-center gap-2"
       >
         {ROLES.map((r) => {

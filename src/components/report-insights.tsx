@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Area,
   AreaChart,
@@ -17,10 +18,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ReportMetrics } from "@/lib/reports/types";
-import {
-  PERSON_CATEGORY_LABEL,
-  personCategoryVariant,
-} from "@/lib/reports/labels";
+import { personCategoryVariant } from "@/lib/reports/labels";
+import { useT } from "@/components/i18n-provider";
 import {
   CHART,
   SERIES,
@@ -71,27 +70,37 @@ function ProgressBar({ pct }: { pct: number }) {
 }
 
 export function ReportInsights({ metrics }: { metrics: ReportMetrics }) {
+  const { t } = useT();
   const { capacity, projectProgress, statusDistribution, planning, trend } =
     metrics;
 
-  const statusData = [
-    { name: "Finalizadas", value: statusDistribution.done, color: COLORS.done },
-    {
-      name: "En progreso",
-      value: statusDistribution.inProgress,
-      color: COLORS.inProgress,
-    },
-    { name: "Bloqueadas", value: statusDistribution.blocked, color: COLORS.blocked },
-    { name: "Por hacer", value: statusDistribution.todo, color: COLORS.todo },
-  ].filter((d) => d.value > 0);
+  const spCompletedLabel = t("rep.spCompleted");
+  const throughputLabel = t("rep.throughput");
 
-  const peopleChart = metrics.people
-    .slice(0, 10)
-    .map((p) => ({
-      name: p.name,
-      "SP completados": p.completedPoints,
-      Throughput: p.throughput,
-    }));
+  const statusData = useMemo(
+    () =>
+      [
+        { name: t("rep.statusDone"), value: statusDistribution.done, color: COLORS.done },
+        {
+          name: t("rep.statusInProgress"),
+          value: statusDistribution.inProgress,
+          color: COLORS.inProgress,
+        },
+        { name: t("rep.statusBlocked"), value: statusDistribution.blocked, color: COLORS.blocked },
+        { name: t("rep.statusTodo"), value: statusDistribution.todo, color: COLORS.todo },
+      ].filter((d) => d.value > 0),
+    [statusDistribution, t],
+  );
+
+  const peopleChart = useMemo(
+    () =>
+      metrics.people.slice(0, 10).map((p) => ({
+        name: p.name,
+        [spCompletedLabel]: p.completedPoints,
+        [throughputLabel]: p.throughput,
+      })),
+    [metrics.people, spCompletedLabel, throughputLabel],
+  );
 
   const showTrend = trend.length >= 2;
 
@@ -100,14 +109,14 @@ export function ReportInsights({ metrics }: { metrics: ReportMetrics }) {
       {/* Avance del proyecto */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Avance del proyecto</CardTitle>
+          <CardTitle className="text-lg">{t("rep.projectProgress")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-3">
               <div>
                 <div className="mb-1 flex justify-between text-sm">
-                  <span>Por story points</span>
+                  <span>{t("rep.byStoryPoints")}</span>
                   <span className="font-medium">
                     {projectProgress.completionByPoints}%
                   </span>
@@ -116,7 +125,7 @@ export function ReportInsights({ metrics }: { metrics: ReportMetrics }) {
               </div>
               <div>
                 <div className="mb-1 flex justify-between text-sm">
-                  <span>Por tareas</span>
+                  <span>{t("rep.byTasks")}</span>
                   <span className="font-medium">
                     {projectProgress.completionByCount}%
                   </span>
@@ -124,13 +133,12 @@ export function ReportInsights({ metrics }: { metrics: ReportMetrics }) {
                 <ProgressBar pct={projectProgress.completionByCount} />
               </div>
               <p className="text-xs text-muted-foreground">
-                {projectProgress.doneItems} de {projectProgress.totalItems} tareas
-                finalizadas.
+                {projectProgress.doneItems} {t("rep.tasksDoneOfTotalPre")} {projectProgress.totalItems} {t("rep.tasksDoneOfTotalPost")}
               </p>
             </div>
             {statusData.length > 0 && (
               <div>
-                <div className="relative h-48">
+                <div className="relative h-48 sm:h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -155,10 +163,10 @@ export function ReportInsights({ metrics }: { metrics: ReportMetrics }) {
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-2xl font-bold text-navy">
+                    <span className="text-2xl font-bold text-foreground">
                       {statusData.reduce((a, d) => a + d.value, 0)}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">tareas</span>
+                    <span className="text-[11px] text-muted-foreground">{t("rep.tasks")}</span>
                   </div>
                 </div>
                 <div className="mt-2">
@@ -175,19 +183,19 @@ export function ReportInsights({ metrics }: { metrics: ReportMetrics }) {
       {/* Capacidad y velocity */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Capacidad y velocity</CardTitle>
+          <CardTitle className="text-lg">{t("rep.capacityAndVelocity")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat
-              label="SP completados"
+              label={t("rep.spCompleted")}
               value={capacity.completedPoints}
-              sub={`de ${capacity.committedPoints} comprometidos`}
+              sub={`${t("rep.spCompletedOfCommittedPre")} ${capacity.committedPoints} ${t("rep.spCompletedOfCommittedPost")}`}
             />
-            <Stat label="Velocity" value={`${capacity.velocityPoints} pts`} />
-            <Stat label="Restantes" value={`${capacity.remainingPoints} pts`} />
+            <Stat label={t("rep.velocity")} value={`${capacity.velocityPoints} ${t("rep.pts")}`} />
+            <Stat label={t("rep.remaining")} value={`${capacity.remainingPoints} ${t("rep.pts")}`} />
             <Stat
-              label="Cycle time"
+              label={t("rep.kpiCycleTime")}
               value={
                 capacity.cycleTimeAvgDays != null
                   ? `${capacity.cycleTimeAvgDays} d`
@@ -197,7 +205,7 @@ export function ReportInsights({ metrics }: { metrics: ReportMetrics }) {
           </div>
           {peopleChart.length > 0 && (
             <div>
-              <div className="h-64">
+              <div className="h-48 sm:h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={peopleChart} barGap={6}>
                     <CartesianGrid {...gridProps} />
@@ -207,16 +215,16 @@ export function ReportInsights({ metrics }: { metrics: ReportMetrics }) {
                       content={<ChartTooltip />}
                       cursor={{ fill: CHART.grid }}
                     />
-                    <Bar dataKey="SP completados" fill={SERIES.completedPoints} radius={[6, 6, 0, 0]} maxBarSize={26} />
-                    <Bar dataKey="Throughput" fill={SERIES.throughput} radius={[6, 6, 0, 0]} maxBarSize={26} />
+                    <Bar dataKey={spCompletedLabel} fill={SERIES.completedPoints} radius={[6, 6, 0, 0]} maxBarSize={26} />
+                    <Bar dataKey={throughputLabel} fill={SERIES.throughput} radius={[6, 6, 0, 0]} maxBarSize={26} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
               <div className="mt-2">
                 <ChartLegend
                   items={[
-                    { label: "SP completados", color: SERIES.completedPoints },
-                    { label: "Throughput", color: SERIES.throughput },
+                    { label: spCompletedLabel, color: SERIES.completedPoints },
+                    { label: throughputLabel, color: SERIES.throughput },
                   ]}
                 />
               </div>
@@ -229,10 +237,10 @@ export function ReportInsights({ metrics }: { metrics: ReportMetrics }) {
       {showTrend && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Tendencia vs semanas previas</CardTitle>
+            <CardTitle className="text-lg">{t("rep.trendVsPrevWeeks")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
+            <div className="h-48 sm:h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trend}>
                   <defs>
@@ -245,25 +253,25 @@ export function ReportInsights({ metrics }: { metrics: ReportMetrics }) {
                   <Area
                     type="monotone"
                     dataKey="velocityPoints"
-                    name="Velocity"
+                    name={t("rep.seriesVelocity")}
                     stroke={SERIES.velocity}
                     strokeWidth={2.5}
                     fill={`url(#${gradientId("velocity")})`}
                     activeDot={{ r: 4 }}
                   />
-                  <Area type="monotone" dataKey="done" name="Finalizadas" stroke={SERIES.done} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
-                  <Area type="monotone" dataKey="merged" name="PR merg." stroke={SERIES.merged} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
-                  <Area type="monotone" dataKey="blocked" name="Bloqueadas" stroke={SERIES.blocked} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
+                  <Area type="monotone" dataKey="done" name={t("rep.seriesDone")} stroke={SERIES.done} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
+                  <Area type="monotone" dataKey="merged" name={t("rep.seriesMerged")} stroke={SERIES.merged} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
+                  <Area type="monotone" dataKey="blocked" name={t("rep.seriesBlocked")} stroke={SERIES.blocked} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
             <div className="mt-2">
               <ChartLegend
                 items={[
-                  { label: "Velocity", color: SERIES.velocity },
-                  { label: "Finalizadas", color: SERIES.done },
-                  { label: "PR merg.", color: SERIES.merged },
-                  { label: "Bloqueadas", color: SERIES.blocked },
+                  { label: t("rep.seriesVelocity"), color: SERIES.velocity },
+                  { label: t("rep.seriesDone"), color: SERIES.done },
+                  { label: t("rep.seriesMerged"), color: SERIES.merged },
+                  { label: t("rep.seriesBlocked"), color: SERIES.blocked },
                 ]}
               />
             </div>
@@ -274,17 +282,17 @@ export function ReportInsights({ metrics }: { metrics: ReportMetrics }) {
       {/* Insumos para planning */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Insumos para el próximo planning</CardTitle>
+          <CardTitle className="text-lg">{t("rep.planningInputs")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Stat label="Carry-over" value={`${planning.carryOverItems} tareas`} sub={`${planning.carryOverPoints} pts sin terminar`} />
-            <Stat label="Forecast" value={`~${planning.forecastPoints} pts`} sub="capacidad estimada" />
-            <Stat label="Foco" value={planning.focus.length} sub="ítems a priorizar" />
+            <Stat label={t("rep.carryOver")} value={`${planning.carryOverItems} ${t("rep.tasks")}`} sub={`${planning.carryOverPoints} ${t("rep.carryOverPtsUnfinished")}`} />
+            <Stat label={t("rep.forecast")} value={`~${planning.forecastPoints} ${t("rep.pts")}`} sub={t("rep.estimatedCapacity")} />
+            <Stat label={t("rep.focus")} value={planning.focus.length} sub={t("rep.itemsToPrioritize")} />
           </div>
           {planning.focus.length > 0 && (
             <div>
-              <h3 className="mb-2 text-sm font-semibold">Foco recomendado</h3>
+              <h3 className="mb-2 text-sm font-semibold">{t("rep.recommendedFocus")}</h3>
               <ul className="space-y-1 text-sm">
                 {planning.focus.map((f) => (
                   <li key={f.externalId}>
@@ -305,27 +313,25 @@ export function ReportInsights({ metrics }: { metrics: ReportMetrics }) {
       {metrics.people.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Equipo — señales por persona</CardTitle>
+            <CardTitle className="text-lg">{t("rep.teamSignalsPerPerson")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-              Estas métricas son proxies (no todo el trabajo se ticketea y los
-              story points varían entre equipos). Sirven como punto de partida
-              para conversar y decidir — no como un puntaje absoluto de desempeño.
+              {t("rep.proxyMetricsNoteLong")}
             </p>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm" aria-label={t("rep.signalsPerPersonLabel")}>
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
-                    <th className="py-2 pr-3 font-medium">#</th>
-                    <th className="py-2 pr-3 font-medium">Persona</th>
-                    <th className="py-2 pr-3 font-medium">Señal</th>
-                    <th className="py-2 pr-3 font-medium">Score</th>
-                    <th className="py-2 pr-3 font-medium">SP compl.</th>
-                    <th className="py-2 pr-3 font-medium">WIP</th>
-                    <th className="py-2 pr-3 font-medium">Bloq.</th>
-                    <th className="py-2 pr-3 font-medium">PR merg.</th>
-                    <th className="py-2 pr-3 font-medium">Próximo paso</th>
+                    <th scope="col" className="py-2 pr-3 font-medium">#</th>
+                    <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colPerson")}</th>
+                    <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colSignal")}</th>
+                    <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colScore")}</th>
+                    <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colSPShort")}</th>
+                    <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colWIP")}</th>
+                    <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colBlockedShort")}</th>
+                    <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colPRMerged")}</th>
+                    <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colNextStep")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -335,7 +341,7 @@ export function ReportInsights({ metrics }: { metrics: ReportMetrics }) {
                       <td className="py-2 pr-3 font-medium">{p.name}</td>
                       <td className="py-2 pr-3">
                         <Badge variant={personCategoryVariant(p.category)}>
-                          {PERSON_CATEGORY_LABEL[p.category]}
+                          {t(`lib.personCategory.${p.category}`)}
                         </Badge>
                       </td>
                       <td className="py-2 pr-3">{p.score}</td>

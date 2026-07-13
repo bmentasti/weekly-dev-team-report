@@ -6,6 +6,7 @@ import { resolveActiveProject } from "@/lib/project";
 import { resolveWorkspaceForUser } from "@/lib/workspace";
 import { createReportForProject } from "@/lib/reports/create";
 import { PLANS, effectivePlan } from "@/lib/plans";
+import { getLocale } from "@/lib/i18n/server";
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
@@ -68,14 +69,14 @@ export async function POST(request: Request) {
       project.workspaceId,
       periodStart,
       periodEnd,
+      getLocale(),
     );
     return NextResponse.json({ id: report.id });
   } catch (err) {
+    // No filtrar el detalle interno al cliente; loguear server-side. (COD-02)
+    console.error("[reports/generate] error:", err);
     return NextResponse.json(
-      {
-        error:
-          err instanceof Error ? err.message : "Error al generar el reporte.",
-      },
+      { error: "No se pudo generar el reporte. Intentá de nuevo." },
       { status: 500 },
     );
   }

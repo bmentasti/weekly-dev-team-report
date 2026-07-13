@@ -68,6 +68,24 @@ export async function getReportAccess(
 }
 
 /**
+ * Redacta los datos por persona (`metrics.people`) de un reporte cuando el
+ * acceso no habilita verlos. Centraliza la lógica que antes vivía suelta en el
+ * GET del reporte, para que TODOS los serializadores (JSON, CSV, PDF, email)
+ * apliquen el mismo recorte y no se filtren datos sensibles. (SEC-07)
+ */
+export function redactReportForAccess<T extends { metrics: unknown }>(
+  report: T,
+  access: Pick<ReportAccess, "canViewPeople">,
+): T {
+  if (access.canViewPeople || !report.metrics) return report;
+  const m = report.metrics as { people?: unknown };
+  return {
+    ...report,
+    metrics: { ...(m as object), people: [] } as T["metrics"],
+  };
+}
+
+/**
  * Returns the user ids that should be notified about activity on a report:
  * the workspace owner + shared users, excluding the actor.
  */

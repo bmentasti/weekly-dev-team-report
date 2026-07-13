@@ -1,6 +1,15 @@
 // i18n — diccionarios ES/EN. Claves con namespace por área.
-// Para migrar una pantalla: agregá sus claves acá y usá t("clave") en el JSX.
+// Para migrar una pantalla: agregá sus claves acá (o en el módulo de dict/ de
+// tu área) y usá t("clave") en el JSX.
 import type { Locale } from "./config";
+import * as reports from "./dict/reports";
+import * as reports2 from "./dict/reports2";
+import * as workspace from "./dict/workspace";
+import * as misc from "./dict/misc";
+import * as lib from "./dict/lib";
+import * as faq from "./dict/faq";
+import * as gen from "./dict/gen";
+import * as exp from "./dict/exp";
 
 export type Dict = Record<string, string>;
 
@@ -377,8 +386,54 @@ const en: Dict = {
   "m.mock.exportPdf": "Export PDF",
 };
 
-export const DICTIONARIES: Record<Locale, Dict> = { es, en };
+// Merge de los diccionarios base con los namespaces por área (dict/*).
+const esAll: Dict = {
+  ...es,
+  ...reports.es,
+  ...reports2.es,
+  ...workspace.es,
+  ...misc.es,
+  ...lib.es,
+  ...faq.es,
+  ...gen.es,
+  ...exp.es,
+};
+const enAll: Dict = {
+  ...en,
+  ...reports.en,
+  ...reports2.en,
+  ...workspace.en,
+  ...misc.en,
+  ...lib.en,
+  ...faq.en,
+  ...gen.en,
+  ...exp.en,
+};
+
+export const DICTIONARIES: Record<Locale, Dict> = { es: esAll, en: enAll };
 
 export function translate(dict: Dict, key: string): string {
   return dict[key] ?? key;
+}
+
+/** Función de traducción con interpolación de tokens {x}. */
+export type TFunc = (
+  key: string,
+  params?: Record<string, string | number>,
+) => string;
+
+/**
+ * Devuelve una función t(key, params) para un locale dado. Sirve para
+ * server-side sin request (ej. generación de reportes por cron). Interpola
+ * `{token}` con los params provistos.
+ */
+export function makeT(locale: Locale): TFunc {
+  const dict = DICTIONARIES[locale];
+  return (key, params) => {
+    let s = translate(dict, key);
+    if (params)
+      for (const [k, v] of Object.entries(params))
+        s = s.split(`{${k}}`).join(String(v));
+    return s;
+  };
 }

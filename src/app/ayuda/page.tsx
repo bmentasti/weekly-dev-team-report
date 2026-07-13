@@ -4,14 +4,18 @@ import { authOptions } from "@/lib/auth";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { HelpCenter } from "@/components/help-center";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = {
-  title: "Centro de Ayuda · DevMetrics",
-  description:
-    "Resolvé tus dudas sobre DevMetrics: qué es, integraciones, reportes, métricas, seguridad y planes.",
-};
+export function generateMetadata() {
+  const { t } = getT();
+  return {
+    title: t("mc.ayuda.metaTitle"),
+    description: t("mc.ayuda.metaDesc"),
+  };
+}
 
 export default async function PublicHelpPage() {
+  const { t } = getT();
   const session = await getServerSession(authOptions);
 
   return (
@@ -24,30 +28,30 @@ export default async function PublicHelpPage() {
           </Link>
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
             <Link href="/#producto" className="hover:text-foreground">
-              Producto
+              {t("mc.ayuda.navProduct")}
             </Link>
             <Link href="/#reportes" className="hover:text-foreground">
-              Reportes
+              {t("mc.ayuda.navReports")}
             </Link>
             <Link href="/#precios" className="hover:text-foreground">
-              Precios
+              {t("mc.ayuda.navPricing")}
             </Link>
             <Link href="/#contacto" className="hover:text-foreground">
-              Contacto
+              {t("mc.ayuda.navContact")}
             </Link>
           </nav>
           <div className="flex items-center gap-2">
             {session ? (
               <Button asChild>
-                <Link href="/dashboard">Ir al dashboard</Link>
+                <Link href="/dashboard">{t("mc.ayuda.dashboard")}</Link>
               </Button>
             ) : (
               <>
                 <Button variant="ghost" asChild>
-                  <Link href="/login">Iniciar sesión</Link>
+                  <Link href="/login">{t("mc.ayuda.login")}</Link>
                 </Button>
                 <Button asChild>
-                  <Link href="/register">Probar gratis</Link>
+                  <Link href="/register">{t("mc.ayuda.tryFree")}</Link>
                 </Button>
               </>
             )}
@@ -63,7 +67,7 @@ export default async function PublicHelpPage() {
       <footer className="border-t bg-muted/40">
         <div className="container flex flex-col items-center justify-between gap-3 py-8 text-sm text-muted-foreground sm:flex-row">
           <Link href="/" className="hover:text-foreground">
-            ← Volver al inicio
+            {t("mc.ayuda.backHome")}
           </Link>
           <span>© {new Date().getFullYear()} DevMetrics</span>
         </div>

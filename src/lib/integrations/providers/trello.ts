@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type { ProviderAdapter } from "../types";
 import { mkItem, planBucket, isStale, httpError } from "./planning-helpers";
 
@@ -22,7 +23,7 @@ export const trelloAdapter: ProviderAdapter = {
   async testConnection(ctx) {
     try {
       const q = `key=${ctx.config.apiKey}&token=${ctx.secret}`;
-      const res = await fetch(`${API}/members/me?${q}`, { cache: "no-store" });
+      const res = await safeFetch(`${API}/members/me?${q}`, { cache: "no-store" });
       if (!res.ok) return { ok: false, error: httpError(res.status, "Trello") };
       return { ok: true, detail: "Cuenta conectada" };
     } catch (err) {
@@ -31,7 +32,7 @@ export const trelloAdapter: ProviderAdapter = {
   },
   async fetchData(ctx) {
     const q = `key=${ctx.config.apiKey}&token=${ctx.secret}`;
-    const res = await fetch(
+    const res = await safeFetch(
       `${API}/boards/${ctx.config.boardId}/cards?${q}&fields=name,shortUrl,closed,dateLastActivity,due,dueComplete,idMembers,labels&list=true`,
       { cache: "no-store" },
     );

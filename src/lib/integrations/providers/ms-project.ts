@@ -1,3 +1,4 @@
+import { safeFetch, assertSafeUrl } from "@/lib/http";
 import type { ProviderAdapter } from "../types";
 import { mkItem, planBucket, isStale, httpError } from "./planning-helpers";
 
@@ -19,8 +20,13 @@ export const msProjectAdapter: ProviderAdapter = {
   slug: "ms-project",
   async testConnection(ctx) {
     try {
-      const url = `${ctx.config.siteUrl.replace(/\/$/, "")}/_api/ProjectData/Projects?$top=1`;
-      const res = await fetch(url, {
+      // SEC-04 / SSRF: validar el siteUrl provisto por el usuario (https + no privado).
+      const site = await assertSafeUrl(ctx.config.siteUrl, {
+        allowInsecure: false,
+        blockPrivate: true,
+      });
+      const url = `${site}/_api/ProjectData/Projects?$top=1`;
+      const res = await safeFetch(url, {
         headers: { Authorization: `Bearer ${ctx.secret}`, Accept: "application/json" },
         cache: "no-store",
       });
@@ -31,8 +37,12 @@ export const msProjectAdapter: ProviderAdapter = {
     }
   },
   async fetchData(ctx) {
-    const url = `${ctx.config.siteUrl.replace(/\/$/, "")}/_api/ProjectData/Tasks?$top=100&$orderby=TaskModifiedDate desc`;
-    const res = await fetch(url, {
+    const site = await assertSafeUrl(ctx.config.siteUrl, {
+      allowInsecure: false,
+      blockPrivate: true,
+    });
+    const url = `${site}/_api/ProjectData/Tasks?$top=100&$orderby=TaskModifiedDate desc`;
+    const res = await safeFetch(url, {
       headers: { Authorization: `Bearer ${ctx.secret}`, Accept: "application/json" },
       cache: "no-store",
     });

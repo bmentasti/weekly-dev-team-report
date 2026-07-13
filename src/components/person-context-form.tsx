@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useT } from "@/components/i18n-provider";
 
 const LEVELS = ["", "LOW", "MEDIUM", "HIGH"];
-const LEVEL_LABEL: Record<string, string> = { "": "—", LOW: "Baja", MEDIUM: "Media", HIGH: "Alta" };
 
 type Ctx = Record<string, string>;
 
@@ -15,10 +15,12 @@ function Select({
   label,
   value,
   onChange,
+  levelLabel,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  levelLabel: Record<string, string>;
 }) {
   return (
     <div className="space-y-1">
@@ -30,7 +32,7 @@ function Select({
       >
         {LEVELS.map((l) => (
           <option key={l} value={l}>
-            {LEVEL_LABEL[l]}
+            {levelLabel[l]}
           </option>
         ))}
       </select>
@@ -39,6 +41,13 @@ function Select({
 }
 
 export function PersonContextForm({ name }: { name: string }) {
+  const { t } = useT();
+  const levelLabel: Record<string, string> = {
+    "": t("ws.context.levelDash"),
+    LOW: t("ws.context.levelLow"),
+    MEDIUM: t("ws.context.levelMedium"),
+    HIGH: t("ws.context.levelHigh"),
+  };
   const [ctx, setCtx] = useState<Ctx>({});
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,16 +73,15 @@ export function PersonContextForm({ name }: { name: string }) {
       body: JSON.stringify(ctx),
     });
     setBusy(false);
-    setMsg(res.ok ? "Contexto guardado." : "No se pudo guardar.");
+    setMsg(res.ok ? t("ws.context.saved") : t("ws.context.saveError"));
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Contexto (cualitativo)</CardTitle>
+        <CardTitle className="text-lg">{t("ws.context.title")}</CardTitle>
         <CardDescription>
-          Lo que las APIs no ven: seniority, participación en ceremonias, ownership
-          y feedback. Enriquece el análisis y la matriz.
+          {t("ws.context.description")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -84,21 +92,21 @@ export function PersonContextForm({ name }: { name: string }) {
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label>Rol</Label>
-            <Input value={ctx.role ?? ""} onChange={(e) => set("role", e.target.value)} placeholder="Backend / Frontend / QA..." />
+            <Label>{t("ws.context.role")}</Label>
+            <Input value={ctx.role ?? ""} onChange={(e) => set("role", e.target.value)} placeholder={t("ws.context.rolePlaceholder")} />
           </div>
           <div className="space-y-1">
-            <Label>Seniority</Label>
-            <Input value={ctx.seniority ?? ""} onChange={(e) => set("seniority", e.target.value)} placeholder="Junior / Semi / Senior / Lead" />
+            <Label>{t("ws.context.seniority")}</Label>
+            <Input value={ctx.seniority ?? ""} onChange={(e) => set("seniority", e.target.value)} placeholder={t("ws.context.seniorityPlaceholder")} />
           </div>
-          <Select label="Participación en daily" value={ctx.daily ?? ""} onChange={(v) => set("daily", v)} />
-          <Select label="Refinamientos" value={ctx.refinement ?? ""} onChange={(v) => set("refinement", v)} />
-          <Select label="Retrospectivas" value={ctx.retro ?? ""} onChange={(v) => set("retro", v)} />
-          <Select label="Demos" value={ctx.demo ?? ""} onChange={(v) => set("demo", v)} />
-          <Select label="Ownership" value={ctx.ownership ?? ""} onChange={(v) => set("ownership", v)} />
+          <Select label={t("ws.context.daily")} value={ctx.daily ?? ""} onChange={(v) => set("daily", v)} levelLabel={levelLabel} />
+          <Select label={t("ws.context.refinement")} value={ctx.refinement ?? ""} onChange={(v) => set("refinement", v)} levelLabel={levelLabel} />
+          <Select label={t("ws.context.retro")} value={ctx.retro ?? ""} onChange={(v) => set("retro", v)} levelLabel={levelLabel} />
+          <Select label={t("ws.context.demo")} value={ctx.demo ?? ""} onChange={(v) => set("demo", v)} levelLabel={levelLabel} />
+          <Select label={t("ws.context.ownership")} value={ctx.ownership ?? ""} onChange={(v) => set("ownership", v)} levelLabel={levelLabel} />
         </div>
         <div className="space-y-1">
-          <Label>Feedback (TL / PO / pares)</Label>
+          <Label>{t("ws.context.feedback")}</Label>
           <textarea
             className="w-full rounded-input border border-input bg-card px-3.5 py-2 text-sm"
             rows={2}
@@ -107,7 +115,7 @@ export function PersonContextForm({ name }: { name: string }) {
           />
         </div>
         <div className="space-y-1">
-          <Label>Notas / observaciones</Label>
+          <Label>{t("ws.context.notes")}</Label>
           <textarea
             className="w-full rounded-input border border-input bg-card px-3.5 py-2 text-sm"
             rows={2}
@@ -116,7 +124,7 @@ export function PersonContextForm({ name }: { name: string }) {
           />
         </div>
         <Button onClick={save} disabled={busy}>
-          {busy ? "Guardando..." : "Guardar contexto"}
+          {busy ? t("ws.context.saving") : t("ws.context.save")}
         </Button>
       </CardContent>
     </Card>

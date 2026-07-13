@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type { ProviderAdapter } from "../types";
 import { mkItem, planBucket, isStale, httpError } from "./planning-helpers";
 
@@ -32,7 +33,7 @@ export const smartsheetAdapter: ProviderAdapter = {
   slug: "smartsheet",
   async testConnection(ctx) {
     try {
-      const res = await fetch(`${API}/users/me`, {
+      const res = await safeFetch(`${API}/users/me`, {
         headers: { Authorization: `Bearer ${ctx.secret}` },
         cache: "no-store",
       });
@@ -43,7 +44,7 @@ export const smartsheetAdapter: ProviderAdapter = {
     }
   },
   async fetchData(ctx) {
-    const res = await fetch(`${API}/sheets/${ctx.config.sheetId}`, {
+    const res = await safeFetch(`${API}/sheets/${ctx.config.sheetId}`, {
       headers: { Authorization: `Bearer ${ctx.secret}` },
       cache: "no-store",
     });

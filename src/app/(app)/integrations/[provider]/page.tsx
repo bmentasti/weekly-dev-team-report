@@ -16,12 +16,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { IntegrationType } from "@prisma/client";
+import { getT } from "@/lib/i18n/server";
 
 export default async function IntegrationConnectPage({
   params,
 }: {
   params: { provider: string };
 }) {
+  const { t } = getT();
   const entry = getProvider(params.provider);
   if (!entry) notFound();
 
@@ -35,10 +37,10 @@ export default async function IntegrationConnectPage({
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Esta integración estará disponible próximamente.
+              {t("ws.integrationConnect.willBeAvailable")}
             </p>
             <Button asChild variant="outline">
-              <Link href="/dashboard">Volver al dashboard</Link>
+              <Link href="/dashboard">{t("ws.integrationConnect.backToDashboard")}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -69,7 +71,7 @@ export default async function IntegrationConnectPage({
 
   return (
     <div className="mx-auto flex max-w-lg flex-col">
-      <BackButton label="Volver a integraciones" />
+      <BackButton label={t("ws.integrationConnect.backToIntegrations")} />
       <GenericConnectForm
         entry={entry}
         initialConfig={initialConfig}

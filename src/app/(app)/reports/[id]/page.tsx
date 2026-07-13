@@ -46,8 +46,9 @@ import { ReportRoleViews } from "@/components/report-role-views";
 import { AiAskBox } from "@/components/ai-ask-box";
 import { BackButton } from "@/components/back-button";
 import { useDialogs } from "@/components/ui/dialog-provider";
-import { HEALTH_LABEL, healthBadgeVariant } from "@/lib/reports/health";
-import { PERSON_CATEGORY_LABEL, personCategoryVariant } from "@/lib/reports/labels";
+import { useT } from "@/components/i18n-provider";
+import { healthBadgeVariant } from "@/lib/reports/health";
+import { personCategoryVariant } from "@/lib/reports/labels";
 import type { HealthLevel, ReportHighlights, ReportMetrics, Risk } from "@/lib/reports/types";
 
 interface ReportRow {
@@ -106,9 +107,11 @@ function Kpi({
 function ScoreDonut({
   value,
   health,
+  t,
 }: {
   value: number;
   health: HealthLevel | null;
+  t: (k: string) => string;
 }) {
   const color = health ? HEALTH_COLOR[health] : "#2563FF";
   const data = [
@@ -141,9 +144,9 @@ function ScoreDonut({
           </div>
         </div>
         <div className="flex flex-col items-center gap-1">
-          <p className="text-xs text-muted-foreground">Salud del equipo</p>
+          <p className="text-xs text-muted-foreground">{t("rep.teamHealth")}</p>
           <Badge variant={healthBadgeVariant(health)}>
-            {health ? HEALTH_LABEL[health] : "—"}
+            {health ? t(`lib.health.${health}`) : "—"}
           </Badge>
         </div>
       </CardContent>
@@ -184,7 +187,8 @@ function SummaryStat({
 export default function ReportPreviewPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { confirm } = useDialogs();
+  const { t } = useT();
+  const { confirm, alert: alertDialog } = useDialogs();
   const [report, setReport] = useState<ReportRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -197,18 +201,18 @@ export default function ReportPreviewPage() {
       try {
         const res = await fetch(`/api/reports/${params.id}`);
         const json = await res.json();
-        if (!res.ok) setError(json.error ?? "No se pudo cargar el reporte.");
+        if (!res.ok) setError(json.error ?? t("rep.couldNotLoadReport"));
         else {
           setReport(json.report);
           setPeopleHidden(json.access && json.access.canViewPeople === false);
         }
       } catch {
-        setError("Error de red al cargar el reporte.");
+        setError(t("rep.networkLoadReportError"));
       } finally {
         setLoading(false);
       }
     })();
-  }, [params.id]);
+  }, [params.id, t]);
 
   async function copyMarkdown() {
     if (!report?.rawData?.markdown) return;
@@ -219,26 +223,36 @@ export default function ReportPreviewPage() {
 
   async function deleteReport() {
     const ok = await confirm({
-      title: "Eliminar reporte",
-      description: "No se puede deshacer.",
-      confirmLabel: "Eliminar",
+      title: t("rep.deleteReport"),
+      description: t("rep.deleteCannotUndo"),
+      confirmLabel: t("rep.deleteConfirmLabel"),
       danger: true,
     });
     if (!ok) return;
-    const res = await fetch(`/api/reports/${params.id}`, { method: "DELETE" });
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/reports/${params.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error ?? t("rep.couldNotDeleteReport"));
+      }
       router.push("/reports");
       router.refresh();
+    } catch (err) {
+      await alertDialog({
+        title: t("rep.couldNotDelete"),
+        description:
+          err instanceof Error ? err.message : t("rep.deleteRetry"),
+      });
     }
   }
 
-  if (loading) return <p className="text-sm text-muted-foreground">Cargando...</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">{t("rep.loadingReport")}</p>;
   if (error || !report)
     return (
       <div className="space-y-4">
         <p className="text-sm text-destructive">{error}</p>
         <Button variant="outline" asChild>
-          <Link href="/reports">Volver a reportes</Link>
+          <Link href="/reports">{t("rep.backToReports")}</Link>
         </Button>
       </div>
     );
@@ -253,45 +267,45 @@ export default function ReportPreviewPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <BackButton label="Volver a reportes" />
+      <BackButton label={t("rep.backToReports")} />
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Reporte del equipo
+            {t("rep.teamReport")}
           </h1>
           <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
             {new Date(report.periodStart).toLocaleDateString()} –{" "}
-            {new Date(report.periodEnd).toLocaleDateString()} ({days} días)
+            {new Date(report.periodEnd).toLocaleDateString()} ({days} {t("rep.daysSuffix")})
             <Badge variant={healthBadgeVariant(report.healthStatus)}>
-              {report.healthStatus ? HEALTH_LABEL[report.healthStatus] : "—"}
+              {report.healthStatus ? t(`lib.health.${report.healthStatus}`) : "—"}
             </Badge>
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={copyMarkdown}>
-            {copied ? "¡Copiado!" : "Copiar texto"}
+            {copied ? t("rep.copied") : t("rep.copyText")}
           </Button>
           <Button variant="outline" asChild>
-            <a href={`/api/reports/${params.id}/export`}>Exportar CSV</a>
+            <a href={`/api/reports/${params.id}/export`}>{t("rep.exportCsv")}</a>
           </Button>
           <Button onClick={() => setShowEmail((v) => !v)}>
-            Enviar por email
+            {t("rep.sendByEmail")}
           </Button>
           <Button
             variant="ghost"
             onClick={deleteReport}
             className="text-muted-foreground hover:text-destructive"
           >
-            Eliminar
+            {t("rep.delete")}
           </Button>
         </div>
       </div>
 
       {report.rawData?.sourcesWithError &&
         report.rawData.sourcesWithError.length > 0 && (
-          <p className="rounded-input bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            Algunas fuentes fallaron: {report.rawData.sourcesWithError.join(", ")}.
+          <p className="rounded-input bg-warning-soft px-3 py-2 text-sm text-warning">
+            {t("rep.someSourcesFailedPre")} {report.rawData.sourcesWithError.join(", ")}.
           </p>
         )}
 
@@ -302,7 +316,7 @@ export default function ReportPreviewPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Sparkles className="h-4 w-4 text-primary" />
-              Análisis con IA
+              {t("rep.aiAnalysis")}
               {report.rawData.aiProvider && (
                 <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                   {AI_LABEL[report.rawData.aiProvider] ?? report.rawData.aiProvider}
@@ -325,32 +339,32 @@ export default function ReportPreviewPage() {
           <ReportRoleViews metrics={m} healthStatus={report.healthStatus} />
 
           {peopleHidden && (
-            <div className="rounded-input border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              Los datos por persona están ocultos según tu nivel de acceso a este
-              reporte.
+            <div className="rounded-input border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
+              {t("rep.peopleHidden")}
             </div>
           )}
 
           {/* KPI row */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             <Kpi
-              label="Tareas finalizadas"
+              label={t("rep.kpiTasksDone")}
               value={m.workItems.done}
-              sub={`de ${m.workItems.total} totales`}
+              sub={`${t("rep.kpiOfTotalPre")} ${m.workItems.total} ${t("rep.kpiOfTotalPost")}`}
             />
-            <Kpi label="PR/MR mergeados" value={m.codeChanges.merged} />
+            <Kpi label={t("rep.kpiPrMerged")} value={m.codeChanges.merged} />
             <Kpi
-              label="Cycle time"
+              label={t("rep.kpiCycleTime")}
               value={
                 m.capacity.cycleTimeAvgDays != null
                   ? `${m.capacity.cycleTimeAvgDays}d`
                   : "—"
               }
             />
-            <Kpi label="Tareas bloqueadas" value={m.workItems.blocked} />
+            <Kpi label={t("rep.kpiTasksBlocked")} value={m.workItems.blocked} />
             <ScoreDonut
               value={m.projectProgress.completionByPoints}
               health={report.healthStatus}
+              t={t}
             />
           </div>
 
@@ -366,7 +380,7 @@ export default function ReportPreviewPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <FileText className="h-4 w-4" />
-                  Resumen del sprint
+                  {t("rep.summarySprint")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -374,22 +388,22 @@ export default function ReportPreviewPage() {
                 <div className="grid grid-cols-3 gap-3">
                   <SummaryStat
                     icon={Rocket}
-                    label="Comprometido"
-                    value={`${m.capacity.committedPoints} pts`}
+                    label={t("rep.summaryCommitted")}
+                    value={`${m.capacity.committedPoints} ${t("rep.pts")}`}
                     tint="#2563FF"
                   />
                   <SummaryStat
                     icon={CheckCircle2}
-                    label="Completado"
+                    label={t("rep.summaryCompleted")}
                     value={`${m.projectProgress.completionByPoints}%`}
-                    sub={`${m.capacity.completedPoints} pts`}
+                    sub={`${m.capacity.completedPoints} ${t("rep.pts")}`}
                     tint="#16C784"
                   />
                   <SummaryStat
                     icon={Clock}
-                    label="Carry-over"
-                    value={`${m.planning.carryOverPoints} pts`}
-                    sub={`${m.planning.carryOverItems} tareas`}
+                    label={t("rep.summaryCarryOver")}
+                    value={`${m.planning.carryOverPoints} ${t("rep.pts")}`}
+                    sub={`${m.planning.carryOverItems} ${t("rep.carryOverTasksSuffix")}`}
                     tint="#F5A623"
                   />
                 </div>
@@ -398,12 +412,12 @@ export default function ReportPreviewPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Tendencia</CardTitle>
+                <CardTitle className="text-lg">{t("rep.trend")}</CardTitle>
               </CardHeader>
               <CardContent>
                 {report.rawData && m.trend.length >= 2 ? (
                   <div>
-                    <div className="h-56">
+                    <div className="h-48 sm:h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={m.trend}>
                           <defs>
@@ -413,25 +427,25 @@ export default function ReportPreviewPage() {
                           <XAxis dataKey="label" {...axisProps} />
                           <YAxis {...axisProps} allowDecimals={false} width={28} />
                           <Tooltip content={<ChartTooltip />} cursor={{ stroke: CHART.track }} />
-                          <Area type="monotone" dataKey="velocityPoints" name="Velocity" stroke={SERIES.velocity} strokeWidth={2.5} fill={`url(#${gradientId("rep-velocity")})`} activeDot={{ r: 4 }} />
-                          <Area type="monotone" dataKey="done" name="Finalizadas" stroke={SERIES.done} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
-                          <Area type="monotone" dataKey="merged" name="PR merg." stroke={SERIES.merged} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
+                          <Area type="monotone" dataKey="velocityPoints" name={t("rep.seriesVelocity")} stroke={SERIES.velocity} strokeWidth={2.5} fill={`url(#${gradientId("rep-velocity")})`} activeDot={{ r: 4 }} />
+                          <Area type="monotone" dataKey="done" name={t("rep.seriesDone")} stroke={SERIES.done} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
+                          <Area type="monotone" dataKey="merged" name={t("rep.seriesMerged")} stroke={SERIES.merged} strokeWidth={2} fill="transparent" activeDot={{ r: 4 }} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
                     <div className="mt-2">
                       <ChartLegend
                         items={[
-                          { label: "Velocity", color: SERIES.velocity },
-                          { label: "Finalizadas", color: SERIES.done },
-                          { label: "PR merg.", color: SERIES.merged },
+                          { label: t("rep.seriesVelocity"), color: SERIES.velocity },
+                          { label: t("rep.seriesDone"), color: SERIES.done },
+                          { label: t("rep.seriesMerged"), color: SERIES.merged },
                         ]}
                       />
                     </div>
                   </div>
                 ) : (
                   <p className="py-10 text-center text-sm text-muted-foreground">
-                    Generá más reportes para ver la tendencia entre períodos.
+                    {t("rep.trendEmpty")}
                   </p>
                 )}
               </CardContent>
@@ -446,13 +460,13 @@ export default function ReportPreviewPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <AlertTriangle className="h-4 w-4 text-destructive" />
-                  Top blockers
+                  {t("rep.topBlockers")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {(!h?.tasksAtRisk || h.tasksAtRisk.length === 0) && (
                   <p className="text-sm text-muted-foreground">
-                    Sin bloqueos ni tareas en riesgo. 🎉
+                    {t("rep.noBlockers")}
                   </p>
                 )}
                 {h?.tasksAtRisk?.slice(0, 5).map((t) => (
@@ -471,10 +485,10 @@ export default function ReportPreviewPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Trabajo por estado</CardTitle>
+                <CardTitle className="text-lg">{t("rep.workByStatus")}</CardTitle>
               </CardHeader>
               <CardContent>
-                <WorkByStatus metrics={m} />
+                <WorkByStatus metrics={m} t={t} />
               </CardContent>
             </Card>
 
@@ -482,7 +496,7 @@ export default function ReportPreviewPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  Recomendaciones
+                  {t("rep.recommendations")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -502,7 +516,7 @@ export default function ReportPreviewPage() {
           {report.risks && report.risks.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Riesgos detectados</CardTitle>
+                <CardTitle className="text-lg">{t("rep.risksDetected")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {report.risks.map((r, i) => (
@@ -516,7 +530,7 @@ export default function ReportPreviewPage() {
                             : "secondary"
                       }
                     >
-                      {r.level === "high" ? "Alto" : r.level === "medium" ? "Medio" : "Bajo"}
+                      {r.level === "high" ? t("rep.riskHigh") : r.level === "medium" ? t("rep.riskMedium") : t("rep.riskLow")}
                     </Badge>
                     <span>
                       <span className="font-medium">{r.title}</span>
@@ -532,25 +546,24 @@ export default function ReportPreviewPage() {
           {m.people.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Equipo — señales por persona</CardTitle>
+                <CardTitle className="text-lg">{t("rep.teamSignalsPerPerson")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="rounded-input bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                  Métricas de proxy (no todo el trabajo se ticketea). Úsalas para
-                  conversar y decidir, no como puntaje absoluto.
+                  {t("rep.proxyMetricsNote")}
                 </p>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm" aria-label={t("rep.signalsPerPersonLabel")}>
                     <thead>
                       <tr className="border-b text-left text-muted-foreground">
-                        <th className="py-2 pr-3 font-medium">#</th>
-                        <th className="py-2 pr-3 font-medium">Persona</th>
-                        <th className="py-2 pr-3 font-medium">Señal</th>
-                        <th className="py-2 pr-3 font-medium">Score</th>
-                        <th className="py-2 pr-3 font-medium">SP</th>
-                        <th className="py-2 pr-3 font-medium">WIP</th>
-                        <th className="py-2 pr-3 font-medium">Bloq.</th>
-                        <th className="py-2 pr-3 font-medium">Próximo paso</th>
+                        <th scope="col" className="py-2 pr-3 font-medium">#</th>
+                        <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colPerson")}</th>
+                        <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colSignal")}</th>
+                        <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colScore")}</th>
+                        <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colSP")}</th>
+                        <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colWIP")}</th>
+                        <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colBlockedShort")}</th>
+                        <th scope="col" className="py-2 pr-3 font-medium">{t("rep.colNextStep")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -567,7 +580,7 @@ export default function ReportPreviewPage() {
                           </td>
                           <td className="py-2 pr-3">
                             <Badge variant={personCategoryVariant(p.category)}>
-                              {PERSON_CATEGORY_LABEL[p.category]}
+                              {t(`lib.personCategory.${p.category}`)}
                             </Badge>
                           </td>
                           <td className="py-2 pr-3">{p.score}</td>
@@ -594,18 +607,18 @@ export default function ReportPreviewPage() {
   );
 }
 
-function WorkByStatus({ metrics }: { metrics: ReportMetrics }) {
+function WorkByStatus({ metrics, t }: { metrics: ReportMetrics; t: (k: string) => string }) {
   const s = metrics.statusDistribution;
   const data = [
-    { name: "Finalizadas", value: s.done, color: "#16C784" },
-    { name: "En progreso", value: s.inProgress, color: "#2563FF" },
-    { name: "Bloqueadas", value: s.blocked, color: "#E5484D" },
-    { name: "Por hacer", value: s.todo, color: "#94A3B8" },
+    { name: t("rep.statusDone"), value: s.done, color: "#16C784" },
+    { name: t("rep.statusInProgress"), value: s.inProgress, color: "#2563FF" },
+    { name: t("rep.statusBlocked"), value: s.blocked, color: "#E5484D" },
+    { name: t("rep.statusTodo"), value: s.todo, color: "#94A3B8" },
   ].filter((d) => d.value > 0);
   const total = data.reduce((a, b) => a + b.value, 0);
 
   if (total === 0)
-    return <p className="text-sm text-muted-foreground">Sin tareas.</p>;
+    return <p className="text-sm text-muted-foreground">{t("rep.noTasks")}</p>;
 
   return (
     <div className="flex items-center gap-4">
@@ -622,7 +635,7 @@ function WorkByStatus({ metrics }: { metrics: ReportMetrics }) {
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-lg font-bold">{total}</span>
-          <span className="text-[10px] text-muted-foreground">tareas</span>
+          <span className="text-[10px] text-muted-foreground">{t("rep.tasks")}</span>
         </div>
       </div>
       <ul className="space-y-1.5 text-sm">

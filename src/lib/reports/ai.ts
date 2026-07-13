@@ -139,10 +139,24 @@ export async function generateAiAnalysis(
   metrics: ReportMetrics,
   summary: string,
   healthStatus: string,
+  locale: "es" | "en" = "es",
 ): Promise<string | null> {
   const system =
-    "Sos un analista de ingeniería senior. Escribís en español, claro, conciso y accionable, para un líder técnico. No inventás datos: te basás solo en las métricas provistas.";
-  const user = `Analizá este reporte de sprint y devolvé, en secciones cortas con viñetas:
+    locale === "en"
+      ? "You are a senior engineering analyst. You write in English — clear, concise and actionable — for a tech leader. You do not make up data: you rely only on the provided metrics."
+      : "Sos un analista de ingeniería senior. Escribís en español, claro, conciso y accionable, para un líder técnico. No inventás datos: te basás solo en las métricas provistas.";
+  const user =
+    locale === "en"
+      ? `Analyze this sprint report and return, in short bulleted sections:
+1) Executive read (2-3 sentences).
+2) Interpreted risks (why they matter).
+3) 3 concrete recommendations.
+4) Focus for the next sprint.
+
+Health status: ${healthStatus}.
+Automatic summary: ${summary}
+Metrics (JSON): ${JSON.stringify(metrics)}`
+      : `Analizá este reporte de sprint y devolvé, en secciones cortas con viñetas:
 1) Lectura ejecutiva (2-3 frases).
 2) Riesgos interpretados (por qué importan).
 3) 3 recomendaciones concretas.

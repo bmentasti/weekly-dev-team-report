@@ -4,26 +4,28 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useT } from "@/components/i18n-provider";
 
 type Row = Record<string, string>;
 
-const COLS = [
-  "Persona",
-  "Categoría",
-  "Entrega",
-  "Participación",
-  "Ownership",
-  "Evolución",
-  "Riesgo",
-];
-
-function riskBadge(v: string) {
-  if (v === "Alto") return <Badge variant="destructive">Alto</Badge>;
-  if (v === "Medio") return <Badge variant="warning">Medio</Badge>;
-  return <Badge variant="secondary">Bajo</Badge>;
-}
-
 export function TeamMatrix() {
+  const { t } = useT();
+  const cols = [
+    t("ws.matrix.colPerson"),
+    t("ws.matrix.colCategory"),
+    t("ws.matrix.colDelivery"),
+    t("ws.matrix.colParticipation"),
+    t("ws.matrix.colOwnership"),
+    t("ws.matrix.colEvolution"),
+    t("ws.matrix.colRisk"),
+  ];
+
+  function riskBadge(v: string) {
+    if (v === "Alto") return <Badge variant="destructive">{t("ws.matrix.riskHigh")}</Badge>;
+    if (v === "Medio") return <Badge variant="warning">{t("ws.matrix.riskMedium")}</Badge>;
+    return <Badge variant="secondary">{t("ws.matrix.riskLow")}</Badge>;
+  }
+
   const [rows, setRows] = useState<Row[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -41,23 +43,23 @@ export function TeamMatrix() {
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="text-lg">Matriz individual</CardTitle>
+          <CardTitle className="text-lg">{t("ws.matrix.title")}</CardTitle>
           <Button variant="outline" size="sm" asChild>
-            <a href="/api/people/matrix/export">Exportar CSV</a>
+            <a href="/api/people/matrix/export">{t("ws.matrix.exportCsv")}</a>
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Sin datos de personas todavía. Generá reportes para poblar la matriz.
+            {t("ws.matrix.empty")}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-muted-foreground">
-                  {COLS.map((c) => (
+                  {cols.map((c) => (
                     <th key={c} className="py-2 pr-4 font-medium">
                       {c}
                     </th>
@@ -81,8 +83,7 @@ export function TeamMatrix() {
           </div>
         )}
         <p className="mt-3 text-[11px] text-muted-foreground">
-          La matriz completa (18 columnas: causas, acción, objetivo, indicador,
-          fecha de revisión, etc.) está en el CSV.
+          {t("ws.matrix.note")}
         </p>
       </CardContent>
     </Card>

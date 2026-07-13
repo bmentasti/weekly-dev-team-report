@@ -3,6 +3,7 @@
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDialogs } from "@/components/ui/dialog-provider";
+import { useT } from "@/components/i18n-provider";
 
 export function UpgradeButton({
   feature,
@@ -14,6 +15,7 @@ export function UpgradeButton({
   className?: string;
 }) {
   const { upgrade } = useDialogs();
+  const { t } = useT();
   return (
     <Button
       variant="outline"
@@ -22,7 +24,7 @@ export function UpgradeButton({
       onClick={() => upgrade({ feature, suggestedPlan })}
     >
       <Lock className="mr-1.5 h-3.5 w-3.5" />
-      Mejorar plan
+      {t("ws.upgrade.button")}
     </Button>
   );
 }

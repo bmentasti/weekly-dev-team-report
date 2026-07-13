@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { buildReportCsv } from "@/lib/reports/csv";
 import { buildReportEmailHtml, sendEmail } from "@/lib/reports/email";
+import { makeT } from "@/lib/i18n/dictionaries";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 /**
  * Envía un reporte por email a los destinatarios (HTML + CSV adjunto) y registra
@@ -9,7 +11,9 @@ import { buildReportEmailHtml, sendEmail } from "@/lib/reports/email";
 export async function deliverReportByEmail(
   reportId: string,
   recipients: string[],
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<{ ok: boolean; error?: string; sent: number }> {
+  const t = makeT(locale);
   const valid = recipients
     .map((r) => r.trim().toLowerCase())
     .filter((r) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(r));
@@ -20,12 +24,12 @@ export async function deliverReportByEmail(
 
   const day = new Date(report.periodEnd).toISOString().slice(0, 10);
   const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const html = buildReportEmailHtml(report, appUrl);
-  const csv = buildReportCsv(report);
+  const html = buildReportEmailHtml(report, appUrl, locale);
+  const csv = buildReportCsv(report, locale);
 
   const result = await sendEmail({
     to: valid,
-    subject: `Reporte del equipo — ${day}`,
+    subject: t("exp.email.subject", { day }),
     html,
     csv: { filename: `reporte-${day}.csv`, content: csv },
   });

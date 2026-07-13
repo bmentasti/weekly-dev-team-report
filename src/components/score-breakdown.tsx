@@ -6,13 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   METRIC_DEFS,
-  DIMENSION_LABEL,
   mergeStandard,
   scoreWithStandard,
   type HealthStandardConfig,
 } from "@/lib/reports/standards";
-import { LEVEL_LABEL, levelVariant } from "@/lib/reports/score";
+import { levelVariant } from "@/lib/reports/score";
 import type { ReportMetrics } from "@/lib/reports/types";
+import { useT } from "@/components/i18n-provider";
 
 /**
  * Explicabilidad del score (¿por qué este estado?): desglose por dimensión,
@@ -26,6 +26,7 @@ export function ScoreBreakdown({
   metrics: ReportMetrics | null;
   projectId?: string | null;
 }) {
+  const { t } = useT();
   const [standard, setStandard] = useState<HealthStandardConfig | null>(null);
 
   useEffect(() => {
@@ -57,24 +58,24 @@ export function ScoreBreakdown({
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <ListChecks className="h-5 w-5 text-primary" />
-          ¿Por qué este estado?
+          {t("rep.whyThisState")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           {sinDatos ? (
-            <Badge variant="secondary">Sin datos suficientes</Badge>
+            <Badge variant="secondary">{t("rep.notEnoughData")}</Badge>
           ) : (
             <Badge
               variant={levelVariant(
                 b.level as Exclude<typeof b.level, "SIN_DATOS">,
               )}
             >
-              {LEVEL_LABEL[b.level as Exclude<typeof b.level, "SIN_DATOS">]}
+              {t(`lib.level.${b.level as Exclude<typeof b.level, "SIN_DATOS">}`)}
             </Badge>
           )}
           <span className="text-sm text-muted-foreground">
-            Score {b.score ?? "—"}/100 · Confianza{" "}
+            {t("rep.scorePre")} {b.score ?? "—"}/100 · {t("rep.confidence")}{" "}
             {Math.round(b.confidence * 100)}%
           </span>
         </div>
@@ -87,7 +88,7 @@ export function ScoreBreakdown({
                 {d.score === null ? "—" : d.score}
               </div>
               <div className="text-[10px] text-muted-foreground">
-                {DIMENSION_LABEL[d.dim]} · {d.weight}%
+                {t(`lib.dimension.${d.dim}`)} · {d.weight}%
               </div>
             </div>
           ))}
@@ -97,7 +98,7 @@ export function ScoreBreakdown({
         {b.worst.length > 0 && (
           <div>
             <p className="text-xs font-semibold text-muted-foreground">
-              Qué pesa en contra (top {b.worst.length})
+              {t("rep.weightsAgainstPre")} {b.worst.length})
             </p>
             <div className="mt-1.5 flex flex-wrap gap-2">
               {b.worst.map((w) => (
@@ -122,7 +123,7 @@ export function ScoreBreakdown({
           <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <div>
-              <span className="font-medium">Sin datos</span> (no puntúan):
+              <span className="font-medium">{t("rep.noData")}</span> {t("rep.noDataDontScore")}
               <ul className="mt-1 space-y-0.5">
                 {b.missing.map((x) => {
                   const src = METRIC_DEFS.find((d) => d.key === x.key)?.source;
@@ -139,8 +140,7 @@ export function ScoreBreakdown({
         )}
 
         <p className="text-[11px] text-muted-foreground">
-          Calculado con el estándar vigente del proyecto. Ajustá los umbrales en
-          Reportes → Umbrales de salud.
+          {t("rep.calculatedWithStandard")}
         </p>
       </CardContent>
     </Card>

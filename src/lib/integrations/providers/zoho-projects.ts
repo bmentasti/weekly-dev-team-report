@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type { ProviderAdapter } from "../types";
 import { mkItem, planBucket, isStale, httpError } from "./planning-helpers";
 
@@ -23,7 +24,7 @@ export const zohoProjectsAdapter: ProviderAdapter = {
   slug: "zoho-projects",
   async testConnection(ctx) {
     try {
-      const res = await fetch(
+      const res = await safeFetch(
         `${API}/portal/${ctx.config.portalId}/projects/${ctx.config.projectId}/`,
         { headers: auth(ctx.secret), cache: "no-store" },
       );
@@ -34,7 +35,7 @@ export const zohoProjectsAdapter: ProviderAdapter = {
     }
   },
   async fetchData(ctx) {
-    const res = await fetch(
+    const res = await safeFetch(
       `${API}/portal/${ctx.config.portalId}/projects/${ctx.config.projectId}/tasks/`,
       { headers: auth(ctx.secret), cache: "no-store" },
     );

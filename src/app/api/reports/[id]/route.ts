@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveWorkspaceForUser } from "@/lib/workspace";
-import { getReportAccess } from "@/lib/reports/access";
+import { getReportAccess, redactReportForAccess } from "@/lib/reports/access";
 import { resolveWorkspaceRole } from "@/lib/workspace";
 import { can } from "@/lib/permissions";
 import { parseBody } from "@/lib/api";
@@ -36,12 +36,8 @@ export async function GET(
     return NextResponse.json({ error: "Reporte no encontrado." }, { status: 404 });
   }
 
-  // Datos por persona ocultos según rol / nivel de share (RBAC).
-  let out = report;
-  if (!access.canViewPeople && report.metrics) {
-    const m = report.metrics as { people?: unknown };
-    out = { ...report, metrics: { ...(m as object), people: [] } as typeof report.metrics };
-  }
+  // Datos por persona ocultos según rol / nivel de share (RBAC). (SEC-07)
+  const out = redactReportForAccess(report, access);
 
   return NextResponse.json({
     report: out,

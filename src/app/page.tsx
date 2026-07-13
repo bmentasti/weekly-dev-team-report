@@ -340,7 +340,7 @@ export default async function LandingPage() {
           </div>
 
           <p className="mt-8 text-center text-xs text-muted-foreground">
-            + análisis con IA: Claude · ChatGPT · Gemini · GitHub Copilot (plan Pro)
+            {t("mc.landing.aiLine")}
           </p>
         </div>
       </section>
@@ -713,8 +713,8 @@ export default async function LandingPage() {
             {POPULAR_FAQ.map((item) => (
               <Card key={item.id}>
                 <CardContent className="py-5">
-                  <h3 className="font-semibold">{item.q}</h3>
-                  <p className="mt-1.5 text-sm text-muted-foreground">{item.a}</p>
+                  <h3 className="font-semibold">{t(item.q)}</h3>
+                  <p className="mt-1.5 text-sm text-muted-foreground">{t(item.a)}</p>
                 </CardContent>
               </Card>
             ))}
@@ -756,8 +756,8 @@ export default async function LandingPage() {
         <div className="container relative">
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-5 text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Sumate a los equipos que ya decidieron con{" "}
-              <span className="text-primary">claridad</span>
+              {t("mc.landing.closeTitlePrefix")}{" "}
+              <span className="text-primary">{t("mc.landing.closeTitleHighlight")}</span>
             </h2>
             <p className="max-w-md text-white/60">{t("m.close.desc")}</p>
             <div className="flex flex-wrap justify-center gap-3">

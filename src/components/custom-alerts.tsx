@@ -7,11 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import {
   evaluateAlertRules,
   ruleText,
-  SEVERITY_LABEL,
   type AlertRule,
   type RuleSeverity,
 } from "@/lib/reports/alert-rules";
 import type { ReportMetrics } from "@/lib/reports/types";
+import { useT } from "@/components/i18n-provider";
 
 function sevVariant(s: RuleSeverity): "destructive" | "warning" | "secondary" {
   return s === "high" ? "destructive" : s === "medium" ? "warning" : "secondary";
@@ -19,6 +19,7 @@ function sevVariant(s: RuleSeverity): "destructive" | "warning" | "secondary" {
 
 /** Muestra las reglas de alerta personalizadas que se disparan en este reporte. */
 export function CustomAlerts({ metrics }: { metrics: ReportMetrics | null }) {
+  const { t } = useT();
   const [rules, setRules] = useState<AlertRule[]>([]);
 
   useEffect(() => {
@@ -46,13 +47,13 @@ export function CustomAlerts({ metrics }: { metrics: ReportMetrics | null }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <BellRing className="h-5 w-5 text-primary" />
-          Alertas personalizadas
+          {t("ws.customAlerts.title")}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {triggered.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Ninguna de tus {rules.length} regla(s) se disparó en este reporte. 🎉
+            {`${t("ws.customAlerts.emptyPrefix")} ${rules.length} ${t("ws.customAlerts.emptySuffix")}`}
           </p>
         ) : (
           <div className="space-y-2">
@@ -62,12 +63,12 @@ export function CustomAlerts({ metrics }: { metrics: ReportMetrics | null }) {
                 className="flex items-center gap-3 rounded-input border p-3"
               >
                 <Badge variant={sevVariant(e.rule.severity)}>
-                  {SEVERITY_LABEL[e.rule.severity]}
+                  {t(`lib.severity.${e.rule.severity}`)}
                 </Badge>
                 <span className="flex-1 text-sm">
-                  {ruleText(e.rule)}{" "}
+                  {ruleText(e.rule, t)}{" "}
                   <span className="text-muted-foreground">
-                    (valor actual: {e.value}
+                    ({t("ws.customAlerts.currentValue")} {e.value}
                     {e.unit})
                   </span>
                 </span>

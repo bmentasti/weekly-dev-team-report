@@ -20,7 +20,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useDialogs } from "@/components/ui/dialog-provider";
 import { cn } from "@/lib/utils";
 import {
-  CATEGORY_LABEL,
   DEFAULT_STANDARD,
   DIMENSION_LABEL,
   METRIC_DEFS,
@@ -36,8 +35,11 @@ import {
   type MetricDef,
   type ScoreDimension,
 } from "@/lib/reports/standards";
-import { LEVEL_LABEL, levelVariant } from "@/lib/reports/score";
+import { levelVariant } from "@/lib/reports/score";
 import type { ReportMetrics } from "@/lib/reports/types";
+import { useT } from "@/components/i18n-provider";
+
+type TFn = (key: string) => string;
 
 const CATEGORY_TABS: MetricCategory[] = [
   "delivery",
@@ -47,11 +49,11 @@ const CATEGORY_TABS: MetricCategory[] = [
 ];
 type Tab = MetricCategory | "score";
 
-const roleLabel: Record<string, string> = {
-  TL: "Tech Lead",
-  PO: "Product Owner",
-  DIR: "Dirección",
-  TODOS: "Todos",
+const roleLabelKey: Record<string, string> = {
+  TL: "rep2.se.role.TL",
+  PO: "rep2.se.role.PO",
+  DIR: "rep2.se.role.DIR",
+  TODOS: "rep2.se.role.TODOS",
 };
 
 interface HistoryItem {
@@ -78,6 +80,7 @@ function isLoosening(config: HealthStandardConfig): boolean {
 }
 
 export function StandardsEditor() {
+  const { t } = useT();
   const dialogs = useDialogs();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -170,7 +173,7 @@ export function StandardsEditor() {
 
   async function onEditAttemptFree() {
     await dialogs.upgrade({
-      feature: "Personalizar los umbrales de salud",
+      feature: t("rep2.se.dlg.upgradeFeature"),
       suggestedPlan: "Team",
     });
   }
@@ -184,9 +187,8 @@ export function StandardsEditor() {
   function applyBaseline() {
     if (recentMetrics.length < 2) {
       dialogs.alert({
-        title: "Poco histórico",
-        description:
-          "Necesitás al menos 2 reportes con datos para sugerir umbrales según el ritmo del equipo.",
+        title: t("rep2.se.dlg.littleHistoryTitle"),
+        description: t("rep2.se.dlg.littleHistoryDesc"),
       });
       return;
     }
@@ -201,11 +203,10 @@ export function StandardsEditor() {
     let reason: string | undefined;
     if (isLoosening(config)) {
       const r = await dialogs.prompt({
-        title: "Motivo del cambio",
-        label:
-          "Estás aflojando estándares respecto al recomendado. Dejá un motivo (queda en el historial).",
-        placeholder: "Ej: equipo nuevo, primeros 3 sprints",
-        confirmLabel: "Guardar",
+        title: t("rep2.se.dlg.reasonTitle"),
+        label: t("rep2.se.dlg.reasonLabel"),
+        placeholder: t("rep2.se.dlg.reasonPlaceholder"),
+        confirmLabel: t("rep2.se.dlg.reasonConfirm"),
       });
       if (!r) return; // canceló
       reason = r;
@@ -220,15 +221,14 @@ export function StandardsEditor() {
       const data = await res.json();
       if (!res.ok) {
         await dialogs.alert({
-          title: "No se pudo guardar",
-          description: data.error ?? "Intentá de nuevo.",
+          title: t("rep2.se.dlg.saveErrorTitle"),
+          description: data.error ?? t("rep2.se.dlg.saveErrorDesc"),
         });
         return;
       }
       await dialogs.alert({
-        title: "Estándar guardado",
-        description:
-          "Los nuevos reportes se evaluarán con estos umbrales. Podés restaurar los recomendados cuando quieras.",
+        title: t("rep2.se.dlg.savedTitle"),
+        description: t("rep2.se.dlg.savedDesc"),
       });
       await load(scope); // refresca historial + estado
     } finally {
@@ -238,12 +238,12 @@ export function StandardsEditor() {
 
   async function onRestore() {
     const ok = await dialogs.confirm({
-      title: "Restaurar valores recomendados",
+      title: t("rep2.se.dlg.restoreTitle"),
       description:
         scope === "project"
-          ? "Se descartará el override de este proyecto y volverá a heredar el estándar del workspace."
-          : "Se descartará tu estándar personalizado y volverás a los umbrales base de DevMetrics.",
-      confirmLabel: "Restaurar",
+          ? t("rep2.se.dlg.restoreProject")
+          : t("rep2.se.dlg.restoreWorkspace"),
+      confirmLabel: t("rep2.se.dlg.restoreConfirm"),
       danger: true,
     });
     if (!ok) return;
@@ -274,26 +274,24 @@ export function StandardsEditor() {
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-5 w-5 text-primary" />
             <h1 className="text-2xl font-bold tracking-tight">
-              Umbrales de salud
+              {t("rep2.se.title")}
             </h1>
           </div>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Definí con qué parámetros DevMetrics evalúa si un sprint está
-            saludable, en observación o en riesgo. El objetivo no es exigir de
-            más, sino adaptar el análisis a la realidad de cada equipo.
+            {t("rep2.se.subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant={canEdit ? "success" : "secondary"}>Plan {planName}</Badge>
+          <Badge variant={canEdit ? "success" : "secondary"}>{t("rep2.se.plan")} {planName}</Badge>
           <Badge variant={custom ? "info" : "outline"}>
-            {custom ? "Estándar personalizado" : "Estándar recomendado"}
+            {custom ? t("rep2.se.customStandard") : t("rep2.se.recommendedStandard")}
           </Badge>
         </div>
       </div>
 
       {/* Alcance del estándar (workspace vs proyecto, con herencia) */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-muted-foreground">Aplica a:</span>
+        <span className="text-sm text-muted-foreground">{t("rep2.se.appliesTo")}</span>
         {(["workspace", "project"] as const).map((s) => (
           <button
             key={s}
@@ -306,18 +304,18 @@ export function StandardsEditor() {
             )}
           >
             {s === "workspace"
-              ? "Workspace"
+              ? t("rep2.se.workspace")
               : projectName
-                ? `Proyecto: ${projectName}`
-                : "Proyecto actual"}
+                ? `${t("rep2.se.projectPrefix")} ${projectName}`
+                : t("rep2.se.currentProject")}
           </button>
         ))}
         {scope === "project" && (
           <span className="text-xs text-muted-foreground">
             {custom
-              ? "Este proyecto tiene su propio override."
-              : "Heredando el estándar del workspace (sin override propio)."}
-            {" "}Los estándares por proyecto son parte del plan Pro.
+              ? t("rep2.se.projectHasOverride")
+              : t("rep2.se.projectInheriting")}
+            {" "}{t("rep2.se.projectProNote")}
           </span>
         )}
       </div>
@@ -333,18 +331,18 @@ export function StandardsEditor() {
               <div>
                 <p className="font-semibold">
                   {scope === "project"
-                    ? "Estás viendo el estándar heredado del workspace"
-                    : "Estás viendo los estándares recomendados"}
+                    ? t("rep2.se.viewingInherited")
+                    : t("rep2.se.viewingRecommended")}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {scope === "project"
-                    ? "Definir umbrales propios por proyecto está disponible en el plan Pro. El proyecto usa, por ahora, el estándar del workspace."
-                    : "Usás los umbrales base de DevMetrics para analizar tus reportes. Personalizarlos por equipo o contexto está disponible en Team y Pro."}
+                    ? t("rep2.se.inheritedDesc")
+                    : t("rep2.se.recommendedDesc")}
                 </p>
               </div>
             </div>
             <Button asChild className="shrink-0">
-              <Link href="/settings">Desbloquear personalización</Link>
+              <Link href="/settings">{t("rep2.se.unlock")}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -352,11 +350,10 @@ export function StandardsEditor() {
 
       {/* Aviso persistencia (falta db:push) */}
       {canEdit && !persistenceReady && (
-        <div className="flex items-start gap-2 rounded-input border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+        <div className="flex items-start gap-2 rounded-input border border-warning/30 bg-warning-soft p-3 text-sm text-warning">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            La tabla de estándares todavía no está en la base. Para guardar
-            cambios, ejecutá <code>npm run db:push</code> y reiniciá el server.
+            {t("rep2.se.persistencePrefix")} <code>npm run db:push</code> {t("rep2.se.persistenceSuffix")}
           </span>
         </div>
       )}
@@ -369,10 +366,10 @@ export function StandardsEditor() {
         <div className="rounded-card border bg-card px-5 py-4">
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold">Perfiles predefinidos</h3>
+            <h3 className="font-semibold">{t("rep2.se.presets")}</h3>
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Cargá un estándar pensado para tu tipo de equipo y ajustalo desde ahí.
+            {t("rep2.se.presetsDesc")}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {PRESETS.map((p) => (
@@ -391,10 +388,10 @@ export function StandardsEditor() {
             <div className="mt-4 flex flex-wrap items-center gap-3 border-t pt-4">
               <Button variant="outline" size="sm" onClick={applyBaseline}>
                 <History className="mr-2 h-4 w-4" />
-                Sugerir según mi histórico
+                {t("rep2.se.suggestFromHistory")}
               </Button>
               <span className="text-xs text-muted-foreground">
-                Ajusta los umbrales al ritmo real del equipo (últimos {recentMetrics.length || "—"} reportes). Revisá y guardá.
+                {t("rep2.se.baselinePrefix")} {recentMetrics.length || "—"} {t("rep2.se.baselineSuffix")}
               </span>
             </div>
           )}
@@ -405,11 +402,11 @@ export function StandardsEditor() {
       <div className="flex flex-wrap gap-2">
         {CATEGORY_TABS.map((c) => (
           <TabButton key={c} active={tab === c} onClick={() => setTab(c)}>
-            {CATEGORY_LABEL[c]}
+            {t(`lib.category.${c}`)}
           </TabButton>
         ))}
         <TabButton active={tab === "score"} onClick={() => setTab("score")}>
-          Score de salud
+          {t("rep2.se.scoreTab")}
         </TabButton>
       </div>
 
@@ -445,7 +442,7 @@ export function StandardsEditor() {
         <div className="rounded-card border bg-card px-5 py-4">
           <div className="flex items-center gap-2">
             <History className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold">Historial de cambios</h3>
+            <h3 className="font-semibold">{t("rep2.se.changeHistory")}</h3>
           </div>
           <ul className="mt-3 space-y-2">
             {history.map((h) => {
@@ -462,9 +459,9 @@ export function StandardsEditor() {
                     <div className="flex-1">
                       <p className="text-muted-foreground">
                         <span className="font-medium text-foreground">
-                          {h.changedByName ?? "Alguien"}
+                          {h.changedByName ?? t("rep2.se.someone")}
                         </span>{" "}
-                        actualizó el estándar
+                        {t("rep2.se.updatedStandard")}
                         {h.reason ? `: “${h.reason}”` : "."}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -478,14 +475,14 @@ export function StandardsEditor() {
                           className="text-xs font-medium text-primary hover:underline"
                         >
                           {open
-                            ? "Ocultar"
-                            : `Ver cambios (${changes})`}
+                            ? t("rep2.se.hide")
+                            : `${t("rep2.se.viewChangesPrefix")} (${changes})`}
                         </button>
                         <button
                           onClick={() => restoreVersion(h)}
                           className="text-xs font-medium text-primary hover:underline"
                         >
-                          Restaurar
+                          {t("rep2.se.restore")}
                         </button>
                       </div>
                     )}
@@ -494,26 +491,25 @@ export function StandardsEditor() {
                     <div className="ml-5 mt-2 rounded-input border bg-muted/40 p-3 text-xs">
                       {changes === 0 ? (
                         <p className="text-muted-foreground">
-                          Idéntico a la configuración actual.
+                          {t("rep2.se.identicalToCurrent")}
                         </p>
                       ) : (
                         <>
                           <p className="mb-1 text-muted-foreground">
-                            Diferencias respecto a lo que tenés cargado ahora
-                            (restaurar dejaría estos valores):
+                            {t("rep2.se.diffIntro")}
                           </p>
                           <ul className="space-y-0.5">
-                            {d.thresholds.map((t) => (
-                              <li key={`${t.key}-${t.field}`}>
-                                <span className="font-medium">{t.label}</span> ·{" "}
-                                {t.field === "healthy" ? "Saludable" : "Alto riesgo"}:{" "}
-                                <span className="text-muted-foreground">{t.to}</span> →{" "}
-                                <span className="font-semibold">{t.from}</span>
+                            {d.thresholds.map((th) => (
+                              <li key={`${th.key}-${th.field}`}>
+                                <span className="font-medium">{th.label}</span> ·{" "}
+                                {th.field === "healthy" ? t("rep2.se.healthy") : t("rep2.se.highRisk")}:{" "}
+                                <span className="text-muted-foreground">{th.to}</span> →{" "}
+                                <span className="font-semibold">{th.from}</span>
                               </li>
                             ))}
                             {d.weights.map((w) => (
                               <li key={w.dim}>
-                                <span className="font-medium">Peso {w.label}</span>:{" "}
+                                <span className="font-medium">{t("rep2.se.weight")} {w.label}</span>:{" "}
                                 <span className="text-muted-foreground">{w.to}%</span> →{" "}
                                 <span className="font-semibold">{w.from}%</span>
                               </li>
@@ -532,22 +528,21 @@ export function StandardsEditor() {
 
       {/* Barra de acciones */}
       {canEdit && (
-        <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-card border bg-white/95 px-4 py-3 shadow-card backdrop-blur">
+        <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-card border bg-card px-4 py-3 shadow-card backdrop-blur">
           <p className="text-sm text-muted-foreground">
             {dirty
-              ? "Tenés cambios sin guardar."
+              ? t("rep2.se.unsavedChanges")
               : custom
-                ? "Estás usando tu estándar personalizado."
-                : "Estás usando el estándar recomendado."}
+                ? t("rep2.se.usingCustom")
+                : t("rep2.se.usingRecommended")}
             {!weightsOk && (
               <span className="ml-1 font-medium text-destructive">
-                Los pesos del score deben sumar 100%.
+                {t("rep2.se.weightsMust100")}
               </span>
             )}
             {weightsOk && !qualityFloorOk && (
               <span className="ml-1 font-medium text-destructive">
-                Calidad técnica no puede quedar por debajo de 5%: un estándar así
-                infla el score y oculta riesgos.
+                {t("rep2.se.qualityFloor")}
               </span>
             )}
           </p>
@@ -557,11 +552,11 @@ export function StandardsEditor() {
               onClick={onRestore}
               disabled={saving || (!custom && !dirty)}
             >
-              <RotateCcw className="mr-2 h-4 w-4" /> Restaurar recomendados
+              <RotateCcw className="mr-2 h-4 w-4" /> {t("rep2.se.restoreRecommended")}
             </Button>
             <Button onClick={onSave} disabled={!canSave || saving}>
               <Save className="mr-2 h-4 w-4" />
-              {saving ? "Guardando…" : "Guardar cambios"}
+              {saving ? t("rep2.se.saving") : t("rep2.se.saveChanges")}
             </Button>
           </div>
         </div>
@@ -611,8 +606,9 @@ function ThresholdCard({
   onChange: (key: string, field: "healthy" | "risk", value: number) => void;
   onLocked: () => void;
 }) {
+  const { t } = useT();
   const dirWord =
-    def.direction === "higherIsBetter" ? "o más" : "o menos";
+    def.direction === "higherIsBetter" ? t("rep2.se.dir.higher") : t("rep2.se.dir.lower");
   return (
     <Card className={invalid ? "border-destructive" : ""}>
       <CardContent className="py-5">
@@ -622,13 +618,13 @@ function ThresholdCard({
             <p className="mt-0.5 text-xs text-muted-foreground">{def.help}</p>
           </div>
           <Badge variant="secondary" className="shrink-0 text-[10px]">
-            {roleLabel[def.role]}
+            {t(roleLabelKey[def.role])}
           </Badge>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <ThresholdInput
-            label="Saludable"
+            label={t("rep2.se.healthy")}
             tone="healthy"
             value={healthy}
             unit={def.unit}
@@ -639,11 +635,11 @@ function ThresholdCard({
             onLocked={onLocked}
           />
           <ThresholdInput
-            label="Alto riesgo"
+            label={t("rep2.se.highRisk")}
             tone="risk"
             value={risk}
             unit={def.unit}
-            suffix={def.direction === "higherIsBetter" ? "o menos" : "o más"}
+            suffix={def.direction === "higherIsBetter" ? t("rep2.se.dir.lower") : t("rep2.se.dir.higher")}
             def={def}
             canEdit={canEdit}
             onChange={(v) => onChange(def.key, "risk", v)}
@@ -653,7 +649,7 @@ function ThresholdCard({
 
         {invalid && (
           <p className="mt-2 text-xs font-medium text-destructive">
-            Revisá los umbrales: no son coherentes con la dirección de la métrica.
+            {t("rep2.se.thresholdsInvalid")}
           </p>
         )}
         <p className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
@@ -691,15 +687,15 @@ function ThresholdInput({
       className={cn(
         "rounded-input border p-3",
         tone === "healthy"
-          ? "border-emerald-200 bg-emerald-50/50"
-          : "border-red-200 bg-red-50/40",
+          ? "border-success/30 bg-success-soft"
+          : "border-danger/30 bg-danger-soft",
       )}
     >
       <div className="flex items-center justify-between">
         <span
           className={cn(
             "text-[11px] font-semibold",
-            tone === "healthy" ? "text-emerald-700" : "text-red-700",
+            tone === "healthy" ? "text-success" : "text-danger",
           )}
         >
           {label}
@@ -744,24 +740,24 @@ function ScorePanel({
   onChange: (dim: ScoreDimension, v: number) => void;
   onLocked: () => void;
 }) {
+  const { t } = useT();
   const dims = Object.keys(DIMENSION_LABEL) as ScoreDimension[];
   return (
     <Card>
       <CardContent className="py-5">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold">Composición del score de salud</h3>
+          <h3 className="font-semibold">{t("rep2.se.scoreComposition")}</h3>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          El score (0–100) pondera estas dimensiones. Ajustá los pesos según qué
-          prioriza tu organización. Deben sumar 100%.
+          {t("rep2.se.scoreCompositionDesc")}
         </p>
 
         <div className="mt-5 space-y-4">
           {dims.map((dim) => (
             <div key={dim} className="flex items-center gap-4">
               <span className="w-32 shrink-0 text-sm font-medium">
-                {DIMENSION_LABEL[dim]}
+                {t(`lib.dimension.${dim}`)}
               </span>
               <input
                 type="range"
@@ -785,21 +781,20 @@ function ScorePanel({
           className={cn(
             "mt-5 flex items-center justify-between rounded-input border p-3 text-sm",
             ok
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-amber-200 bg-amber-50 text-amber-800",
+              ? "border-success/30 bg-success-soft text-success"
+              : "border-warning/30 bg-warning-soft text-warning",
           )}
         >
-          <span className="font-medium">Total: {sum}%</span>
+          <span className="font-medium">{t("rep2.se.totalPrefix")} {sum}%</span>
           <span>
             {ok
-              ? "Balanceado."
-              : "Ajustá los pesos hasta llegar a 100% para poder guardar."}
+              ? t("rep2.se.balanced")
+              : t("rep2.se.adjustTo100")}
           </span>
         </div>
 
         <p className="mt-3 text-xs text-muted-foreground">
-          Recomendado por DevMetrics: Delivery 30 · Calidad 25 · Producto 20 ·
-          Equipo 15 · Riesgo 10.
+          {t("rep2.se.recommendedWeights")}
         </p>
       </CardContent>
     </Card>
@@ -813,6 +808,7 @@ function ScorePreview({
   preview: ReturnType<typeof scoreWithStandard>;
   hasData: boolean;
 }) {
+  const { t } = useT();
   const sinDatos = preview.level === "SIN_DATOS";
   const scoreColor = sinDatos
     ? "#94A3B8"
@@ -827,12 +823,12 @@ function ScorePreview({
       <CardContent className="py-5">
         <div className="flex items-center gap-2">
           <Gauge className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold">Vista previa del score</h3>
+          <h3 className="font-semibold">{t("rep2.se.scorePreview")}</h3>
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {hasData
-            ? "Así quedaría tu último reporte con estos umbrales y pesos. Cambiá algo arriba y se recalcula al instante."
-            : "Generá un reporte para ver el impacto real de estos umbrales."}
+            ? t("rep2.se.scorePreviewData")
+            : t("rep2.se.scorePreviewNoData")}
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-6">
@@ -845,22 +841,20 @@ function ScorePreview({
             </div>
             <div>
               {sinDatos ? (
-                <Badge variant="secondary">Sin datos suficientes</Badge>
+                <Badge variant="secondary">{t("rep2.se.insufficientData")}</Badge>
               ) : (
                 <Badge
                   variant={levelVariant(
                     preview.level as Exclude<typeof preview.level, "SIN_DATOS">,
                   )}
                 >
-                  {
-                    LEVEL_LABEL[
-                      preview.level as Exclude<typeof preview.level, "SIN_DATOS">
-                    ]
-                  }
+                  {t(
+                    `lib.level.${preview.level as Exclude<typeof preview.level, "SIN_DATOS">}`,
+                  )}
                 </Badge>
               )}
               <p className="mt-1 text-xs text-muted-foreground">
-                Confianza {Math.round(preview.confidence * 100)}%
+                {t("rep2.se.confidencePrefix")} {Math.round(preview.confidence * 100)}%
               </p>
             </div>
           </div>
@@ -876,7 +870,7 @@ function ScorePreview({
                   {d.score === null ? "—" : d.score}
                 </div>
                 <div className="text-[10px] text-muted-foreground">
-                  {DIMENSION_LABEL[d.dim]} · {d.weight}%
+                  {t(`lib.dimension.${d.dim}`)} · {d.weight}%
                 </div>
               </div>
             ))}
@@ -887,7 +881,7 @@ function ScorePreview({
         {preview.worst.length > 0 && (
           <div className="mt-4">
             <p className="text-xs font-semibold text-muted-foreground">
-              Qué pesa en contra
+              {t("rep2.se.whatCountsAgainst")}
             </p>
             <div className="mt-1.5 flex flex-wrap gap-2">
               {preview.worst.map((w) => (
@@ -896,8 +890,8 @@ function ScorePreview({
                   className={cn(
                     "rounded-full px-2.5 py-1 text-xs font-medium",
                     w.state === "risk"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-amber-100 text-amber-800",
+                      ? "bg-danger-soft text-danger"
+                      : "bg-warning-soft text-warning",
                   )}
                 >
                   {w.label}: {w.value}
@@ -913,8 +907,7 @@ function ScorePreview({
           <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <div>
-              <span className="font-medium">Sin datos</span> (no puntúan; conectá
-              la fuente para incluirlas):
+              <span className="font-medium">{t("rep2.se.noDataLabel")}</span> {t("rep2.se.noDataDesc")}
               <ul className="mt-1 space-y-0.5">
                 {preview.missing.map((x) => {
                   const src = METRIC_DEFS.find((d) => d.key === x.key)?.source;

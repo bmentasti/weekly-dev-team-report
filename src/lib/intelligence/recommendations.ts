@@ -28,6 +28,9 @@ export interface Recommendation {
   missing: string[];
   status: RecoStatus;
   kind: "integration" | "process";
+  /** Clave de dimensión y proveedores recomendados (para i18n en el render). */
+  dimensionKey?: string;
+  recommendedProviders?: string[];
 }
 
 /** Dimensiones cuya ausencia es más crítica (para priorizar recomendaciones). */
@@ -59,6 +62,8 @@ export function generateRecommendations(coverage: CoverageReport): Recommendatio
         sources: [],
         missing: [dim.label],
         status: "NEW",
+        dimensionKey: dim.key,
+        recommendedProviders: dim.recommended.slice(0, 2),
       });
     } else if (dim.coverage > 0 && dim.missing.some((m) => /principal/i.test(m))) {
       recs.push({
@@ -76,6 +81,8 @@ export function generateRecommendations(coverage: CoverageReport): Recommendatio
         sources: dim.sources,
         missing: ["fuente principal"],
         status: "NEW",
+        dimensionKey: dim.key,
+        recommendedProviders: dim.recommended.slice(0, 2),
       });
     }
   }

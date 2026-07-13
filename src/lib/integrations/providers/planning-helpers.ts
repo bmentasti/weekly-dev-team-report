@@ -1,3 +1,5 @@
+import { safeFetch } from "@/lib/http";
+import type { TestResult } from "../types";
 // Helpers compartidos por los adapters de Project Planning & Portfolio.
 // Mantienen el mapeo a UnifiedWorkItem consistente con el resto de providers.
 import type { UnifiedWorkItem, WorkItemBucket } from "../types";
@@ -67,7 +69,7 @@ export async function getJson<T>(
   url: string,
   headers: Record<string, string>,
 ): Promise<T> {
-  const res = await fetch(url, { headers, cache: "no-store" });
+  const res = await safeFetch(url, { headers, cache: "no-store" });
   if (!res.ok) throw new Error(`La API respondió ${res.status}.`);
   return (await res.json()) as T;
 }
@@ -77,4 +79,45 @@ export function httpError(status: number, provider: string): string {
   if (status === 401 || status === 403) return "Token inválido o sin permisos.";
   if (status === 404) return "No se encontró el recurso (revisá los IDs).";
   return `${provider} respondió ${status}.`;
+}
+
+// ---------------------------------------------------------------------------
+// INT-03: dedup del patrón testConnection + fetchData de los providers de
+// Planning. Encapsulan el fetch (con timeout vía safeFetch), el chequeo de
+// status y el manejo de error homogéneo. Los adapters pueden delegar en estos
+// helpers en lugar de repetir el mismo try/catch en cada archivo.
+// ---------------------------------------------------------------------------
+
+/**
+ * Ejecuta un GET de "ping" y lo mapea a un TestResult. Captura errores de red y
+ * los devuelve como { ok: false }. `detail` es el mensaje de éxito.
+ */
+export async function testJson(
+  url: string,
+  headers: Record<string, string>,
+  provider: string,
+  detail = "Cuenta conectada",
+): Promise<TestResult> {
+  try {
+    const res = await safeFetch(url, { headers, cache: "no-store" });
+    if (!res.ok) return { ok: false, error: httpError(res.status, provider) };
+    return { ok: true, detail };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Error." };
+  }
+}
+
+/**
+ * GET JSON para fetchData: lanza un Error con el nombre del provider si el
+ * status no es ok (lo captura el colector de reportes y marca la fuente en
+ * error). Comparte timeout/cache con safeFetch.
+ */
+export async function fetchJson<T>(
+  url: string,
+  headers: Record<string, string>,
+  provider: string,
+): Promise<T> {
+  const res = await safeFetch(url, { headers, cache: "no-store" });
+  if (!res.ok) throw new Error(`${provider} devolvió ${res.status}.`);
+  return (await res.json()) as T;
 }

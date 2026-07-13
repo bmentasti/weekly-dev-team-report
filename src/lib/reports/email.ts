@@ -1,6 +1,7 @@
 import type { ReportMetrics } from "./types";
-import { HEALTH_LABEL } from "./health";
 import type { HealthLevel } from "./types";
+import { makeT } from "@/lib/i18n/dictionaries";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 interface ReportLike {
   id: string;
@@ -12,30 +13,36 @@ interface ReportLike {
   recommendations: unknown;
 }
 
-export function buildReportEmailHtml(report: ReportLike, appUrl: string): string {
+export function buildReportEmailHtml(
+  report: ReportLike,
+  appUrl: string,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  const t = makeT(locale);
   const m = report.metrics as ReportMetrics | null;
   const recs = (report.recommendations as string[] | null) ?? [];
-  const d = (v: Date | string) => new Date(v).toLocaleDateString();
+  const d = (v: Date | string) =>
+    new Date(v).toLocaleDateString(locale === "en" ? "en-US" : "es-AR");
   const health = report.healthStatus as HealthLevel | null;
-  const healthLabel = health ? HEALTH_LABEL[health] : "—";
+  const healthLabel = health ? t(`lib.health.${health}`) : "—";
 
   const metricLine = (label: string, value: string | number) =>
     `<tr><td style="padding:4px 0;color:#64748b;font-size:13px">${label}</td><td style="padding:4px 0;text-align:right;font-weight:600;font-size:13px">${value}</td></tr>`;
 
   const metricsHtml = m
     ? `<table style="width:100%;border-collapse:collapse;margin-top:8px">
-        ${metricLine("Story points completados", `${m.capacity.completedPoints}/${m.capacity.committedPoints}`)}
-        ${metricLine("Velocity", `${m.capacity.velocityPoints} pts`)}
-        ${metricLine("Tareas finalizadas", m.workItems.done)}
-        ${metricLine("Tareas bloqueadas", m.workItems.blocked)}
-        ${metricLine("PR/MR mergeados", m.codeChanges.merged)}
-        ${metricLine("PR/MR sin reviewer", m.codeChanges.withoutReviewer)}
+        ${metricLine(t("exp.completedPoints"), `${m.capacity.completedPoints}/${m.capacity.committedPoints}`)}
+        ${metricLine(t("exp.velocity"), `${m.capacity.velocityPoints} pts`)}
+        ${metricLine(t("exp.tasksDone"), m.workItems.done)}
+        ${metricLine(t("exp.tasksBlocked"), m.workItems.blocked)}
+        ${metricLine(t("exp.prMerged"), m.codeChanges.merged)}
+        ${metricLine(t("exp.prWithoutReviewer"), m.codeChanges.withoutReviewer)}
       </table>`
     : "";
 
   const recsHtml =
     recs.length > 0
-      ? `<h3 style="font-size:14px;margin:20px 0 6px">Recomendaciones</h3>
+      ? `<h3 style="font-size:14px;margin:20px 0 6px">${t("exp.recommendations")}</h3>
          <ul style="margin:0;padding-left:18px;color:#334155;font-size:13px">
            ${recs.map((r) => `<li style="margin:3px 0">${r}</li>`).join("")}
          </ul>`
@@ -45,16 +52,16 @@ export function buildReportEmailHtml(report: ReportLike, appUrl: string): string
   <div style="max-width:560px;margin:0 auto;padding:24px">
     <div style="background:#0b1d3a;color:#fff;border-radius:16px;padding:20px 24px">
       <div style="font-size:18px;font-weight:700">DevMetrics</div>
-      <div style="opacity:.7;font-size:13px">Reporte del equipo</div>
+      <div style="opacity:.7;font-size:13px">${t("exp.teamReport")}</div>
     </div>
     <div style="background:#fff;border:1px solid #dce3ee;border-radius:16px;padding:24px;margin-top:12px">
-      <div style="font-size:13px;color:#64748b">${d(report.periodStart)} – ${d(report.periodEnd)} · Estado: <strong style="color:#0b1d3a">${healthLabel}</strong></div>
+      <div style="font-size:13px;color:#64748b">${d(report.periodStart)} – ${d(report.periodEnd)} · ${t("exp.status")}: <strong style="color:#0b1d3a">${healthLabel}</strong></div>
       <p style="font-size:14px;color:#334155;line-height:1.5">${report.summary ?? ""}</p>
       ${metricsHtml}
       ${recsHtml}
-      <a href="${appUrl}/reports/${report.id}" style="display:inline-block;margin-top:20px;background:#2563ff;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 18px;border-radius:10px">Ver reporte completo</a>
+      <a href="${appUrl}/reports/${report.id}" style="display:inline-block;margin-top:20px;background:#2563ff;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 18px;border-radius:10px">${t("exp.email.viewFullReport")}</a>
     </div>
-    <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px">Enviado por DevMetrics · El CSV va adjunto a este correo.</p>
+    <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px">${t("exp.email.footer")}</p>
   </div>
   </body></html>`;
 }

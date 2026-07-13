@@ -34,6 +34,12 @@ export async function POST(
   const rawQuestion = (body.prompt ?? "").trim();
   if (!rawQuestion)
     return NextResponse.json({ error: "Escribí una pregunta." }, { status: 400 });
+  // Cota de longitud para controlar coste/abuso de la IA. (COD-01)
+  if (rawQuestion.length > 2000)
+    return NextResponse.json(
+      { error: "La pregunta es demasiado larga (máx. 2000 caracteres)." },
+      { status: 400 },
+    );
 
   const ROLE_FRAMING: Record<string, string> = {
     TL: "Respondé desde la perspectiva de un Tech Lead (foco: PRs, calidad, CI, bloqueos técnicos, riesgos de código).",

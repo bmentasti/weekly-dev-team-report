@@ -1,5 +1,5 @@
 import type { ProviderAdapter } from "../types";
-import { mkItem, planBucket, isStale, isCriticalPriority, httpError } from "./planning-helpers";
+import { mkItem, planBucket, isStale, testJson, fetchJson } from "./planning-helpers";
 
 // Shortcut (PLANNING). Auth: header Shortcut-Token.
 const API = "https://api.app.shortcut.com/api/v3";
@@ -21,24 +21,18 @@ interface RawStory {
 export const shortcutAdapter: ProviderAdapter = {
   slug: "shortcut",
   async testConnection(ctx) {
-    try {
-      const res = await fetch(`${API}/member`, {
-        headers: { "Shortcut-Token": ctx.secret },
-        cache: "no-store",
-      });
-      if (!res.ok) return { ok: false, error: httpError(res.status, "Shortcut") };
-      return { ok: true, detail: "Cuenta conectada" };
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : "Error." };
-    }
+    return testJson(
+      `${API}/member`,
+      { "Shortcut-Token": ctx.secret },
+      "Shortcut",
+    );
   },
   async fetchData(ctx) {
-    const res = await fetch(`${API}/search/stories?query=${encodeURIComponent("!is:archived")}&page_size=25`, {
-      headers: { "Shortcut-Token": ctx.secret },
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`Shortcut devolvió ${res.status}.`);
-    const data = (await res.json()) as { data?: RawStory[] };
+    const data = await fetchJson<{ data?: RawStory[] }>(
+      `${API}/search/stories?query=${encodeURIComponent("!is:archived")}&page_size=25`,
+      { "Shortcut-Token": ctx.secret },
+      "Shortcut",
+    );
     const workItems = (data.data ?? []).map((s) => {
       const status = s.completed ? "Completed" : s.started ? "Started" : "Unstarted";
       const bucket = planBucket(status, s.completed);

@@ -16,13 +16,13 @@ import { computeCoverage } from "@/lib/intelligence/coverage";
 import { computeHealth } from "@/lib/intelligence/health";
 import { generateRecommendations } from "@/lib/intelligence/recommendations";
 import {
-  COVERAGE_LEVEL_LABELS,
   type ConnectedSource,
 } from "@/lib/intelligence/types";
 import { ProjectHealthMap, InsightCallout } from "@/components/viz";
+import { recoText } from "@/components/intelligence";
 import { getT } from "@/lib/i18n/server";
 import { resolveActiveProject } from "@/lib/project";
-import { levelOf, LEVEL_LABEL, levelVariant } from "@/lib/reports/score";
+import { levelOf, levelVariant } from "@/lib/reports/score";
 import {
   getEffectiveStandard,
   resolveReportScore,
@@ -160,7 +160,7 @@ export default async function DashboardPage() {
                 <div className="rounded-input border p-3">
                   <p className="text-2xl font-bold tabular-nums">{coverage.overall}%</p>
                   <p className="text-xs text-muted-foreground">
-                    {t("dash.coverage")} · {COVERAGE_LEVEL_LABELS[coverage.level]}
+                    {t("dash.coverage")} · {t(`lib.coverageLevel.${coverage.level}`)}
                   </p>
                 </div>
                 <div className="rounded-input border p-3">
@@ -178,9 +178,9 @@ export default async function DashboardPage() {
               {recommendations[0] && (
                 <InsightCallout
                   intent={recommendations[0].priority === "high" ? "danger" : "warning"}
-                  title={recommendations[0].title}
+                  title={recoText(recommendations[0], t).title}
                 >
-                  {recommendations[0].action}
+                  {recoText(recommendations[0], t).action}
                 </InsightCallout>
               )}
               <Button variant="outline" size="sm" asChild>
@@ -209,7 +209,7 @@ export default async function DashboardPage() {
                   <span className="truncate font-medium">{p.name}</span>
                   {p.level ? (
                     <Badge variant={levelVariant(p.level)}>
-                      {LEVEL_LABEL[p.level]}
+                      {t(`lib.level.${p.level}`)}
                     </Badge>
                   ) : (
                     <span className="text-xs text-muted-foreground">sin datos</span>

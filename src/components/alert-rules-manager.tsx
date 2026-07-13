@@ -7,10 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDialogs } from "@/components/ui/dialog-provider";
+import { useT } from "@/components/i18n-provider";
 import { METRIC_DEFS } from "@/lib/reports/standards";
 import {
-  OPERATOR_LABEL,
-  SEVERITY_LABEL,
   ruleText,
   type AlertRule,
   type RuleOperator,
@@ -25,6 +24,7 @@ function sevVariant(s: RuleSeverity): "destructive" | "warning" | "secondary" {
 }
 
 export function AlertRulesManager() {
+  const { t } = useT();
   const dialogs = useDialogs();
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState<"FREE" | "TEAM" | "PRO">("FREE");
@@ -68,8 +68,8 @@ export function AlertRulesManager() {
       const data = await res.json();
       if (!res.ok) {
         await dialogs.alert({
-          title: "No se pudo crear",
-          description: data.error ?? "Intentá de nuevo.",
+          title: t("ws.alertRules.cantCreate"),
+          description: data.error ?? t("ws.alertRules.tryAgain"),
         });
         return;
       }
@@ -81,8 +81,8 @@ export function AlertRulesManager() {
 
   async function removeRule(id: string) {
     const ok = await dialogs.confirm({
-      title: "Eliminar regla",
-      confirmLabel: "Eliminar",
+      title: t("ws.alertRules.deleteRule"),
+      confirmLabel: t("ws.alertRules.delete"),
       danger: true,
     });
     if (!ok) return;
@@ -101,14 +101,13 @@ export function AlertRulesManager() {
       <CardContent className="py-6">
         <div className="flex items-center gap-2">
           <Bell className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">Reglas de alerta</h2>
+          <h2 className="text-lg font-semibold">{t("ws.alertRules.title")}</h2>
           <Badge variant={isPro ? "success" : "secondary"} className="ml-auto">
             {isPro ? "Pro" : "Pro"}
           </Badge>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Definí condiciones propias sobre las métricas. DevMetrics las evalúa en
-          cada reporte y te avisa cuando se cumplen.
+          {t("ws.alertRules.subtitle")}
         </p>
 
         {!isPro ? (
@@ -118,26 +117,25 @@ export function AlertRulesManager() {
                 <Lock className="h-4 w-4" />
               </span>
               <p className="text-sm text-muted-foreground">
-                Las reglas de alerta personalizadas están disponibles en el plan
-                Pro.
+                {t("ws.alertRules.proOnly")}
               </p>
             </div>
             <Button asChild size="sm" className="shrink-0">
-              <Link href="/settings">Ver Pro</Link>
+              <Link href="/settings">{t("ws.alertRules.seePro")}</Link>
             </Button>
           </div>
         ) : (
           <>
             {!persistenceReady && (
               <p className="mt-3 rounded-input border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-                Ejecutá <code>npm run db:push</code> para poder guardar reglas.
+                {t("ws.alertRules.dbPushPrefix")} <code>npm run db:push</code> {t("ws.alertRules.dbPushSuffix")}
               </p>
             )}
 
             {/* Form de creación */}
             <div className="mt-4 flex flex-wrap items-end gap-2 rounded-input border p-3">
               <label className="text-xs text-muted-foreground">
-                Métrica
+                {t("ws.alertRules.metric")}
                 <select
                   value={metricKey}
                   onChange={(e) => setMetricKey(e.target.value)}
@@ -151,7 +149,7 @@ export function AlertRulesManager() {
                 </select>
               </label>
               <label className="text-xs text-muted-foreground">
-                Condición
+                {t("ws.alertRules.condition")}
                 <select
                   value={operator}
                   onChange={(e) => setOperator(e.target.value as RuleOperator)}
@@ -159,13 +157,13 @@ export function AlertRulesManager() {
                 >
                   {OPERATORS.map((op) => (
                     <option key={op} value={op}>
-                      {OPERATOR_LABEL[op]}
+                      {t(`lib.operator.${op}`)}
                     </option>
                   ))}
                 </select>
               </label>
               <label className="text-xs text-muted-foreground">
-                Valor
+                {t("ws.alertRules.value")}
                 <input
                   type="number"
                   value={threshold}
@@ -174,7 +172,7 @@ export function AlertRulesManager() {
                 />
               </label>
               <label className="text-xs text-muted-foreground">
-                Severidad
+                {t("ws.alertRules.severity")}
                 <select
                   value={severity}
                   onChange={(e) => setSeverity(e.target.value as RuleSeverity)}
@@ -182,13 +180,13 @@ export function AlertRulesManager() {
                 >
                   {SEVERITIES.map((s) => (
                     <option key={s} value={s}>
-                      {SEVERITY_LABEL[s]}
+                      {t(`lib.severity.${s}`)}
                     </option>
                   ))}
                 </select>
               </label>
               <Button size="sm" onClick={addRule} disabled={saving}>
-                <Plus className="mr-1 h-4 w-4" /> Agregar
+                <Plus className="mr-1 h-4 w-4" /> {t("ws.alertRules.add")}
               </Button>
             </div>
 
@@ -196,7 +194,7 @@ export function AlertRulesManager() {
             <div className="mt-4 space-y-2">
               {rules.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Todavía no creaste reglas. Ejemplo: “Bugs abiertos mayor que 8”.
+                  {t("ws.alertRules.empty")}
                 </p>
               ) : (
                 rules.map((r) => (
@@ -205,13 +203,13 @@ export function AlertRulesManager() {
                     className="flex items-center gap-3 rounded-input border px-3 py-2"
                   >
                     <Badge variant={sevVariant(r.severity)} className="text-[10px]">
-                      {SEVERITY_LABEL[r.severity]}
+                      {t(`lib.severity.${r.severity}`)}
                     </Badge>
-                    <span className="flex-1 text-sm">Alertar si {ruleText(r)}</span>
+                    <span className="flex-1 text-sm">{`${t("ws.alertRules.alertIf")} ${ruleText(r, t)}`}</span>
                     <button
                       onClick={() => removeRule(r.id)}
                       className="text-muted-foreground hover:text-destructive"
-                      aria-label="Eliminar regla"
+                      aria-label={t("ws.alertRules.deleteRuleAria")}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

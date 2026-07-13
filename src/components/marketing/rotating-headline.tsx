@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-const WORDS = ["Tech Leads", "Product Owners", "Directores", "Scrum Masters"];
+import { useEffect, useMemo, useState } from "react";
+import { useT } from "@/components/i18n-provider";
 
 /**
  * Headline animado estilo SaaS: un prefijo fijo + una palabra que rota
@@ -10,6 +9,16 @@ const WORDS = ["Tech Leads", "Product Owners", "Directores", "Scrum Masters"];
  * plataformas como Tiendanube.
  */
 export function RotatingHeadline() {
+  const { t } = useT();
+  const WORDS = useMemo(
+    () => [
+      t("mc.rot.techLeads"),
+      t("mc.rot.productOwners"),
+      t("mc.rot.directors"),
+      t("mc.rot.scrumMasters"),
+    ],
+    [t],
+  );
   const [index, setIndex] = useState(0);
   const [text, setText] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -38,7 +47,7 @@ export function RotatingHeadline() {
     }, delay);
 
     return () => clearTimeout(t);
-  }, [text, deleting, index]);
+  }, [text, deleting, index, WORDS]);
 
   return (
     <span className="text-primary">

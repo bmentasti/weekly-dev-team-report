@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { OnboardingState } from "@/lib/onboarding";
+import { useT } from "@/components/i18n-provider";
 
 interface Step {
   key: string;
@@ -17,52 +18,54 @@ interface Step {
   cta: string;
 }
 
-function buildSteps(s: OnboardingState): Step[] {
+function buildSteps(s: OnboardingState, t: (key: string) => string): Step[] {
   return [
     {
       key: "project",
-      title: "Creá tu primer proyecto",
-      desc: "Un proyecto agrupa las integraciones y reportes de un equipo.",
+      title: t("ws.checklist.step1Title"),
+      desc: t("ws.checklist.step1Desc"),
       done: s.hasProject,
       href: "/projects",
-      cta: "Crear proyecto",
+      cta: t("ws.checklist.step1Cta"),
     },
     {
       key: "connect",
-      title: "Conectá una herramienta",
+      title: t("ws.checklist.step2Title"),
       desc:
         s.recommended.length > 0
-          ? `Recomendado para vos: ${s.recommended.map((r) => r.label).join(" o ")}. Solo lectura.`
-          : "Vinculá Jira o GitHub. Solo lectura, tokens encriptados.",
+          ? `${t("ws.checklist.step2DescRecommendedPrefix")} ${s.recommended
+              .map((r) => r.label)
+              .join(` ${t("ws.checklist.step2DescOr")} `)}${t("ws.checklist.step2DescRecommendedSuffix")}`
+          : t("ws.checklist.step2DescDefault"),
       done: s.connectedCount > 0,
       href: s.recommended[0]
         ? `/integrations/${s.recommended[0].slug}`
         : "/integrations",
-      cta: "Conectar",
+      cta: t("ws.checklist.step2Cta"),
     },
     {
       key: "report",
-      title: "Generá tu primer reporte",
-      desc: "Toma ~30 segundos. ¿No tenés acceso aún? Probá con datos de ejemplo.",
+      title: t("ws.checklist.step3Title"),
+      desc: t("ws.checklist.step3Desc"),
       done: s.reportsCount > 0,
       href: "/reports",
-      cta: "Generar reporte",
+      cta: t("ws.checklist.step3Cta"),
     },
     {
       key: "team",
-      title: "Invitá a tu equipo",
-      desc: "Compartí reportes y sumá miembros al workspace.",
+      title: t("ws.checklist.step4Title"),
+      desc: t("ws.checklist.step4Desc"),
       done: s.membersCount > 1,
       href: "/teams",
-      cta: "Invitar",
+      cta: t("ws.checklist.step4Cta"),
     },
     {
       key: "standards",
-      title: "Definí tus umbrales de salud",
-      desc: "Adaptá qué es saludable, en observación o en riesgo para tu equipo.",
+      title: t("ws.checklist.step5Title"),
+      desc: t("ws.checklist.step5Desc"),
       done: false,
       href: "/reports/standards",
-      cta: "Configurar",
+      cta: t("ws.checklist.step5Cta"),
     },
   ];
 }
@@ -74,8 +77,9 @@ export function OnboardingChecklist({
   state: OnboardingState;
   variant?: "full" | "compact";
 }) {
+  const { t } = useT();
   const [dismissed, setDismissed] = useState(false);
-  const steps = buildSteps(state);
+  const steps = buildSteps(state, t);
   const coreDone = steps.slice(0, 3).filter((s) => s.done).length;
   const coreComplete = coreDone === 3;
 
@@ -94,11 +98,11 @@ export function OnboardingChecklist({
             <div>
               <h2 className="font-semibold">
                 {variant === "compact"
-                  ? "Terminá de configurar DevMetrics"
-                  : "Primeros pasos"}
+                  ? t("ws.checklist.compactTitle")
+                  : t("ws.checklist.fullTitle")}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {doneCount} de {steps.length} · a un paso de tu primer reporte
+                {`${doneCount} ${t("ws.checklist.progressPrefix")} ${steps.length} ${t("ws.checklist.progressSuffix")}`}
               </p>
             </div>
           </div>
@@ -106,7 +110,7 @@ export function OnboardingChecklist({
             <button
               onClick={() => setDismissed(true)}
               className="text-muted-foreground hover:text-foreground"
-              aria-label="Ocultar"
+              aria-label={t("ws.checklist.hide")}
             >
               <X className="h-4 w-4" />
             </button>
@@ -134,7 +138,7 @@ export function OnboardingChecklist({
                 )}
               >
                 {step.done ? (
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
                 ) : (
                   <Circle
                     className={cn(

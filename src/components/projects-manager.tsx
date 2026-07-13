@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDialogs } from "@/components/ui/dialog-provider";
+import { useT } from "@/components/i18n-provider";
 
 export interface ProjectItem {
   id: string;
@@ -19,6 +20,7 @@ export interface ProjectItem {
 
 export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
   const router = useRouter();
+  const { t } = useT();
   const { confirm, prompt, alert, upgrade } = useDialogs();
   const [busy, setBusy] = useState(false);
 
@@ -32,7 +34,7 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
     setBusy(false);
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      await alert({ title: "No se pudo cambiar de proyecto", description: j.error });
+      await alert({ title: t("ws.projectsMgr.cantSwitch"), description: j.error });
       return;
     }
     router.refresh();
@@ -40,10 +42,10 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
 
   async function create() {
     const name = await prompt({
-      title: "Nuevo proyecto",
-      label: "Nombre del proyecto",
+      title: t("ws.projectsMgr.newProject"),
+      label: t("ws.projectsMgr.projectName"),
       placeholder: "Web App",
-      confirmLabel: "Crear",
+      confirmLabel: t("ws.projectsMgr.create"),
     });
     if (!name) return;
     setBusy(true);
@@ -55,15 +57,13 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
     const json = await res.json().catch(() => ({}));
     setBusy(false);
     if (res.status === 403) {
-      await upgrade({ feature: "Tener más de un proyecto", suggestedPlan: "Pro" });
+      await upgrade({ feature: t("ws.projectsMgr.moreThanOneProject"), suggestedPlan: "Pro" });
       return;
     }
     if (!res.ok) {
       await alert({
-        title: "No se pudo crear el proyecto",
-        description:
-          json.error ??
-          "Ocurrió un error inesperado. Revisá que tengas un workspace y volvé a intentar.",
+        title: t("ws.projectsMgr.cantCreate"),
+        description: json.error ?? t("ws.projectsMgr.cantCreateDesc"),
       });
       return;
     }
@@ -79,9 +79,9 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
 
   async function rename(p: ProjectItem) {
     const name = await prompt({
-      title: "Renombrar proyecto",
+      title: t("ws.projectsMgr.renameProject"),
       defaultValue: p.name,
-      confirmLabel: "Guardar",
+      confirmLabel: t("ws.projectsMgr.save"),
     });
     if (!name || name === p.name) return;
     setBusy(true);
@@ -93,7 +93,7 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
     setBusy(false);
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      await alert({ title: "No se pudo renombrar", description: j.error });
+      await alert({ title: t("ws.projectsMgr.cantRename"), description: j.error });
       return;
     }
     router.refresh();
@@ -101,9 +101,9 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
 
   async function remove(p: ProjectItem) {
     const ok = await confirm({
-      title: `Eliminar "${p.name}"`,
-      description: "Se borran sus integraciones y reportes. No se puede deshacer.",
-      confirmLabel: "Eliminar",
+      title: `${t("ws.projectsMgr.deletePrefix")} "${p.name}"`,
+      description: t("ws.projectsMgr.deleteDesc"),
+      confirmLabel: t("ws.projectsMgr.delete"),
       danger: true,
     });
     if (!ok) return;
@@ -111,7 +111,7 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
     const res = await fetch(`/api/projects/${p.id}`, { method: "DELETE" });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      await alert({ title: "No se pudo eliminar", description: j.error });
+      await alert({ title: t("ws.projectsMgr.cantDelete"), description: j.error });
     }
     setBusy(false);
     router.refresh();
@@ -129,7 +129,7 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
                 </span>
                 <span className="font-semibold">{p.name}</span>
               </div>
-              {p.active && <Badge variant="success">Activo</Badge>}
+              {p.active && <Badge variant="success">{t("ws.projectsMgr.active")}</Badge>}
             </div>
 
             <div className="flex gap-4 text-xs text-muted-foreground">
@@ -147,11 +147,11 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
             <div className="mt-auto flex flex-wrap gap-2">
               {p.active ? (
                 <Button size="sm" variant="outline" disabled>
-                  En uso
+                  {t("ws.projectsMgr.inUse")}
                 </Button>
               ) : (
                 <Button size="sm" disabled={busy} onClick={() => select(p.id)}>
-                  Trabajar acá
+                  {t("ws.projectsMgr.workHere")}
                 </Button>
               )}
               <Button
@@ -160,7 +160,7 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
                 disabled={busy}
                 onClick={() => rename(p)}
               >
-                Renombrar
+                {t("ws.projectsMgr.rename")}
               </Button>
               <Button
                 size="sm"
@@ -169,7 +169,7 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
                 onClick={() => remove(p)}
                 className="text-muted-foreground hover:text-destructive"
               >
-                Eliminar
+                {t("ws.projectsMgr.delete")}
               </Button>
             </div>
           </CardContent>
@@ -183,7 +183,7 @@ export function ProjectsManager({ initial }: { initial: ProjectItem[] }) {
         className="flex min-h-[9rem] flex-col items-center justify-center gap-2 rounded-card border border-dashed text-sm text-muted-foreground hover:border-primary hover:text-primary"
       >
         <span className="text-2xl leading-none">+</span>
-        Nuevo proyecto
+        {t("ws.projectsMgr.newProject")}
       </button>
     </div>
   );

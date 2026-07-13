@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type { ActivitySignal, ProviderAdapter } from "../types";
 import { BLOCKER_PATTERN } from "../blocker";
 
@@ -21,7 +22,7 @@ export const discordAdapter: ProviderAdapter = {
   slug: "discord",
   async testConnection(ctx) {
     try {
-      const res = await fetch(`${API}/channels/${ctx.config.channelId}`, {
+      const res = await safeFetch(`${API}/channels/${ctx.config.channelId}`, {
         headers: headers(ctx.secret),
         cache: "no-store",
       });
@@ -36,7 +37,7 @@ export const discordAdapter: ProviderAdapter = {
     }
   },
   async fetchData(ctx) {
-    const res = await fetch(
+    const res = await safeFetch(
       `${API}/channels/${ctx.config.channelId}/messages?limit=50`,
       { headers: headers(ctx.secret), cache: "no-store" },
     );

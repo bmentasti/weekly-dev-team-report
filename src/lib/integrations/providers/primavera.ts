@@ -1,3 +1,4 @@
+import { safeFetch, assertSafeUrl } from "@/lib/http";
 import type { ProviderAdapter } from "../types";
 import { mkItem, planBucket, isStale, httpError } from "./planning-helpers";
 
@@ -19,8 +20,13 @@ export const primaveraAdapter: ProviderAdapter = {
   slug: "primavera",
   async testConnection(ctx) {
     try {
-      const url = `${ctx.config.baseUrl.replace(/\/$/, "")}/p6ws/restapi/project?Fields=ObjectId`;
-      const res = await fetch(url, {
+      // SEC-04 / SSRF: validar el baseUrl provisto por el usuario (https + no privado).
+      const base = await assertSafeUrl(ctx.config.baseUrl, {
+        allowInsecure: false,
+        blockPrivate: true,
+      });
+      const url = `${base}/p6ws/restapi/project?Fields=ObjectId`;
+      const res = await safeFetch(url, {
         headers: { Authorization: `Bearer ${ctx.secret}`, Accept: "application/json" },
         cache: "no-store",
       });
@@ -31,8 +37,12 @@ export const primaveraAdapter: ProviderAdapter = {
     }
   },
   async fetchData(ctx) {
-    const url = `${ctx.config.baseUrl.replace(/\/$/, "")}/p6ws/restapi/activity?Fields=ObjectId,Name,Status,PercentComplete,LastUpdateDate,StartDate,FinishDate`;
-    const res = await fetch(url, {
+    const base = await assertSafeUrl(ctx.config.baseUrl, {
+      allowInsecure: false,
+      blockPrivate: true,
+    });
+    const url = `${base}/p6ws/restapi/activity?Fields=ObjectId,Name,Status,PercentComplete,LastUpdateDate,StartDate,FinishDate`;
+    const res = await safeFetch(url, {
       headers: { Authorization: `Bearer ${ctx.secret}`, Accept: "application/json" },
       cache: "no-store",
     });

@@ -15,6 +15,7 @@ import {
 } from "@/lib/plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { BillingPeriodName } from "@/lib/plans";
+import { getT } from "@/lib/i18n/server";
 
 function Usage({
   label,
@@ -26,6 +27,7 @@ function Usage({
   max: number | null;
 }) {
   const over = max !== null && value > max;
+  const { t } = getT();
   return (
     <div className="rounded-input border p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
@@ -33,7 +35,7 @@ function Usage({
         {value}
         <span className="text-sm font-normal text-muted-foreground">
           {" "}
-          / {limitLabel(max)}
+          / {limitLabel(max, t)}
         </span>
       </div>
     </div>
@@ -41,16 +43,19 @@ function Usage({
 }
 
 export default async function SettingsPage() {
+  const { t } = getT();
   const session = await getServerSession(authOptions);
   const workspace = await resolveWorkspaceForUser(session!.user.id);
 
   if (!workspace) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Ajustes</h1>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          {t("ws.settings.title")}
+        </h1>
         <Card>
           <CardContent className="py-6 text-sm text-muted-foreground">
-            Creá un workspace para ver los ajustes.
+            {t("ws.settings.needWorkspace")}
           </CardContent>
         </Card>
       </div>
@@ -81,20 +86,27 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Ajustes</h1>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          {t("ws.settings.title")}
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Plan, facturación y uso de {workspace.name}.
+          {`${t("ws.settings.subtitlePrefix")} ${workspace.name}.`}
         </p>
       </div>
 
       {onTrial && (
         <div className="rounded-card border border-primary/30 bg-primary/5 px-5 py-4">
           <p className="text-sm font-semibold">
-            Prueba de Pro activa · {daysLeft} día{daysLeft === 1 ? "" : "s"} restantes
+            {`${t("ws.settings.trialActive")} · ${daysLeft} ${
+              daysLeft === 1
+                ? t("ws.settings.daysLeftOne")
+                : t("ws.settings.daysLeftMany")
+            }`}
           </p>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Estás usando todas las funciones de Pro. Al terminar, tu workspace
-            vuelve al plan {PLANS[storedPlan].name} — no perdés datos.
+            {`${t("ws.settings.trialDescPrefix")} ${PLANS[storedPlan].name} ${t(
+              "ws.settings.trialDescSuffix",
+            )}`}
           </p>
         </div>
       )}
@@ -102,30 +114,46 @@ export default async function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            Uso actual · plan {def.name}
-            {onTrial ? " (prueba)" : ""}
+            {`${t("ws.settings.currentUsagePrefix")} ${def.name}`}
+            {onTrial ? t("ws.settings.trialSuffix") : ""}
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Usage label="Proyectos" value={projects} max={def.maxProjects} />
-          <Usage label="Usuarios" value={members} max={def.maxMembers} />
           <Usage
-            label="Reportes este mes"
+            label={t("ws.settings.projects")}
+            value={projects}
+            max={def.maxProjects}
+          />
+          <Usage
+            label={t("ws.settings.users")}
+            value={members}
+            max={def.maxMembers}
+          />
+          <Usage
+            label={t("ws.settings.reportsThisMonth")}
             value={reportsThisMonth}
             max={def.maxReportsPerMonth}
           />
           <div className="rounded-input border p-3">
-            <div className="text-xs text-muted-foreground">Integraciones</div>
-            <div className="text-lg font-bold">{def.integrationsLabel}</div>
+            <div className="text-xs text-muted-foreground">
+              {t("ws.settings.integrations")}
+            </div>
+            <div className="text-lg font-bold">{t(`lib.plan.integrations.${plan}`)}</div>
           </div>
           <div className="rounded-input border p-3">
-            <div className="text-xs text-muted-foreground">Histórico</div>
+            <div className="text-xs text-muted-foreground">
+              {t("ws.settings.history")}
+            </div>
             <div className="text-lg font-bold">
-              {def.historyMonths === null ? "Ilimitado" : `${def.historyMonths} meses`}
+              {def.historyMonths === null
+                ? t("ws.settings.unlimited")
+                : `${def.historyMonths} ${t("ws.settings.months")}`}
             </div>
           </div>
           <div className="rounded-input border p-3">
-            <div className="text-xs text-muted-foreground">Export</div>
+            <div className="text-xs text-muted-foreground">
+              {t("ws.settings.export")}
+            </div>
             <div className="text-lg font-bold">
               {def.pdfExport ? "CSV + PDF" : "CSV"}
             </div>
@@ -134,7 +162,9 @@ export default async function SettingsPage() {
       </Card>
 
       <div>
-        <h2 className="mb-3 text-lg font-semibold">Cambiar de plan</h2>
+        <h2 className="mb-3 text-lg font-semibold">
+          {t("ws.settings.changePlan")}
+        </h2>
         <BillingManager
           currentPlan={storedPlan}
           currentPeriod={workspace.billingPeriod as BillingPeriodName}
@@ -144,13 +174,14 @@ export default async function SettingsPage() {
       {can(accessRole, "viewAudit") && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Actividad reciente (auditoría)</CardTitle>
+            <CardTitle className="text-lg">
+              {t("ws.settings.auditTitle")}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {audit.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Sin actividad registrada todavía. Se registran cambios de plan,
-                integraciones, roles y compartidos.
+                {t("ws.settings.auditEmpty")}
               </p>
             ) : (
               <ul className="space-y-2 text-sm">
@@ -162,7 +193,7 @@ export default async function SettingsPage() {
                     <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />
                     <div className="flex-1">
                       <p>
-                        <span className="font-medium">{a.actorName ?? "Alguien"}</span>{" "}
+                        <span className="font-medium">{a.actorName ?? t("ws.settings.someone")}</span>{" "}
                         · {a.action}
                         {a.target ? ` · ${a.target}` : ""}
                       </p>

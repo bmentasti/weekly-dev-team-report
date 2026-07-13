@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type {
   ProviderAdapter,
   UnifiedWorkItem,
@@ -17,7 +18,7 @@ async function linearQuery(
   query: string,
   variables?: Record<string, unknown>,
 ): Promise<{ data?: unknown; errors?: Array<{ message: string }> }> {
-  const res = await fetch(ENDPOINT, {
+  const res = await safeFetch(ENDPOINT, {
     method: "POST",
     headers: {
       Authorization: key,

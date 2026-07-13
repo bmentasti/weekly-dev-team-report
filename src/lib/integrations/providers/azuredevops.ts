@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type {
   CodeChangeState,
   ProviderAdapter,
@@ -37,7 +38,7 @@ export const azureDevopsAdapter: ProviderAdapter = {
   async testConnection(ctx) {
     const { organization, project, repositoryId } = ctx.config;
     try {
-      const res = await fetch(
+      const res = await safeFetch(
         `${base(organization, project, repositoryId)}?api-version=7.0`,
         { headers: { Authorization: authHeader(ctx.secret) }, cache: "no-store" },
       );
@@ -58,7 +59,7 @@ export const azureDevopsAdapter: ProviderAdapter = {
     const webBase = `https://dev.azure.com/${organization}/${project}/_git/${repositoryId}/pullrequest`;
 
     async function list(status: string): Promise<RawPr[]> {
-      const res = await fetch(
+      const res = await safeFetch(
         `${base(organization, project, repositoryId)}/pullrequests?searchCriteria.status=${status}&$top=50&api-version=7.0`,
         { headers, cache: "no-store" },
       );

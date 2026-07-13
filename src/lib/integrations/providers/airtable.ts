@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type {
   ProviderAdapter,
   UnifiedWorkItem,
@@ -58,7 +59,7 @@ async function atFetch(
   query = "",
 ): Promise<Response> {
   const url = `${API}/${baseId}/${encodeURIComponent(table)}${query}`;
-  return fetch(url, {
+  return safeFetch(url, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });

@@ -103,8 +103,9 @@ export function computeConfidence(input: ConfidenceInput): ConfidenceResult {
   if (input.permissionOk) score += 6;
   else negatives.push("Permisos/scopes insuficientes.");
 
-  // Frescura
-  const f = input.freshnessDays;
+  // Frescura. Clampeamos a >= 0: un freshnessDays negativo (clock skew / sync
+  // en el futuro) no debe reportar "-3 días de antigüedad".
+  const f = Math.max(0, input.freshnessDays);
   if (f <= 2) {
     score += 12;
     positives.push("Datos frescos (≤ 2 días).");

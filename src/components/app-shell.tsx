@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -150,6 +150,15 @@ export function AppShell({
   const { t } = useT();
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
   return (
     <DialogProvider>
     <div className="min-h-screen bg-background">
@@ -170,7 +179,12 @@ export function AppShell({
             className="absolute inset-0 bg-navy/50"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute inset-y-0 left-0 w-64 bg-navy">
+          <div
+            className="absolute inset-y-0 left-0 w-64 bg-navy"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menú de navegación"
+          >
             <button
               className="absolute right-3 top-4 text-white/70"
               onClick={() => setOpen(false)}
@@ -203,7 +217,7 @@ export function AppShell({
             <ProjectSwitcher />
           </div>
           <div className="lg:hidden">
-            <Logo showText={false} iconClassName="h-7 w-7 text-navy" />
+            <Logo showText={false} iconClassName="h-7 w-7 text-foreground" />
           </div>
           <div className="ml-auto flex items-center gap-3">
             <LanguageToggle />

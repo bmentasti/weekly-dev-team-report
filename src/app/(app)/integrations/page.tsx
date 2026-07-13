@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 import { resolveActiveProject } from "@/lib/project";
 import {
   PROVIDER_LIST,
-  KIND_LABELS,
   type ProviderSlug,
   type ProviderKind,
   type ProviderCatalogEntry,
@@ -22,6 +21,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { IntegrationStatus } from "@prisma/client";
+import { getT } from "@/lib/i18n/server";
 
 const BRAND_COLOR: Record<ProviderSlug, string> = {
   jira: "#2563FF",
@@ -58,16 +58,19 @@ const BRAND_COLOR: Record<ProviderSlug, string> = {
   "jira-roadmaps": "#2563FF",
 };
 
-function timeAgo(date: Date): string {
+function timeAgo(date: Date, t: (key: string) => string): string {
   const mins = Math.round((Date.now() - date.getTime()) / 60000);
-  if (mins < 1) return "recién";
-  if (mins < 60) return `hace ${mins}m`;
+  const ago = t("ws.integrations.agoMinPrefix");
+  const sp = ago ? `${ago} ` : "";
+  if (mins < 1) return t("ws.integrations.now");
+  if (mins < 60) return `${sp}${mins}m`;
   const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `hace ${hrs}h`;
-  return `hace ${Math.round(hrs / 24)}d`;
+  if (hrs < 24) return `${sp}${hrs}h`;
+  return `${sp}${Math.round(hrs / 24)}d`;
 }
 
 export default async function IntegrationsPage() {
+  const { t } = getT();
   const session = await getServerSession(authOptions);
   const project = await resolveActiveProject(session!.user.id);
 
@@ -122,7 +125,7 @@ export default async function IntegrationsPage() {
             >
               {p.label.charAt(0)}
             </span>
-            {!p.enabled && <Badge variant="outline">Pronto</Badge>}
+            {!p.enabled && <Badge variant="outline">{t("ws.integrations.soon")}</Badge>}
           </div>
           <div>
             <p className="font-semibold">{p.label}</p>
@@ -149,39 +152,43 @@ export default async function IntegrationsPage() {
                 }
               >
                 {connected
-                  ? "Conectado"
+                  ? t("ws.integrations.connected")
                   : errored
-                    ? "Error"
-                    : "No conectado"}
+                    ? t("ws.integrations.error")
+                    : t("ws.integrations.notConnected")}
               </span>
               {integration && connected && (
                 <span className="text-xs text-muted-foreground">
-                  · sync {timeAgo(integration.updatedAt)}
+                  · sync {timeAgo(integration.updatedAt, t)}
                 </span>
               )}
             </div>
             {!p.enabled ? (
               <Button variant="outline" size="sm" className="w-full" disabled>
-                Próximamente
+                {t("ws.integrations.comingSoon")}
               </Button>
             ) : connected ? (
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" size="sm" asChild>
-                  <Link href={`/integrations/${p.slug}`}>Configurar</Link>
+                  <Link href={`/integrations/${p.slug}`}>
+                    {t("ws.integrations.configure")}
+                  </Link>
                 </Button>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href={`/integrations/${p.slug}/data`}>Ver datos</Link>
+                  <Link href={`/integrations/${p.slug}/data`}>
+                    {t("ws.integrations.viewData")}
+                  </Link>
                 </Button>
               </div>
             ) : !allowed ? (
               <UpgradeButton
                 className="w-full"
-                feature={`Conectar ${p.label}`}
+                feature={`${t("ws.integrations.upgradeFeaturePrefix")} ${p.label}`}
                 suggestedPlan="Team"
               />
             ) : (
               <Button size="sm" className="w-full" asChild>
-                <Link href={`/integrations/${p.slug}`}>Conectar {p.label}</Link>
+                <Link href={`/integrations/${p.slug}`}>{`${t("ws.integrations.connectPrefix")} ${p.label}`}</Link>
               </Button>
             )}
           </div>
@@ -194,11 +201,10 @@ export default async function IntegrationsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          Conectá tus herramientas
+          {t("ws.integrations.title")}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Vinculá tus fuentes de datos de ingeniería para obtener insights en
-          tiempo real.
+          {t("ws.integrations.subtitle")}
         </p>
       </div>
 
@@ -210,16 +216,18 @@ export default async function IntegrationsPage() {
               ⚡
             </span>
             <div>
-              <p className="font-semibold">Conectá tus apps principales</p>
+              <p className="font-semibold">
+                {t("ws.integrations.connectMainApps")}
+              </p>
               <p className="text-sm text-muted-foreground">
-                Conectá tus herramientas para empezar a generar reportes.
+                {t("ws.integrations.connectMainAppsDesc")}
               </p>
             </div>
           </div>
           <div className="sm:w-64">
             <div className="mb-1 flex justify-between text-xs text-muted-foreground">
               <span>
-                {connectedCount} de {enabled.length} activas
+                {`${connectedCount} ${t("ws.integrations.activeOf")} ${enabled.length} ${t("ws.integrations.active")}`}
               </span>
               <span>{pct}%</span>
             </div>
@@ -245,10 +253,10 @@ export default async function IntegrationsPage() {
               <section key={g.kind}>
                 <div className="mb-3 flex items-baseline justify-between">
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                    {KIND_LABELS[g.kind]}
+                    {t(`lib.kind.${g.kind}`)}
                   </h2>
                   <span className="text-xs text-muted-foreground">
-                    {active}/{total} conectadas
+                    {`${active}/${total} ${t("ws.integrations.connectedOfLower")}`}
                   </span>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -265,23 +273,20 @@ export default async function IntegrationsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Info className="h-4 w-4 text-primary" />
-                Por qué importan las integraciones
+                {t("ws.integrations.whyMatter")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <p>
-                Las herramientas conectadas dan datos en tiempo real para
-                métricas precisas, mejores insights y mejores decisiones.
-              </p>
+              <p>{t("ws.integrations.whyMatterDesc")}</p>
               <ul className="mt-3 space-y-2">
                 {[
-                  "Sync de datos en tiempo real",
-                  "Visibilidad de punta a punta",
-                  "Insights accionables",
-                ].map((t) => (
-                  <li key={t} className="flex items-center gap-2 text-foreground">
+                  t("ws.integrations.benefit1"),
+                  t("ws.integrations.benefit2"),
+                  t("ws.integrations.benefit3"),
+                ].map((label) => (
+                  <li key={label} className="flex items-center gap-2 text-foreground">
                     <CheckCircle2 className="h-4 w-4 text-primary" />
-                    {t}
+                    {label}
                   </li>
                 ))}
               </ul>
@@ -290,12 +295,14 @@ export default async function IntegrationsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Actividad de sync reciente</CardTitle>
+              <CardTitle className="text-base">
+                {t("ws.integrations.recentSyncActivity")}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {recent.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  Todavía no hay actividad.
+                  {t("ws.integrations.noActivity")}
                 </p>
               )}
               {recent.map((i) => {
@@ -314,14 +321,14 @@ export default async function IntegrationsPage() {
                       <p className="truncate font-medium">
                         {p?.label} —{" "}
                         {i.status === "CONNECTED"
-                          ? "sync completo"
+                          ? t("ws.integrations.syncComplete")
                           : i.status === "ERROR"
-                            ? "falló"
-                            : "desconectado"}
+                            ? t("ws.integrations.syncFailed")
+                            : t("ws.integrations.syncDisconnected")}
                       </p>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {timeAgo(i.updatedAt)}
+                      {timeAgo(i.updatedAt, t)}
                     </span>
                   </div>
                 );

@@ -3,8 +3,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveProject } from "@/lib/project";
 import { ProjectsManager, type ProjectItem } from "@/components/projects-manager";
+import { getT } from "@/lib/i18n/server";
 
 export default async function ProjectsPage() {
+  const { t } = getT();
   const session = await getServerSession(authOptions);
   const userId = session!.user.id;
 
@@ -37,11 +39,10 @@ export default async function ProjectsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          Proyectos
+          {t("ws.projects.title")}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cada proyecto tiene sus integraciones, su equipo y sus reportes. Elegí
-          con cuál trabajar, o creá, renombrá y eliminá.
+          {t("ws.projects.subtitle")}
         </p>
       </div>
 

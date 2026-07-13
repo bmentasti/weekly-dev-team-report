@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useT } from "@/components/i18n-provider";
 
 export function EmailReport({ reportId }: { reportId: string }) {
+  const { t } = useT();
   const [emails, setEmails] = useState("");
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<
@@ -42,12 +44,12 @@ export function EmailReport({ reportId }: { reportId: string }) {
     if (json.ok) {
       setFeedback({
         type: "success",
-        message: `Enviado a ${json.sent} destinatario(s). El CSV va adjunto.`,
+        message: `${t("rep2.email.sentToPrefix")} ${json.sent} ${t("rep2.email.sentToSuffix")}`,
       });
     } else {
       setFeedback({
         type: "error",
-        message: json.error ?? "No se pudo enviar.",
+        message: json.error ?? t("rep2.email.sendError"),
       });
     }
   }
@@ -55,14 +57,14 @@ export function EmailReport({ reportId }: { reportId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Enviar por email</CardTitle>
+        <CardTitle className="text-lg">{t("rep2.email.title")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {feedback && (
           <p
             className={
               feedback.type === "success"
-                ? "rounded-input bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+                ? "rounded-input bg-success-soft px-3 py-2 text-sm text-success"
                 : "rounded-input bg-destructive/10 px-3 py-2 text-sm text-destructive"
             }
           >
@@ -71,17 +73,16 @@ export function EmailReport({ reportId }: { reportId: string }) {
         )}
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input
-            placeholder="emails separados por coma"
+            placeholder={t("rep2.email.placeholder")}
             value={emails}
             onChange={(e) => setEmails(e.target.value)}
           />
           <Button onClick={send} disabled={sending || !emails.trim()}>
-            {sending ? "Enviando..." : "Enviar"}
+            {sending ? t("rep2.email.sending") : t("rep2.email.send")}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Se envía un resumen con las métricas y el CSV adjunto. Requiere
-          configurar el servicio de email (RESEND_API_KEY).
+          {t("rep2.email.note")}
         </p>
       </CardContent>
     </Card>

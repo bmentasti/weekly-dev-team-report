@@ -1,5 +1,5 @@
 import type { ProviderAdapter } from "../types";
-import { mkItem, planBucket, isStale, httpError } from "./planning-helpers";
+import { mkItem, planBucket, isStale, testJson, fetchJson } from "./planning-helpers";
 
 // Asana (PLANNING). Auth: Bearer PAT.
 const API = "https://app.asana.com/api/1.0";
@@ -18,28 +18,19 @@ interface RawTask {
 export const asanaAdapter: ProviderAdapter = {
   slug: "asana",
   async testConnection(ctx) {
-    try {
-      const res = await fetch(`${API}/users/me`, {
-        headers: { Authorization: `Bearer ${ctx.secret}` },
-        cache: "no-store",
-      });
-      if (!res.ok) return { ok: false, error: httpError(res.status, "Asana") };
-      return { ok: true, detail: "Cuenta conectada" };
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : "Error." };
-    }
+    return testJson(
+      `${API}/users/me`,
+      { Authorization: `Bearer ${ctx.secret}` },
+      "Asana",
+    );
   },
   async fetchData(ctx) {
     const fields = "name,completed,permalink_url,assignee.name,modified_at,created_at,completed_at";
-    const res = await fetch(
+    const data = await fetchJson<{ data?: RawTask[] }>(
       `${API}/tasks?project=${ctx.config.projectGid}&opt_fields=${fields}&limit=100`,
-      {
-        headers: { Authorization: `Bearer ${ctx.secret}` },
-        cache: "no-store",
-      },
+      { Authorization: `Bearer ${ctx.secret}` },
+      "Asana",
     );
-    if (!res.ok) throw new Error(`Asana devolvió ${res.status}.`);
-    const data = (await res.json()) as { data?: RawTask[] };
     const workItems = (data.data ?? []).map((t) => {
       const bucket = planBucket("", t.completed);
       return mkItem({

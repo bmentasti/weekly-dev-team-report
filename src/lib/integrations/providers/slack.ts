@@ -1,11 +1,11 @@
 import type { ActivitySignal, ProviderAdapter } from "../types";
 import { demoDataFor, isDemo } from "../demo";
+import { BLOCKER_PATTERN } from "../blocker";
+import { safeFetch } from "@/lib/http";
 
 // Slack adapter — reads recent messages from a channel and flags likely blockers.
 // Uses a Bot User OAuth Token (xoxb-...) with channels:history / channels:read.
-
-const BLOCKER_PATTERN =
-  /\b(blocker|blocked|bloque|bloquead|stuck|trab(a|á)d|impedi|no puedo avanzar|can'?t proceed|waiting on|esperando a)\b/i;
+// INT-04: el patrón de blockers vive en ../blocker (compartido con teams/discord).
 
 async function slackFetch(
   method: string,
@@ -13,7 +13,7 @@ async function slackFetch(
   params: Record<string, string>,
 ): Promise<Record<string, unknown>> {
   const url = `https://slack.com/api/${method}?${new URLSearchParams(params).toString()}`;
-  const res = await fetch(url, {
+  const res = await safeFetch(url, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });

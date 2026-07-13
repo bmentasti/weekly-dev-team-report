@@ -4,16 +4,15 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { HEALTH_LABEL, healthBadgeVariant } from "@/lib/reports/health";
+import { healthBadgeVariant } from "@/lib/reports/health";
 import { BackButton } from "@/components/back-button";
+import { useT } from "@/components/i18n-provider";
 import {
   compareMetrics,
   classifyTrends,
   comparisonAlerts,
   evolvePeople,
   planningRecommendation,
-  TREND_LABEL,
-  PERSON_CAT_LABEL,
   type Role,
   type TrendClass,
   type PersonCat,
@@ -52,14 +51,15 @@ function catVariant(c: PersonCat): "success" | "secondary" | "warning" | "destru
   return "secondary";
 }
 
-const ROLE_TABS: { key: Role | "ALL"; label: string }[] = [
-  { key: "ALL", label: "Todos" },
-  { key: "TL", label: "Tech Lead" },
-  { key: "PO", label: "Product Owner" },
-  { key: "DIR", label: "Dirección" },
+const ROLE_TABS: { key: Role | "ALL"; labelKey: string }[] = [
+  { key: "ALL", labelKey: "rep.roleAll" },
+  { key: "TL", labelKey: "rep.roleTL" },
+  { key: "PO", labelKey: "rep.rolePO" },
+  { key: "DIR", labelKey: "rep.roleDIR" },
 ];
 
 export default function ComparePage() {
+  const { t } = useT();
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [aId, setAId] = useState("");
   const [bId, setBId] = useState("");
@@ -70,22 +70,38 @@ export default function ComparePage() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiErr, setAiErr] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
     (async () => {
-      const res = await fetch("/api/reports");
-      const list: ReportRow[] = (await res.json()).reports ?? [];
-      setReports(list);
-      if (list[0]) setAId(list[0].id);
-      if (list[1]) setBId(list[1].id);
+      try {
+        const res = await fetch("/api/reports", { signal: controller.signal });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error ?? t("rep.couldNotLoad"));
+        const list: ReportRow[] = json.reports ?? [];
+        setReports(list);
+        if (list[0]) setAId(list[0].id);
+        if (list[1]) setBId(list[1].id);
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+        setListError(
+          err instanceof Error ? err.message : t("rep.networkLoadError"),
+        );
+      }
     })();
+    return () => controller.abort();
   }, []);
 
   const fetchReport = useCallback(async (id: string) => {
     if (!id) return null;
-    const res = await fetch(`/api/reports/${id}`);
-    if (!res.ok) return null;
-    return (await res.json()).report as FullReport;
+    try {
+      const res = await fetch(`/api/reports/${id}`);
+      if (!res.ok) return null;
+      return (await res.json()).report as FullReport;
+    } catch {
+      return null;
+    }
   }, []);
   useEffect(() => {
     fetchReport(aId).then(setA);
@@ -106,7 +122,7 @@ export default function ComparePage() {
     const json = await res.json().catch(() => ({}));
     setAiLoading(false);
     if (json.answer) setAi(json.answer);
-    else setAiErr(json.error ?? "No se pudo generar el análisis.");
+    else setAiErr(json.error ?? t("rep.couldNotAnalyze"));
   }
 
   const ready = a?.metrics && b?.metrics;
@@ -123,27 +139,37 @@ export default function ComparePage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <BackButton label="Volver a reportes" />
-      <h1 className="text-2xl font-bold tracking-tight">Comparar sprints</h1>
+      <BackButton label={t("rep.backToReports")} />
+      <h1 className="text-2xl font-bold tracking-tight">{t("rep.compareTitle")}</h1>
+
+      {listError && (
+        <p className="rounded-input bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {listError}
+        </p>
+      )}
 
       {reports.length < 2 ? (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">
-            Necesitás al menos 2 reportes. Generá con los atajos de período.
+            {t("rep.needTwoReports")}
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
             {[
-              { id: aId, set: setAId, letter: "A (reciente)" },
-              { id: bId, set: setBId, letter: "B (anterior)" },
+              { id: aId, set: setAId, letter: t("rep.compareARecent"), selectId: "compare-a" },
+              { id: bId, set: setBId, letter: t("rep.compareBPrevious"), selectId: "compare-b" },
             ].map((sel) => (
-              <div key={sel.letter} className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">
+              <div key={sel.selectId} className="space-y-1">
+                <label
+                  htmlFor={sel.selectId}
+                  className="text-xs font-medium text-muted-foreground"
+                >
                   {sel.letter}
                 </label>
                 <select
+                  id={sel.selectId}
                   className="flex h-10 w-full rounded-input border border-input bg-card px-3 text-sm"
                   value={sel.id}
                   onChange={(e) => sel.set(e.target.value)}
@@ -166,7 +192,7 @@ export default function ComparePage() {
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base">{i === 0 ? "A" : "B"}</CardTitle>
                       <Badge variant={healthBadgeVariant(r.healthStatus)}>
-                        {r.healthStatus ? HEALTH_LABEL[r.healthStatus] : "—"}
+                        {r.healthStatus ? t(`lib.health.${r.healthStatus}`) : "—"}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -185,13 +211,13 @@ export default function ComparePage() {
             <>
               {/* Role tabs */}
               <div className="inline-flex rounded-full border bg-card p-1 text-sm">
-                {ROLE_TABS.map((t) => (
+                {ROLE_TABS.map((tab) => (
                   <button
-                    key={t.key}
-                    onClick={() => setRole(t.key)}
-                    className={`rounded-full px-3 py-1.5 font-medium ${role === t.key ? "bg-primary text-white" : "text-muted-foreground"}`}
+                    key={tab.key}
+                    onClick={() => setRole(tab.key)}
+                    className={`rounded-full px-3 py-1.5 font-medium ${role === tab.key ? "bg-primary text-white" : "text-muted-foreground"}`}
                   >
-                    {t.label}
+                    {t(tab.labelKey)}
                   </button>
                 ))}
               </div>
@@ -199,19 +225,19 @@ export default function ComparePage() {
               {/* Metric table */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Métricas: A vs B</CardTitle>
+                  <CardTitle className="text-lg">{t("rep.metricsAvsB")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b text-left text-muted-foreground">
-                          <th className="py-2 pr-4 font-medium">Métrica</th>
+                          <th className="py-2 pr-4 font-medium">{t("rep.colMetric")}</th>
                           <th className="py-2 pr-4 font-medium">A</th>
                           <th className="py-2 pr-4 font-medium">B</th>
                           <th className="py-2 pr-4 font-medium">Δ</th>
                           <th className="py-2 pr-4 font-medium">%</th>
-                          <th className="py-2 pr-4 font-medium">Lectura</th>
+                          <th className="py-2 pr-4 font-medium">{t("rep.colReading")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -220,14 +246,14 @@ export default function ComparePage() {
                             <td className="py-2 pr-4">{m.label}</td>
                             <td className="py-2 pr-4">{m.a}</td>
                             <td className="py-2 pr-4">{m.b}</td>
-                            <td className={`py-2 pr-4 ${m.direction === "good" ? "text-emerald-600" : m.direction === "bad" ? "text-destructive" : "text-muted-foreground"}`}>
+                            <td className={`py-2 pr-4 ${m.direction === "good" ? "text-success" : m.direction === "bad" ? "text-destructive" : "text-muted-foreground"}`}>
                               {m.deltaAbs > 0 ? "+" : ""}{m.deltaAbs}
                             </td>
                             <td className="py-2 pr-4 text-muted-foreground">
                               {m.deltaPct === null ? "—" : `${m.deltaPct > 0 ? "+" : ""}${m.deltaPct}%`}
                             </td>
                             <td className="py-2 pr-4">
-                              <span className={m.direction === "good" ? "text-emerald-600" : m.direction === "bad" ? "text-destructive" : "text-muted-foreground"}>
+                              <span className={m.direction === "good" ? "text-success" : m.direction === "bad" ? "text-destructive" : "text-muted-foreground"}>
                                 {m.interpretation}
                               </span>
                             </td>
@@ -242,13 +268,13 @@ export default function ComparePage() {
               {/* Trends */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Tendencias</CardTitle>
+                  <CardTitle className="text-lg">{t("rep.trends")}</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-2">
-                  {trends.map((t) => (
-                    <span key={t.dimension} className="flex items-center gap-2 rounded-input border px-3 py-1.5 text-sm">
-                      {t.dimension}
-                      <Badge variant={trendVariant(t.class)}>{TREND_LABEL[t.class]}</Badge>
+                  {trends.map((tr) => (
+                    <span key={tr.dimension} className="flex items-center gap-2 rounded-input border px-3 py-1.5 text-sm">
+                      {tr.dimension}
+                      <Badge variant={trendVariant(tr.class)}>{t(`lib.trend.${tr.class}`)}</Badge>
                     </span>
                   ))}
                 </CardContent>
@@ -257,11 +283,11 @@ export default function ComparePage() {
               {/* Alerts */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Alertas de la comparación</CardTitle>
+                  <CardTitle className="text-lg">{t("rep.comparisonAlerts")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {shownAlerts.length === 0 && (
-                    <p className="text-sm text-muted-foreground">Sin alertas para esta vista.</p>
+                    <p className="text-sm text-muted-foreground">{t("rep.noAlertsForView")}</p>
                   )}
                   {shownAlerts.map((al) => (
                     <div key={al.id} className="rounded-input border p-3">
@@ -271,10 +297,10 @@ export default function ComparePage() {
                         <span className="text-xs text-muted-foreground">· {al.evidence}</span>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">Impacto:</span> {al.impact}
+                        <span className="font-medium text-foreground">{t("rep.impact")}</span> {al.impact}
                       </p>
                       <p className="mt-1 text-xs">
-                        <span className="font-medium text-primary">Acción:</span> {al.action}
+                        <span className="font-medium text-primary">{t("rep.action")}</span> {al.action}
                       </p>
                     </div>
                   ))}
@@ -285,18 +311,18 @@ export default function ComparePage() {
               {people.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Evolución por persona</CardTitle>
+                    <CardTitle className="text-lg">{t("rep.personEvolution")}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b text-left text-muted-foreground">
-                            <th className="py-2 pr-4 font-medium">Persona</th>
-                            <th className="py-2 pr-4 font-medium">Categoría</th>
-                            <th className="py-2 pr-4 font-medium">Throughput A</th>
-                            <th className="py-2 pr-4 font-medium">Throughput B</th>
-                            <th className="py-2 pr-4 font-medium">Mov.</th>
+                            <th className="py-2 pr-4 font-medium">{t("rep.colPerson")}</th>
+                            <th className="py-2 pr-4 font-medium">{t("rep.colCategory")}</th>
+                            <th className="py-2 pr-4 font-medium">{t("rep.colThroughputA")}</th>
+                            <th className="py-2 pr-4 font-medium">{t("rep.colThroughputB")}</th>
+                            <th className="py-2 pr-4 font-medium">{t("rep.colMovement")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -304,7 +330,7 @@ export default function ComparePage() {
                             <tr key={p.name} className="border-b last:border-0">
                               <td className="py-2 pr-4 font-medium">{p.name}</td>
                               <td className="py-2 pr-4">
-                                <Badge variant={catVariant(p.category)}>{PERSON_CAT_LABEL[p.category]}</Badge>
+                                <Badge variant={catVariant(p.category)}>{t(`lib.personCat.${p.category}`)}</Badge>
                               </td>
                               <td className="py-2 pr-4">{p.s2?.throughput ?? "—"}</td>
                               <td className="py-2 pr-4">{p.s1?.throughput ?? "—"}</td>
@@ -324,12 +350,12 @@ export default function ComparePage() {
               {plan && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Recomendación para el próximo sprint</CardTitle>
+                    <CardTitle className="text-lg">{t("rep.nextSprintRecommendation")}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
-                    <p><span className="font-medium">Capacidad sugerida:</span> ~{plan.suggestedCapacity} pts</p>
-                    <p><span className="font-medium">Scope:</span> {plan.scope}</p>
-                    <p><span className="font-medium">Margen:</span> {plan.margin}</p>
+                    <p><span className="font-medium">{t("rep.suggestedCapacity")}</span> ~{plan.suggestedCapacity} {t("rep.pts")}</p>
+                    <p><span className="font-medium">{t("rep.scope")}</span> {plan.scope}</p>
+                    <p><span className="font-medium">{t("rep.margin")}</span> {plan.margin}</p>
                     {plan.notes.length > 0 && (
                       <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
                         {plan.notes.map((n, i) => <li key={i}>{n}</li>)}
@@ -342,23 +368,23 @@ export default function ComparePage() {
               {/* AI comparative (Pro) */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Análisis comparativo con IA (Pro)</CardTitle>
+                  <CardTitle className="text-lg">{t("rep.aiComparative")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex flex-wrap gap-2">
                     <Button onClick={() => analyze()} disabled={aiLoading}>
-                      {aiLoading ? "Analizando..." : "Analizar con IA"}
+                      {aiLoading ? t("rep.analyzing") : t("rep.analyzeWithAi")}
                     </Button>
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <input
                       className="flex h-10 flex-1 rounded-input border border-input bg-card px-3 text-sm"
-                      placeholder="Preguntá algo sobre la comparación..."
+                      placeholder={t("rep.askComparisonPlaceholder")}
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
                     />
                     <Button variant="outline" onClick={() => analyze(aiPrompt)} disabled={aiLoading || !aiPrompt.trim()}>
-                      Preguntar
+                      {t("rep.ask")}
                     </Button>
                   </div>
                   {aiErr && (

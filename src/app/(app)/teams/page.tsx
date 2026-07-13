@@ -8,8 +8,10 @@ import { TeamAlerts } from "@/components/team-alerts";
 import { TeamMatrix } from "@/components/team-matrix";
 import { MembersManager } from "@/components/members-manager";
 import { Card, CardContent } from "@/components/ui/card";
+import { getT } from "@/lib/i18n/server";
 
 export default async function TeamsPage() {
+  const { t } = getT();
   const session = await getServerSession(authOptions);
   const project = await resolveActiveProject(session!.user.id);
   const workspace = await resolveWorkspaceForUser(session!.user.id);
@@ -21,10 +23,11 @@ export default async function TeamsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Equipo</h1>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          {t("ws.teams.title")}
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Gestioná los miembros del workspace y sus roles. Los datos por persona
-          solo los ven roles con permiso.
+          {t("ws.teams.subtitle")}
         </p>
       </div>
 
@@ -41,15 +44,14 @@ export default async function TeamsPage() {
         ) : (
           <Card>
             <CardContent className="py-6 text-sm text-muted-foreground">
-              El análisis por persona (matriz, alertas y desempeño) está
-              disponible para roles con permiso. Tu rol actual no lo incluye.
+              {t("ws.teams.peopleRestricted")}
             </CardContent>
           </Card>
         )
       ) : (
         <Card>
           <CardContent className="py-6 text-sm text-muted-foreground">
-            No hay un proyecto activo.
+            {t("ws.teams.noActiveProject")}
           </CardContent>
         </Card>
       )}

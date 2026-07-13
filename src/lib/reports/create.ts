@@ -13,6 +13,7 @@ import {
   type AiType,
 } from "@/lib/reports/ai";
 import type { IntegrationType, Prisma } from "@prisma/client";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 const AI_TYPES: AiType[] = ["ANTHROPIC", "OPENAI", "GEMINI", "COPILOT"];
 
@@ -26,8 +27,14 @@ export async function createReportForProject(
   workspaceId: string,
   periodStart: Date,
   periodEnd: Date,
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<{ id: string }> {
-  const c = await generateReportComputation(projectId, periodStart, periodEnd);
+  const c = await generateReportComputation(
+    projectId,
+    periodStart,
+    periodEnd,
+    locale,
+  );
 
   let aiAnalysis: string | null = null;
   let aiProvider: string | null = null;
@@ -55,6 +62,7 @@ export async function createReportForProject(
               c.metrics,
               c.summary,
               c.healthStatus,
+              locale,
             );
         if (aiAnalysis) aiProvider = type;
       }

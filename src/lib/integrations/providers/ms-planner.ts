@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type { ProviderAdapter } from "../types";
 import { mkItem, isStale, httpError } from "./planning-helpers";
 import type { WorkItemBucket } from "../types";
@@ -26,7 +27,7 @@ export const msPlannerAdapter: ProviderAdapter = {
   slug: "ms-planner",
   async testConnection(ctx) {
     try {
-      const res = await fetch(`${GRAPH}/me`, {
+      const res = await safeFetch(`${GRAPH}/me`, {
         headers: { Authorization: `Bearer ${ctx.secret}` },
         cache: "no-store",
       });
@@ -37,7 +38,7 @@ export const msPlannerAdapter: ProviderAdapter = {
     }
   },
   async fetchData(ctx) {
-    const res = await fetch(`${GRAPH}/planner/plans/${ctx.config.planId}/tasks`, {
+    const res = await safeFetch(`${GRAPH}/planner/plans/${ctx.config.planId}/tasks`, {
       headers: { Authorization: `Bearer ${ctx.secret}` },
       cache: "no-store",
     });

@@ -37,13 +37,30 @@ export interface WorkGroup {
 }
 
 // Clave de ticket tipo ABC-123 / DEV-342.
+// IMPORTANTE: NO se uppercasea el texto; matcheamos claves que YA están en
+// mayúsculas en el original. Así "node-18" no matchea, pero "DEV-123" sí.
 const KEY_RE = /\b[A-Z][A-Z0-9]{1,9}-\d+\b/g;
 
-/** Extrae claves de ticket de un texto (título, mensaje, branch). */
-export function extractTicketKeys(text: string | null | undefined): string[] {
+/**
+ * Extrae claves de ticket de un texto (título, mensaje, branch).
+ * Sólo reconoce prefijos ya escritos en MAYÚSCULAS (evita falsos positivos
+ * como "node-18" → "NODE-18").
+ * @param knownProjectKeys prefijos conocidos (ej. ["DEV", "OPS"]); si se pasa,
+ *   se filtran las claves a esos prefijos. Si no, se usa el patrón estricto.
+ */
+export function extractTicketKeys(
+  text: string | null | undefined,
+  knownProjectKeys?: string[],
+): string[] {
   if (!text) return [];
-  const found = text.toUpperCase().match(KEY_RE);
-  return found ? Array.from(new Set(found)) : [];
+  const found = text.match(KEY_RE);
+  if (!found) return [];
+  let keys = Array.from(new Set(found));
+  if (knownProjectKeys && knownProjectKeys.length > 0) {
+    const allowed = new Set(knownProjectKeys.map((k) => k.toUpperCase()));
+    keys = keys.filter((k) => allowed.has(k.split("-")[0]));
+  }
+  return keys;
 }
 
 // --- Mappers desde los tipos unificados existentes -------------------------
@@ -82,36 +99,53 @@ export function fromActivity(a: ActivitySignal): CorrelationSignal {
 }
 
 /** Claves candidatas de un signal (de su título, y de su externalId si es una clave). */
-function keysOf(s: CorrelationSignal): string[] {
+function keysOf(s: CorrelationSignal, knownProjectKeys?: string[]): string[] {
   const keys = new Set<string>();
-  for (const k of extractTicketKeys(s.title)) keys.add(k);
-  for (const k of extractTicketKeys(s.branch)) keys.add(k);
+  for (const k of extractTicketKeys(s.title, knownProjectKeys)) keys.add(k);
+  for (const k of extractTicketKeys(s.branch, knownProjectKeys)) keys.add(k);
   // Un work item cuyo externalId ES la clave (Jira DEV-342)
   if (s.kind === "work_item") {
-    for (const k of extractTicketKeys(s.externalId)) keys.add(k);
+    for (const k of extractTicketKeys(s.externalId, knownProjectKeys)) keys.add(k);
   }
   return Array.from(keys);
 }
 
 /**
+ * Clave canónica de un signal: si es work_item y su externalId es una clave,
+ * se prefiere esa; si no, la primera clave detectada en título/branch.
+ * Cada signal se asigna a UNA sola key (evita doble conteo entre grupos).
+ */
+function canonicalKeyOf(s: CorrelationSignal, knownProjectKeys?: string[]): string | null {
+  if (s.kind === "work_item") {
+    const fromId = extractTicketKeys(s.externalId, knownProjectKeys);
+    if (fromId.length > 0) return fromId[0];
+  }
+  const keys = keysOf(s, knownProjectKeys);
+  return keys.length > 0 ? keys[0] : null;
+}
+
+/**
  * Agrupa signals por trabajo. Cada grupo con clave conocida reúne todos los
  * signals que la referencian. Los signals sin clave quedan como grupos propios.
+ * Cada signal se asigna a UNA sola key canónica (sin doble conteo).
+ * @param knownProjectKeys prefijos de proyecto conocidos, opcional (ver extractTicketKeys).
  */
-export function correlate(signals: CorrelationSignal[]): WorkGroup[] {
+export function correlate(
+  signals: CorrelationSignal[],
+  knownProjectKeys?: string[],
+): WorkGroup[] {
   const byKey = new Map<string, CorrelationSignal[]>();
   const orphans: CorrelationSignal[] = [];
 
   for (const s of signals) {
-    const keys = keysOf(s);
-    if (keys.length === 0) {
+    const key = canonicalKeyOf(s, knownProjectKeys);
+    if (key === null) {
       orphans.push(s);
       continue;
     }
-    for (const key of keys) {
-      const arr = byKey.get(key) ?? [];
-      arr.push(s);
-      byKey.set(key, arr);
-    }
+    const arr = byKey.get(key) ?? [];
+    arr.push(s);
+    byKey.set(key, arr);
   }
 
   const groups: WorkGroup[] = [];
@@ -139,8 +173,11 @@ export function correlate(signals: CorrelationSignal[]): WorkGroup[] {
     });
   }
 
+  // Orphans: señales sin correlación. Confianza MODERADA (no 100): representa
+  // una única señal sin corroboración cruzada, no una certeza.
+  const ORPHAN_CONFIDENCE = 40;
   for (const o of orphans) {
-    groups.push({ key: null, signals: [o], confidence: 100, evidence: [] });
+    groups.push({ key: null, signals: [o], confidence: ORPHAN_CONFIDENCE, evidence: [] });
   }
   return groups;
 }

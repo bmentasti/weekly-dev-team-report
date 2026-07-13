@@ -122,8 +122,10 @@ export function integrationAllowed(
   return PLANS[plan].allowedKinds.includes(kind);
 }
 
-export function limitLabel(v: number | null): string {
-  return v === null ? "Ilimitado" : String(v);
+/** `t` opcional: si se pasa, "Ilimitado" sale traducido; si no, cae a español. */
+export function limitLabel(v: number | null, t?: (key: string) => string): string {
+  if (v === null) return t ? t("lib.plan.unlimited") : "Ilimitado";
+  return String(v);
 }
 
 /** Fecha de corte de histórico para el plan (null = sin límite). */

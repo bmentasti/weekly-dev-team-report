@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useT } from "@/components/i18n-provider";
 
 interface Share {
   id: string;
@@ -22,6 +23,7 @@ interface Member {
 }
 
 export function ReportShares({ reportId }: { reportId: string }) {
+  const { t } = useT();
   const [shares, setShares] = useState<Share[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [selectedMember, setSelectedMember] = useState("");
@@ -55,7 +57,7 @@ export function ReportShares({ reportId }: { reportId: string }) {
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error ?? "No se pudo compartir.");
+      setError(j.error ?? t("rep.couldNotShare"));
       return;
     }
     setSelectedMember("");
@@ -75,13 +77,13 @@ export function ReportShares({ reportId }: { reportId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Compartir</CardTitle>
+        <CardTitle className="text-lg">{t("rep.share")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           {shares.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              Este reporte todavía no está compartido con nadie.
+              {t("rep.notSharedYet")}
             </p>
           )}
           {shares.map((s) => (
@@ -99,22 +101,22 @@ export function ReportShares({ reportId }: { reportId: string }) {
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="text-[10px]">
-                  {s.level === "EXECUTIVE" ? "Ejecutiva" : "Completa"}
+                  {s.level === "EXECUTIVE" ? t("rep.levelExecutive") : t("rep.levelFull")}
                 </Badge>
                 {s.pending ? (
-                  <Badge variant="outline">Invitado</Badge>
+                  <Badge variant="outline">{t("rep.invited")}</Badge>
                 ) : s.viewedAt ? (
                   <Badge variant="success">
-                    Visto {new Date(s.viewedAt).toLocaleDateString()}
+                    {t("rep.seenPre")} {new Date(s.viewedAt).toLocaleDateString()}
                   </Badge>
                 ) : (
-                  <Badge variant="warning">Sin ver</Badge>
+                  <Badge variant="warning">{t("rep.notSeen")}</Badge>
                 )}
                 <button
                   className="text-xs text-muted-foreground hover:text-destructive"
                   onClick={() => remove(s.id)}
                 >
-                  Quitar
+                  {t("rep.removeShare")}
                 </button>
               </div>
             </div>
@@ -129,14 +131,14 @@ export function ReportShares({ reportId }: { reportId: string }) {
 
         <div className="space-y-3 border-t pt-3">
           <div>
-            <label className="text-xs text-muted-foreground">Nivel de vista</label>
+            <label className="text-xs text-muted-foreground">{t("rep.viewLevel")}</label>
             <select
               className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={level}
               onChange={(e) => setLevel(e.target.value as "FULL" | "EXECUTIVE")}
             >
-              <option value="FULL">Completa (incluye datos por persona)</option>
-              <option value="EXECUTIVE">Ejecutiva (sin datos por persona)</option>
+              <option value="FULL">{t("rep.viewLevelFull")}</option>
+              <option value="EXECUTIVE">{t("rep.viewLevelExecutive")}</option>
             </select>
           </div>
           {availableMembers.length > 0 && (
@@ -146,7 +148,7 @@ export function ReportShares({ reportId }: { reportId: string }) {
                 value={selectedMember}
                 onChange={(e) => setSelectedMember(e.target.value)}
               >
-                <option value="">Elegir miembro del equipo...</option>
+                <option value="">{t("rep.chooseMember")}</option>
                 {availableMembers.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name} ({m.email})
@@ -158,14 +160,14 @@ export function ReportShares({ reportId }: { reportId: string }) {
                 disabled={!selectedMember}
                 onClick={() => addShare({ userId: selectedMember })}
               >
-                Agregar
+                {t("rep.add")}
               </Button>
             </div>
           )}
           <div className="flex gap-2">
             <Input
               type="email"
-              placeholder="o invitar por email..."
+              placeholder={t("rep.inviteByEmailPlaceholder")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -175,7 +177,7 @@ export function ReportShares({ reportId }: { reportId: string }) {
               disabled={!email.trim()}
               onClick={() => addShare({ email })}
             >
-              Invitar
+              {t("rep.invite")}
             </Button>
           </div>
         </div>

@@ -3,9 +3,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { BadgeProps } from "@/components/ui/badge";
+import { useT } from "@/components/i18n-provider";
 import {
-  COVERAGE_LEVEL_LABELS,
-  CONFIDENCE_BAND_LABELS,
   type CoverageLevel,
   type ConfidenceBand,
   type CoverageReport,
@@ -16,6 +15,42 @@ import type { Recommendation, RecoPriority } from "@/lib/intelligence/recommenda
 import type { DataConflict, ConflictSeverity } from "@/lib/intelligence/conflicts";
 
 type Variant = NonNullable<BadgeProps["variant"]>;
+type T = (key: string) => string;
+
+/** Interpola variables `{name}` en un texto ya traducido. */
+function fill(s: string, vars: Record<string, string | number>): string {
+  return s.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`));
+}
+
+/**
+ * Reconstruye título/problema/acción/beneficio de una recomendación a partir de
+ * claves i18n (la lib emite el texto en español para exports/tests; acá se
+ * re-traduce por render usando la clave de dimensión y los proveedores que trae
+ * la propia recomendación). Los nombres de proveedores NO se traducen.
+ */
+export function recoText(rec: Recommendation, t: T) {
+  const dimKey = rec.dimensionKey ?? rec.id.split("-").slice(1).join("-");
+  const label = t(`lib.intel.dim.${dimKey}.label`);
+  const impact = t(`lib.intel.dim.${dimKey}.impact`);
+  const providers = rec.recommendedProviders ?? [];
+  const sep = t("lib.intel.reco.optionsSeparator");
+  const options = providers.join(sep);
+  const isReinforce = rec.id.startsWith("reinforce-");
+  if (isReinforce) {
+    return {
+      title: fill(t("lib.intel.reco.reinforce.title"), { label }),
+      problem: fill(t("lib.intel.reco.reinforce.problem"), { label }),
+      action: fill(t("lib.intel.reco.reinforce.action"), { options }),
+      benefit: fill(t("lib.intel.reco.reinforce.benefit"), { label }),
+    };
+  }
+  return {
+    title: fill(t("lib.intel.reco.connect.title"), { source: providers[0] ?? "", label }),
+    problem: fill(t("lib.intel.reco.connect.problem"), { labelLower: label.toLowerCase(), impact }),
+    action: fill(t("lib.intel.reco.connect.action"), { options }),
+    benefit: fill(t("lib.intel.reco.connect.benefit"), { label }),
+  };
+}
 
 const LEVEL_VARIANT: Record<CoverageLevel, Variant> = {
   INSUFICIENTE: "outline",
@@ -34,17 +69,18 @@ const CONF_VARIANT: Record<ConfidenceBand, Variant> = {
 };
 
 const BAR_COLOR: Record<CoverageLevel, string> = {
-  INSUFICIENTE: "bg-slate-300",
-  INICIAL: "bg-amber-500",
-  BASICO: "bg-blue-500",
-  AVANZADO: "bg-emerald-500",
+  INSUFICIENTE: "bg-muted-foreground/40",
+  INICIAL: "bg-warning",
+  BASICO: "bg-primary/60",
+  AVANZADO: "bg-success",
   INTEGRAL: "bg-primary",
 };
 
 export function ConfidenceScoreBadge({ band }: { band: ConfidenceBand }) {
+  const { t } = useT();
   return (
     <Badge variant={CONF_VARIANT[band]}>
-      Confianza: {CONFIDENCE_BAND_LABELS[band]}
+      {t("rep2.intel.confidence")} {t(`lib.confidenceBand.${band}`)}
     </Badge>
   );
 }
@@ -56,6 +92,7 @@ export function CoverageProgress({
   value: number;
   level: CoverageLevel;
 }) {
+  const { t } = useT();
   return (
     <div
       className="h-2 w-full overflow-hidden rounded-full bg-muted"
@@ -63,7 +100,7 @@ export function CoverageProgress({
       aria-valuenow={value}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-label={`Cobertura ${value}% (${COVERAGE_LEVEL_LABELS[level]})`}
+      aria-label={`${t("rep2.intel.coverageAria.prefix")} ${value}% (${t(`lib.coverageLevel.${level}`)})`}
     >
       <div
         className={`h-full rounded-full ${BAR_COLOR[level]}`}
@@ -82,19 +119,20 @@ export function DataSourceBadge({ label }: { label: string }) {
 }
 
 function DimensionCard({ dim }: { dim: DimensionCoverage }) {
+  const { t } = useT();
   const covered = dim.coverage > 0;
   return (
     <Card>
       <CardContent className="flex h-full flex-col gap-3 py-4">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="font-semibold">{dim.label}</p>
+            <p className="font-semibold">{t(`lib.intel.dim.${dim.key}.label`)}</p>
             <p className="text-xs text-muted-foreground">
-              {dim.coverage}% · {COVERAGE_LEVEL_LABELS[dim.level]}
+              {dim.coverage}% · {t(`lib.coverageLevel.${dim.level}`)}
             </p>
           </div>
           <Badge variant={LEVEL_VARIANT[dim.level]}>
-            {COVERAGE_LEVEL_LABELS[dim.level]}
+            {t(`lib.coverageLevel.${dim.level}`)}
           </Badge>
         </div>
 
@@ -110,18 +148,18 @@ function DimensionCard({ dim }: { dim: DimensionCoverage }) {
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <ConfidenceScoreBadge band={dim.confidence} />
               {dim.freshnessDays !== null && (
-                <span>sync hace {dim.freshnessDays}d</span>
+                <span>{t("rep2.intel.syncAgo.prefix")} {dim.freshnessDays}d</span>
               )}
             </div>
             {dim.missing.length > 0 && (
-              <p className="text-xs text-amber-700">{dim.missing.join(" · ")}</p>
+              <p className="text-xs text-warning">{t("lib.intel.missing.noPrimary")}</p>
             )}
           </div>
         ) : (
           <div className="mt-auto space-y-1">
-            <p className="text-xs text-muted-foreground">{dim.impact}</p>
+            <p className="text-xs text-muted-foreground">{t(`lib.intel.dim.${dim.key}.impact`)}</p>
             <p className="text-xs">
-              <span className="font-medium text-foreground">Recomendado:</span>{" "}
+              <span className="font-medium text-foreground">{t("rep2.intel.recommended")}</span>{" "}
               {dim.recommended.join(", ")}
             </p>
           </div>
@@ -132,6 +170,7 @@ function DimensionCard({ dim }: { dim: DimensionCoverage }) {
 }
 
 export function CoverageOverview({ report }: { report: CoverageReport }) {
+  const { t } = useT();
   return (
     <div className="space-y-5">
       <Card>
@@ -146,13 +185,13 @@ export function CoverageOverview({ report }: { report: CoverageReport }) {
               </span>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Cobertura de datos global</p>
+              <p className="text-sm text-muted-foreground">{t("rep2.intel.globalCoverage")}</p>
               <div className="mt-1 flex items-center gap-2">
                 <Badge variant={LEVEL_VARIANT[report.level]}>
-                  {COVERAGE_LEVEL_LABELS[report.level]}
+                  {t(`lib.coverageLevel.${report.level}`)}
                 </Badge>
                 <span className="text-sm text-muted-foreground">
-                  {report.categoriesCovered}/{report.totalDimensions} dimensiones · {report.connectedCount} integraciones
+                  {report.categoriesCovered}/{report.totalDimensions} {t("rep2.intel.dimensions")} · {report.connectedCount} {t("rep2.intel.integrations")}
                 </span>
               </div>
             </div>
@@ -179,13 +218,14 @@ const HEALTH_STATUS_VARIANT: Record<HealthDimension["status"], Variant> = {
 };
 
 const HEALTH_BAR: Record<HealthDimension["status"], string> = {
-  ok: "bg-emerald-500",
-  warn: "bg-amber-500",
-  risk: "bg-red-500",
-  insufficient: "bg-slate-300",
+  ok: "bg-success",
+  warn: "bg-warning",
+  risk: "bg-destructive",
+  insufficient: "bg-muted-foreground/40",
 };
 
 export function HealthScoreCard({ health }: { health: HealthReport }) {
+  const { t } = useT();
   return (
     <Card>
       <CardContent className="py-5">
@@ -197,9 +237,9 @@ export function HealthScoreCard({ health }: { health: HealthReport }) {
             <span className="text-[10px] uppercase text-muted-foreground">/100</span>
           </div>
           <div>
-            <p className="font-semibold">Health Score</p>
+            <p className="font-semibold">{t("rep2.intel.healthScore")}</p>
             <p className="text-xs text-muted-foreground">
-              Multidimensional · perfil {health.profile} · v1 basado en cobertura de datos
+              {t("rep2.intel.healthProfilePrefix")} {health.profile} {t("rep2.intel.healthProfileSuffix")}
             </p>
           </div>
         </div>
@@ -214,7 +254,7 @@ export function HealthScoreCard({ health }: { health: HealthReport }) {
                 />
               </div>
               {d.score === null ? (
-                <Badge variant="outline">Insuficiente</Badge>
+                <Badge variant="outline">{t("rep2.intel.insufficient")}</Badge>
               ) : (
                 <span className="w-16 text-right text-sm font-medium tabular-nums">
                   {d.score}
@@ -238,21 +278,23 @@ const PRIORITY_VARIANT: Record<RecoPriority, Variant> = {
 };
 
 export function RecommendationCard({ rec }: { rec: Recommendation }) {
+  const { t } = useT();
+  const txt = recoText(rec, t);
   return (
     <Card>
       <CardContent className="space-y-2 py-4">
         <div className="flex items-start justify-between gap-2">
-          <p className="font-semibold">{rec.title}</p>
+          <p className="font-semibold">{txt.title}</p>
           <Badge variant={PRIORITY_VARIANT[rec.priority]}>{rec.priority}</Badge>
         </div>
-        <p className="text-sm text-muted-foreground">{rec.problem}</p>
+        <p className="text-sm text-muted-foreground">{txt.problem}</p>
         <p className="text-sm">
-          <span className="font-medium">Acción:</span> {rec.action}
+          <span className="font-medium">{t("rep2.intel.action")}</span> {txt.action}
         </p>
         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-          <span>Esfuerzo: {rec.effort}</span>
-          <span>Beneficio: {rec.benefit}</span>
-          <span>Confianza: {rec.confidence}</span>
+          <span>{t("rep2.intel.effort")} {rec.effort}</span>
+          <span>{t("rep2.intel.benefit")} {txt.benefit}</span>
+          <span>{t("rep2.intel.confidenceLabel")} {rec.confidence}</span>
         </div>
       </CardContent>
     </Card>
@@ -269,6 +311,7 @@ const SEVERITY_VARIANT: Record<ConflictSeverity, Variant> = {
 };
 
 export function DataConflictCard({ conflict }: { conflict: DataConflict }) {
+  const { t } = useT();
   return (
     <Card>
       <CardContent className="space-y-2 py-4">
@@ -285,11 +328,13 @@ export function DataConflictCard({ conflict }: { conflict: DataConflict }) {
             </span>
           ))}
         </div>
-        <p className="text-sm text-muted-foreground">{conflict.recommendedAction}</p>
+        <p className="text-sm text-muted-foreground">
+          {t(`lib.intel.conflict.${conflict.type}`)}
+        </p>
         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-          {conflict.prioritySource && <span>Fuente prioritaria: {conflict.prioritySource}</span>}
-          <span>Confianza: {conflict.confidence}</span>
-          <span>Estado: {conflict.status}</span>
+          {conflict.prioritySource && <span>{t("rep2.intel.prioritySource")} {conflict.prioritySource}</span>}
+          <span>{t("rep2.intel.confidenceLabel")} {conflict.confidence}</span>
+          <span>{t("rep2.intel.status")} {conflict.status}</span>
         </div>
       </CardContent>
     </Card>

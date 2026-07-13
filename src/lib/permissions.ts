@@ -12,6 +12,7 @@ export type Capability =
   | "viewPeople" // análisis y datos por persona (SENSIBLE)
   | "editStandards" // umbrales del workspace
   | "editProjectStandards" // umbrales por proyecto (además requiere plan Pro)
+  | "manageProjects" // crear/renombrar/borrar proyectos y administrar sus miembros
   | "connectIntegrations"
   | "exportData"
   | "viewAudit"
@@ -29,6 +30,7 @@ const MATRIX: Record<AccessRole, Capability[]> = {
     "viewPeople",
     "editStandards",
     "editProjectStandards",
+    "manageProjects",
     "connectIntegrations",
     "exportData",
     "viewAudit",
@@ -45,6 +47,7 @@ const MATRIX: Record<AccessRole, Capability[]> = {
     "viewPeople",
     "editStandards",
     "editProjectStandards",
+    "manageProjects",
     "connectIntegrations",
     "exportData",
     "viewAudit",

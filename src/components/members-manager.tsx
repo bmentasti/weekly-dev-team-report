@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDialogs } from "@/components/ui/dialog-provider";
+import { useT } from "@/components/i18n-provider";
 
 type Role = "ADMIN" | "MEMBER" | "VIEWER";
 
@@ -19,11 +20,13 @@ interface Member {
   isOwner: boolean;
 }
 
-const ROLE_HELP: Record<Role, string> = {
-  ADMIN: "Gestiona todo salvo facturación.",
-  MEMBER: "Genera reportes y ve datos por persona de sus proyectos.",
-  VIEWER: "Solo lectura, sin datos por persona.",
-};
+function roleHelp(t: (key: string) => string): Record<Role, string> {
+  return {
+    ADMIN: t("ws.members.adminHelp"),
+    MEMBER: t("ws.members.memberHelp"),
+    VIEWER: t("ws.members.viewerHelp"),
+  };
+}
 
 function roleVariant(role: string): "default" | "info" | "secondary" {
   if (role === "OWNER" || role === "ADMIN") return "default";
@@ -32,6 +35,7 @@ function roleVariant(role: string): "default" | "info" | "secondary" {
 }
 
 export function MembersManager() {
+  const { t } = useT();
   const dialogs = useDialogs();
   const [members, setMembers] = useState<Member[]>([]);
   const [canManage, setCanManage] = useState(false);
@@ -69,7 +73,7 @@ export function MembersManager() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "No se pudo invitar.");
+      setError(data.error ?? t("ws.members.cantInvite"));
       return;
     }
     setEmail("");
@@ -84,7 +88,7 @@ export function MembersManager() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      await dialogs.alert({ title: "No se pudo cambiar el rol", description: d.error });
+      await dialogs.alert({ title: t("ws.members.cantChangeRole"), description: d.error });
       return;
     }
     load();
@@ -92,8 +96,8 @@ export function MembersManager() {
 
   async function remove(userId: string, name: string) {
     const ok = await dialogs.confirm({
-      title: `Quitar a ${name} del workspace`,
-      confirmLabel: "Quitar",
+      title: `${t("ws.members.removeTitlePrefix")} ${name} ${t("ws.members.removeTitleSuffix")}`,
+      confirmLabel: t("ws.members.remove"),
       danger: true,
     });
     if (!ok) return;
@@ -110,10 +114,10 @@ export function MembersManager() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <ShieldCheck className="h-5 w-5 text-primary" />
-          Miembros y roles
+          {t("ws.members.title")}
           {myRole && (
             <Badge variant="outline" className="ml-2 text-[10px]">
-              Tu rol: {myRole}
+              {`${t("ws.members.yourRolePrefix")} ${myRole}`}
             </Badge>
           )}
         </CardTitle>
@@ -121,8 +125,7 @@ export function MembersManager() {
       <CardContent className="space-y-4">
         {!canManage && !canInvite && (
           <p className="text-sm text-muted-foreground">
-            Tenés acceso de solo lectura a la lista. La gestión de miembros es de
-            Admin/Owner.
+            {t("ws.members.readonlyHelp")}
           </p>
         )}
 
@@ -139,7 +142,7 @@ export function MembersManager() {
                 )}
               </div>
               {m.isOwner ? (
-                <Badge variant="default">Owner</Badge>
+                <Badge variant="default">{t("ws.members.owner")}</Badge>
               ) : canManage ? (
                 <select
                   value={m.role}
@@ -157,7 +160,7 @@ export function MembersManager() {
                 <button
                   onClick={() => remove(m.id, m.name ?? m.email)}
                   className="text-muted-foreground hover:text-destructive"
-                  aria-label="Quitar"
+                  aria-label={t("ws.members.remove")}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -176,7 +179,7 @@ export function MembersManager() {
             <div className="flex flex-wrap gap-2">
               <Input
                 type="email"
-                placeholder="email@empresa.com"
+                placeholder={t("ws.members.emailPlaceholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="flex-1"
@@ -191,11 +194,11 @@ export function MembersManager() {
                 <option value="VIEWER">Viewer</option>
               </select>
               <Button size="sm" disabled={!email.trim()} onClick={invite}>
-                <UserPlus className="mr-1 h-4 w-4" /> Invitar
+                <UserPlus className="mr-1 h-4 w-4" /> {t("ws.members.invite")}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              {ROLE_HELP[inviteRole]} El usuario debe tener cuenta en DevMetrics.
+              {`${roleHelp(t)[inviteRole]} ${t("ws.members.needAccount")}`}
             </p>
           </div>
         )}

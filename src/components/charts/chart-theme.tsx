@@ -65,9 +65,9 @@ export function ChartTooltip({
 }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
-    <div className="rounded-input border border-border bg-white/95 px-3 py-2 shadow-card backdrop-blur">
+    <div className="rounded-input border border-border bg-card text-foreground px-3 py-2 shadow-card backdrop-blur">
       {label !== undefined && label !== "" && (
-        <p className="mb-1 text-xs font-semibold text-navy">{label}</p>
+        <p className="mb-1 text-xs font-semibold text-foreground">{label}</p>
       )}
       <div className="space-y-0.5">
         {payload.map((p, i) => (

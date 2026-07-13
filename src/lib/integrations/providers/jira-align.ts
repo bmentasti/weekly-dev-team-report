@@ -1,3 +1,4 @@
+import { safeFetch, assertSafeUrl } from "@/lib/http";
 import type { ProviderAdapter } from "../types";
 import { mkItem, planBucket, isStale, httpError } from "./planning-helpers";
 
@@ -17,7 +18,12 @@ export const jiraAlignAdapter: ProviderAdapter = {
   slug: "jira-align",
   async testConnection(ctx) {
     try {
-      const res = await fetch(
+      // SEC-04 / SSRF: validar el host {instance} del usuario antes del fetch.
+      await assertSafeUrl(`https://${ctx.config.instance ?? ""}`, {
+        allowInsecure: false,
+        blockPrivate: true,
+      });
+      const res = await safeFetch(
         `https://${ctx.config.instance}/rest/align/api/2/WorkItems?$top=1`,
         {
           headers: { Authorization: `Bearer ${ctx.secret}`, Accept: "application/json" },
@@ -31,7 +37,12 @@ export const jiraAlignAdapter: ProviderAdapter = {
     }
   },
   async fetchData(ctx) {
-    const res = await fetch(
+    // SEC-04 / SSRF: validar el host {instance} del usuario antes del fetch.
+    await assertSafeUrl(`https://${ctx.config.instance ?? ""}`, {
+      allowInsecure: false,
+      blockPrivate: true,
+    });
+    const res = await safeFetch(
       `https://${ctx.config.instance}/rest/align/api/2/WorkItems?$top=100`,
       {
         headers: { Authorization: `Bearer ${ctx.secret}`, Accept: "application/json" },

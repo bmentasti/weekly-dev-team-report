@@ -1,3 +1,4 @@
+import { safeFetch, assertSafeUrl } from "@/lib/http";
 import type { ProviderAdapter } from "../types";
 import { mkItem, planBucket, isStale, httpError } from "./planning-helpers";
 
@@ -6,8 +7,12 @@ function basic(apiKey: string): string {
   return "Basic " + Buffer.from(`${apiKey}:xxx`).toString("base64");
 }
 function base(site: string): string {
-  const clean = site.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const clean = (site ?? "").replace(/^https?:\/\//, "").replace(/\/$/, "");
   return `https://${clean}`;
+}
+/** SEC-04 / SSRF: valida el host {site} del usuario y devuelve el base normalizado. */
+async function safeBase(site: string): Promise<string> {
+  return assertSafeUrl(base(site), { allowInsecure: false, blockPrivate: true });
 }
 
 interface RawTask {
@@ -24,7 +29,8 @@ export const teamworkAdapter: ProviderAdapter = {
   slug: "teamwork",
   async testConnection(ctx) {
     try {
-      const res = await fetch(`${base(ctx.config.site)}/me.json`, {
+      const site = await safeBase(ctx.config.site);
+      const res = await safeFetch(`${site}/me.json`, {
         headers: { Authorization: basic(ctx.secret) },
         cache: "no-store",
       });
@@ -35,7 +41,8 @@ export const teamworkAdapter: ProviderAdapter = {
     }
   },
   async fetchData(ctx) {
-    const res = await fetch(`${base(ctx.config.site)}/tasks.json?pageSize=100`, {
+    const site = await safeBase(ctx.config.site);
+    const res = await safeFetch(`${site}/tasks.json?pageSize=100`, {
       headers: { Authorization: basic(ctx.secret) },
       cache: "no-store",
     });
@@ -51,7 +58,7 @@ export const teamworkAdapter: ProviderAdapter = {
         title: t.content,
         status,
         bucket,
-        url: `${base(ctx.config.site)}/#/tasks/${t.id}`,
+        url: `${site}/#/tasks/${t.id}`,
         assignee: t["responsible-party-names"] || null,
         createdAt: t["created-on"] ?? null,
         updatedAt: t["last-changed-on"] ?? null,

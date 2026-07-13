@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getReportAccess } from "@/lib/reports/access";
 import { deliverReportByEmail } from "@/lib/reports/deliver";
+import { getLocale } from "@/lib/i18n/server";
 
 export async function POST(
   request: Request,
@@ -20,7 +21,11 @@ export async function POST(
     recipients?: string[];
   };
 
-  const result = await deliverReportByEmail(params.id, body.recipients ?? []);
+  const result = await deliverReportByEmail(
+    params.id,
+    body.recipients ?? [],
+    getLocale(),
+  );
   if (!result.ok)
     return NextResponse.json({ ok: false, error: result.error }, { status: 200 });
 

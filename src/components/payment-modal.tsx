@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/components/i18n-provider";
 import {
   PLANS,
   annualTotal,
@@ -20,6 +21,7 @@ export function PaymentModal({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { t } = useT();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +46,7 @@ export function PaymentModal({
       onClose();
       router.refresh();
     } else {
-      setError(json.error ?? "No se pudo iniciar el pago.");
+      setError(json.error ?? t("ws.payment.startError"));
     }
   }
 
@@ -52,12 +54,12 @@ export function PaymentModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-navy/50" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-card border bg-background p-6 shadow-card">
-        <h2 className="text-lg font-semibold">Pasar a {def.name}</h2>
+        <h2 className="text-lg font-semibold">{`${t("ws.payment.upgradeToPrefix")} ${def.name}`}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {period === "ANNUAL"
-            ? `US$${amount}/año (2 meses gratis)`
-            : `US$${amount}/mes`}{" "}
-          · usuarios incluidos según el plan.
+            ? `US$${amount}${t("ws.payment.perYearSuffix")}`
+            : `US$${amount}${t("ws.payment.perMonthSuffix")}`}{" "}
+          {t("ws.payment.usersIncluded")}
         </p>
 
         {error && (
@@ -72,7 +74,7 @@ export function PaymentModal({
             disabled={busy !== null}
             onClick={() => pay("mercadopago")}
           >
-            {busy === "mercadopago" ? "Redirigiendo..." : "Pagar con Mercado Pago"}
+            {busy === "mercadopago" ? t("ws.payment.redirecting") : t("ws.payment.payMercadoPago")}
           </Button>
           <Button
             variant="outline"
@@ -80,7 +82,7 @@ export function PaymentModal({
             disabled={busy !== null}
             onClick={() => pay("paypal")}
           >
-            {busy === "paypal" ? "Redirigiendo..." : "Pagar con PayPal"}
+            {busy === "paypal" ? t("ws.payment.redirecting") : t("ws.payment.payPaypal")}
           </Button>
         </div>
 
@@ -88,11 +90,11 @@ export function PaymentModal({
           onClick={onClose}
           className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-foreground"
         >
-          Cancelar
+          {t("ws.payment.cancel")}
         </button>
 
         <p className="mt-3 text-center text-[11px] text-muted-foreground">
-          Sin credenciales del proveedor, el cambio se aplica en modo demo.
+          {t("ws.payment.demoNote")}
         </p>
       </div>
     </div>

@@ -47,6 +47,11 @@ export async function DELETE(
   if (!session?.user?.id)
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
+  // Autorizar primero el recurso padre (reporte), igual que en PATCH. (Hallazgo #9)
+  const access = await getReportAccess(session.user.id, params.id);
+  if (!access)
+    return NextResponse.json({ error: "Sin acceso" }, { status: 403 });
+
   const note = await prisma.reportNote.findUnique({
     where: { id: params.noteId },
   });

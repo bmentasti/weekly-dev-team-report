@@ -3,7 +3,26 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getReportAccess, notifyUsers } from "@/lib/reports/access";
+import { resolveWorkspaceRole } from "@/lib/workspace";
+import { can } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+
+/**
+ * Autoriza a ADMINISTRAR shares (crear/revocar). A diferencia de leer, sólo un
+ * miembro del workspace con la capability `shareReports` puede hacerlo. Esto
+ * evita que un invitado externo (incluido uno con nivel EXECUTIVE) re-comparta
+ * el reporte o escale el nivel de acceso a terceros. (SEC-02)
+ */
+async function canManageShares(
+  userId: string,
+  reportId: string,
+): Promise<{ ok: true; workspaceId: string } | { ok: false }> {
+  const access = await getReportAccess(userId, reportId);
+  if (!access || !access.isWorkspaceMember) return { ok: false };
+  const role = await resolveWorkspaceRole(userId, access.workspaceId);
+  if (!can(role, "shareReports")) return { ok: false };
+  return { ok: true, workspaceId: access.workspaceId };
+}
 
 export async function GET(
   _request: Request,
@@ -42,8 +61,13 @@ export async function POST(
   if (!session?.user?.id)
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const access = await getReportAccess(session.user.id, params.id);
-  if (!access) return NextResponse.json({ error: "Sin acceso" }, { status: 403 });
+  const manage = await canManageShares(session.user.id, params.id);
+  if (!manage.ok)
+    return NextResponse.json(
+      { error: "No podés compartir este reporte." },
+      { status: 403 },
+    );
+  const workspaceId = manage.workspaceId;
 
   const body = (await request.json().catch(() => ({}))) as {
     userId?: string;
@@ -85,7 +109,7 @@ export async function POST(
   });
 
   await logAudit({
-    workspaceId: access.workspaceId,
+    workspaceId,
     actorId: session.user.id,
     actorName: session.user.name,
     action: "report.share",

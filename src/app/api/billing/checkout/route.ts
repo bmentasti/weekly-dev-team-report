@@ -6,6 +6,7 @@ import { resolveWorkspaceForUser } from "@/lib/workspace";
 import { PLANS, annualTotal, type PlanTierName } from "@/lib/plans";
 import { parseBody } from "@/lib/api";
 import { checkoutSchema } from "@/lib/validations";
+import { safeFetch } from "@/lib/http";
 import type { BillingPeriod, PlanTier } from "@prisma/client";
 
 export async function POST(request: Request) {
@@ -41,9 +42,13 @@ export async function POST(request: Request) {
 
   const reference = `${workspace.id}:${plan}:${period}`;
 
+  // NOTA (SEC-03): este endpoint SÓLO crea la preferencia/orden y redirige.
+  // El upgrade pago se aplica exclusivamente desde el webhook verificado del
+  // proveedor (/api/billing/webhook/{mercadopago,paypal}). Las back_urls con
+  // ?paid=1 son cosméticas y NO deben usarse para conceder el plan.
   try {
     if (provider === "mercadopago" && process.env.MP_ACCESS_TOKEN) {
-      const res = await fetch(
+      const res = await safeFetch(
         "https://api.mercadopago.com/checkout/preferences",
         {
           method: "POST",
@@ -90,7 +95,7 @@ export async function POST(request: Request) {
       const auth = Buffer.from(
         `${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`,
       ).toString("base64");
-      const tokenRes = await fetch(`${base}/v1/oauth2/token`, {
+      const tokenRes = await safeFetch(`${base}/v1/oauth2/token`, {
         method: "POST",
         headers: {
           Authorization: `Basic ${auth}`,
@@ -102,7 +107,7 @@ export async function POST(request: Request) {
       if (!tokenData.access_token)
         return NextResponse.json({ error: "PayPal auth falló." }, { status: 502 });
 
-      const orderRes = await fetch(`${base}/v2/checkout/orders`, {
+      const orderRes = await safeFetch(`${base}/v2/checkout/orders`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
@@ -149,8 +154,10 @@ export async function POST(request: Request) {
       { status: 402 },
     );
   } catch (err) {
+    // No filtrar el detalle interno al cliente; loguear server-side. (COD-02)
+    console.error("[billing/checkout] error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error en el checkout." },
+      { error: "No se pudo iniciar el checkout. Intentá de nuevo." },
       { status: 500 },
     );
   }

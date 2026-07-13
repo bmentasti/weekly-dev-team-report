@@ -55,23 +55,45 @@ export function computeTier(p: PersonInsight | null): PerfTier {
   return "CUMPLE";
 }
 
-export function contextHypotheses(p: PersonInsight | null): string[] {
-  if (!p) return ["Sin datos suficientes en el período: validar en un 1:1."];
+/**
+ * `t` es opcional: si se pasa (desde un componente con i18n), las hipótesis
+ * salen traducidas; si no, caen a español (para no romper matrix.ts / exports).
+ */
+export function contextHypotheses(
+  p: PersonInsight | null,
+  t?: (key: string) => string,
+): string[] {
+  const tr = (key: string, fallback: string) => (t ? t(key) : fallback);
+  if (!p)
+    return [tr("lib.profile.hyp.noData", "Sin datos suficientes en el período: validar en un 1:1.")];
   const out: string[] = [];
   if (p.tasksBlocked > 0)
-    out.push("Dependencias o bloqueos no resueltos a tiempo.");
+    out.push(tr("lib.profile.hyp.blocked", "Dependencias o bloqueos no resueltos a tiempo."));
   if (p.tasksStale >= 1)
-    out.push("Tareas poco claras o mal priorizadas (sin movimiento).");
-  if (p.wip >= 5) out.push("Sobrecarga o mala distribución de tareas.");
+    out.push(tr("lib.profile.hyp.stale", "Tareas poco claras o mal priorizadas (sin movimiento)."));
+  if (p.wip >= 5)
+    out.push(tr("lib.profile.hyp.overload", "Sobrecarga o mala distribución de tareas."));
   if (p.wip > 0 && p.completedPoints === 0)
-    out.push("Posible complejidad alta para su seniority o falta de acompañamiento.");
+    out.push(tr("lib.profile.hyp.complexity", "Posible complejidad alta para su seniority o falta de acompañamiento."));
   if (p.throughput <= 1)
-    out.push("Puede faltar claridad de objetivos o contexto de producto.");
+    out.push(tr("lib.profile.hyp.clarity", "Puede faltar claridad de objetivos o contexto de producto."));
   out.push(
-    "Validar en 1:1 antes de concluir: claridad de tareas, acompañamiento y disponibilidad.",
+    tr("lib.profile.hyp.validate", "Validar en 1:1 antes de concluir: claridad de tareas, acompañamiento y disponibilidad."),
   );
   return out;
 }
+
+/** Claves i18n de las preguntas 1:1 (traducir en el punto de render). */
+export const COACHING_QUESTION_KEYS = [
+  "lib.profile.q.blocking",
+  "lib.profile.q.tasksClear",
+  "lib.profile.q.moreSupport",
+  "lib.profile.q.projectContext",
+  "lib.profile.q.availability",
+  "lib.profile.q.needToImprove",
+  "lib.profile.q.commitment",
+  "lib.profile.q.growthArea",
+];
 
 export const COACHING_QUESTIONS = [
   "¿Qué te está bloqueando?",
@@ -105,25 +127,33 @@ export function sustainedLow(tiersOldestFirst: PerfTier[]): SustainedSignal | nu
   return { sprints: n, severity: n >= 3 ? "alta" : "media", escalate: n >= 3 };
 }
 
-export function coachingSteps(tier: PerfTier): string[] {
+/**
+ * `t` es opcional: si se pasa, los pasos salen traducidos; si no, caen a
+ * español (para no romper matrix.ts / exports).
+ */
+export function coachingSteps(
+  tier: PerfTier,
+  t?: (key: string) => string,
+): string[] {
+  const tr = (key: string, fallback: string) => (t ? t(key) : fallback);
   if (tier === "DESTACADA")
     return [
-      "Reconocer el aporte (1:1 o público).",
-      "Ofrecer mayor ownership o una tarea de más impacto.",
-      "Proponer mentoría a compañeros; cuidar que no se sobrecargue.",
-      "Diseñar un camino de crecimiento.",
+      tr("lib.profile.steps.destacada.1", "Reconocer el aporte (1:1 o público)."),
+      tr("lib.profile.steps.destacada.2", "Ofrecer mayor ownership o una tarea de más impacto."),
+      tr("lib.profile.steps.destacada.3", "Proponer mentoría a compañeros; cuidar que no se sobrecargue."),
+      tr("lib.profile.steps.destacada.4", "Diseñar un camino de crecimiento."),
     ];
   if (tier === "CUMPLE")
     return [
-      "Dar feedback claro y un objetivo de crecimiento.",
-      "Asignar una tarea desafiante pero alcanzable.",
-      "Incentivar participación en refinamientos/retros y mayor visibilidad.",
-      "Medir la evolución en los próximos 1-2 sprints.",
+      tr("lib.profile.steps.cumple.1", "Dar feedback claro y un objetivo de crecimiento."),
+      tr("lib.profile.steps.cumple.2", "Asignar una tarea desafiante pero alcanzable."),
+      tr("lib.profile.steps.cumple.3", "Incentivar participación en refinamientos/retros y mayor visibilidad."),
+      tr("lib.profile.steps.cumple.4", "Medir la evolución en los próximos 1-2 sprints."),
     ];
   return [
-    "Tener un 1:1 privado para entender el contexto antes de juzgar.",
-    "Aclarar expectativas del rol y dividir en tareas más chicas y medibles.",
-    "Acompañamiento más frecuente y revisión intermedia.",
-    "Documentar acuerdos y revisar la evolución en 1-2 sprints; escalar solo si no hay mejora.",
+    tr("lib.profile.steps.bajo.1", "Tener un 1:1 privado para entender el contexto antes de juzgar."),
+    tr("lib.profile.steps.bajo.2", "Aclarar expectativas del rol y dividir en tareas más chicas y medibles."),
+    tr("lib.profile.steps.bajo.3", "Acompañamiento más frecuente y revisión intermedia."),
+    tr("lib.profile.steps.bajo.4", "Documentar acuerdos y revisar la evolución en 1-2 sprints; escalar solo si no hay mejora."),
   ];
 }

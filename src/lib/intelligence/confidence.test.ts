@@ -49,6 +49,16 @@ describe("Confidence Score", () => {
     expect(bad).toBeLessThan(good);
   });
 
+  it("freshnessDays negativo (clock skew) se clampa a 0 y no reporta días negativos (M4)", () => {
+    const r = computeConfidence({ ...ideal, freshnessDays: -3 });
+    // Se trata como dato fresco (f <= 2): mismo score que un dato de 0-2 días.
+    expect(r.score).toBe(computeConfidence({ ...ideal, freshnessDays: 0 }).score);
+    // No debe existir un negativo que hable de días negativos de antigüedad.
+    expect(r.negatives.some((n) => /-\d+\s*días/.test(n))).toBe(false);
+    // Al ser fresco, agrega el positivo de datos frescos.
+    expect(r.positives.some((p) => /frescos/i.test(p))).toBe(true);
+  });
+
   it("señal indirecta y dependencia de IA bajan el score y quedan registradas", () => {
     const r = computeConfidence({
       ...ideal,

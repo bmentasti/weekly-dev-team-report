@@ -2,6 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { getProviderByType, type ProviderSlug } from "@/lib/integrations/catalog";
 import { getAdapter } from "@/lib/integrations/registry";
 import { loadConnectionContext } from "@/lib/integrations/loader";
+import {
+  demoDataFor,
+  isDemo,
+  periodDaysFrom,
+} from "@/lib/integrations/demo";
 import type {
   ActivitySignal,
   CiRun,
@@ -17,6 +22,8 @@ import type {
   TrendPoint,
 } from "./types";
 import { buildMarkdown } from "./markdown";
+import { makeT, type TFunc } from "@/lib/i18n/dictionaries";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 const OVERLOAD_WIP = 5;
 
@@ -27,6 +34,11 @@ interface CollectedData {
   ciRuns: CiRun[];
   sources: ProviderSlug[];
   sourcesWithError: ProviderSlug[];
+  /**
+   * INT-02: fuentes cuyos datos son de demo (config.demo === "true"). Permite
+   * al reporte distinguir data demo de data real.
+   */
+  demoSources: ProviderSlug[];
 }
 
 async function collect(
@@ -44,6 +56,7 @@ async function collect(
     ciRuns: [],
     sources: [],
     sourcesWithError: [],
+    demoSources: [],
   };
 
   const since = periodStart.toISOString();
@@ -57,12 +70,20 @@ async function collect(
       const loaded = await loadConnectionContext(projectId, integration.type);
       if (!loaded) return;
       try {
-        const data = await adapter.fetchData(loaded.ctx, { since });
+        // INT-02: demo boundary centralizado. Si la integración está en modo
+        // demo (config.demo === "true") devolvemos el dataset canónico
+        // (demoDataFor) sin invocar nunca el adapter real — así ningún provider
+        // pega a su API con un token "demo-token". Si demoDataFor no cubre el
+        // slug, devuelve una estructura vacía segura (no llamada real).
+        const data = isDemo(loaded.ctx.config)
+          ? demoDataFor(entry.slug, periodDaysFrom({ since }))
+          : await adapter.fetchData(loaded.ctx, { since });
         if (data.workItems) out.workItems.push(...data.workItems);
         if (data.codeChanges) out.codeChanges.push(...data.codeChanges);
         if (data.activity) out.activity.push(...data.activity);
         if (data.ciRuns) out.ciRuns.push(...data.ciRuns);
         out.sources.push(entry.slug);
+        if (isDemo(loaded.ctx.config)) out.demoSources.push(entry.slug);
       } catch {
         out.sourcesWithError.push(entry.slug);
         await prisma.integration
@@ -94,6 +115,7 @@ function cycleTimeDays(items: UnifiedWorkItem[]): number | null {
 function buildPeople(
   workItems: UnifiedWorkItem[],
   codeChanges: UnifiedCodeChange[],
+  t: TFunc,
 ): PersonInsight[] {
   const map = new Map<string, PersonInsight>();
   const itemsByPerson = new Map<string, UnifiedWorkItem[]>();
@@ -154,7 +176,7 @@ function buildPeople(
       p.completedPoints * 2 + p.tasksDone * 2 + p.prsMerged * 3 + p.prsOpen;
     // Category (actionability first).
     p.category = categorize(p);
-    p.nextStep = nextStepFor(p);
+    p.nextStep = nextStepFor(p, t);
   }
 
   people.sort((a, b) => b.score - a.score);
@@ -172,19 +194,8 @@ function categorize(p: PersonInsight): PersonCategory {
   return "ON_TRACK";
 }
 
-function nextStepFor(p: PersonInsight): string {
-  switch (p.category) {
-    case "SUPPORT":
-      return "Conversar 1:1 para destrabar bloqueos y priorizar. Ofrecer ayuda o pairing.";
-    case "OVERLOADED":
-      return "Redistribuir parte del WIP; hay riesgo de cuello de botella y burnout.";
-    case "RECOGNIZE":
-      return "Reconocer el aporte. Buen candidato/a para mentoría o tareas de mayor impacto.";
-    case "FREE_CAPACITY":
-      return "Tiene capacidad disponible; asignar trabajo del backlog o revisiones.";
-    default:
-      return "En ritmo. Mantener seguimiento habitual.";
-  }
+function nextStepFor(p: PersonInsight, t: TFunc): string {
+  return t(`gen.nextStep.${p.category}`);
 }
 
 async function buildTrend(
@@ -227,7 +238,9 @@ export async function generateReportComputation(
   projectId: string,
   periodStart: Date,
   periodEnd: Date,
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<ReportComputation> {
+  const t = makeT(locale);
   const data = await collect(projectId, periodStart);
   const { workItems, codeChanges, activity, ciRuns } = data;
 
@@ -331,7 +344,7 @@ export async function generateReportComputation(
       totalPoints > 0 ? Math.round((completedPoints / totalPoints) * 100) : 0,
   };
 
-  const people = buildPeople(workItems, codeChanges);
+  const people = buildPeople(workItems, codeChanges, t);
 
   // ---- Risks ----
   const risks: Risk[] = [];
@@ -339,13 +352,13 @@ export async function generateReportComputation(
   if (criticalStale.length > 0)
     risks.push({
       level: "high",
-      title: `${criticalStale.length} tarea(s) crítica(s) sin movimiento`,
+      title: t("gen.risk.criticalStale.title", { count: criticalStale.length }),
       detail: criticalStale.slice(0, 5).map((i) => i.externalId).join(", "),
     });
   if (wi.blocked > 0)
     risks.push({
       level: wi.blocked >= 3 ? "high" : "medium",
-      title: `${wi.blocked} tarea(s) bloqueada(s)`,
+      title: t("gen.risk.blocked.title", { count: wi.blocked }),
       detail: workItems
         .filter((i) => i.bucket === "BLOCKED")
         .slice(0, 5)
@@ -355,33 +368,33 @@ export async function generateReportComputation(
   if (cc.old > 0)
     risks.push({
       level: cc.old >= 3 ? "high" : "medium",
-      title: `${cc.old} PR/MR abierto(s) hace más de 72h`,
-      detail: "Acumulación de trabajo pendiente de merge.",
+      title: t("gen.risk.oldPrs.title", { count: cc.old }),
+      detail: t("gen.risk.oldPrs.detail"),
     });
   if (cc.withoutReviewer > 0)
     risks.push({
       level: "medium",
-      title: `${cc.withoutReviewer} PR/MR sin reviewer`,
-      detail: "Hay cambios abiertos sin nadie asignado para revisarlos.",
+      title: t("gen.risk.noReviewer.title", { count: cc.withoutReviewer }),
+      detail: t("gen.risk.noReviewer.detail"),
     });
   if (cc.checksFailing > 0)
     risks.push({
       level: "medium",
-      title: `${cc.checksFailing} PR/MR con checks fallando`,
-      detail: "Tests o CI en rojo en cambios abiertos.",
+      title: t("gen.risk.checksFailing.title", { count: cc.checksFailing }),
+      detail: t("gen.risk.checksFailing.detail"),
     });
   const overloaded = people.filter((p) => p.category === "OVERLOADED");
   for (const p of overloaded.slice(0, 3))
     risks.push({
       level: "medium",
-      title: `Posible sobrecarga: ${p.name}`,
-      detail: `${p.wip} tareas en progreso asignadas.`,
+      title: t("gen.risk.overloaded.title", { name: p.name }),
+      detail: t("gen.risk.overloaded.detail", { wip: p.wip }),
     });
   if (act.blockers > 0)
     risks.push({
       level: "medium",
-      title: `${act.blockers} posible(s) blocker(s) mencionado(s) en Slack`,
-      detail: "Revisar la conversación reciente del equipo.",
+      title: t("gen.risk.blockers.title", { count: act.blockers }),
+      detail: t("gen.risk.blockers.detail"),
     });
 
   // ---- Health ----
@@ -398,7 +411,7 @@ export async function generateReportComputation(
 
   // ---- Trend ----
   const trend = await buildTrend(projectId, {
-    label: "Actual",
+    label: t("gen.trend.current"),
     done: wi.done,
     merged: cc.merged,
     blocked: wi.blocked,
@@ -426,58 +439,48 @@ export async function generateReportComputation(
         url: i.url,
         reason:
           i.bucket === "BLOCKED"
-            ? "Bloqueada"
-            : "Crítica sin movimiento",
+            ? t("gen.focus.blocked")
+            : t("gen.focus.criticalStale"),
       })),
   };
 
   // ---- Recommendations ----
   const recommendations: string[] = [];
   if (cc.withoutReviewer > 0 || cc.old > 0)
-    recommendations.push(
-      "Asignar reviewers y destrabar los PR/MR pendientes de review.",
-    );
+    recommendations.push(t("gen.rec.reviewers"));
   if (wi.blocked > 0 || criticalStale.length > 0)
-    recommendations.push(
-      "Revisar tareas bloqueadas y críticas sin movimiento en la próxima daily.",
-    );
-  if (cc.checksFailing > 0)
-    recommendations.push("Arreglar los checks/CI que están fallando.");
+    recommendations.push(t("gen.rec.blocked"));
+  if (cc.checksFailing > 0) recommendations.push(t("gen.rec.checks"));
   if (overloaded.length > 0)
     recommendations.push(
-      `Balancear la carga: ${overloaded.map((p) => p.name).join(", ")} con WIP alto.`,
+      t("gen.rec.balance", { names: overloaded.map((p) => p.name).join(", ") }),
     );
   if (people.some((p) => p.category === "FREE_CAPACITY"))
-    recommendations.push(
-      "Hay personas con capacidad libre; asignarles trabajo del backlog.",
-    );
-  if (healthStatus === "HIGH_RISK")
-    recommendations.push(
-      "Confirmar si el alcance del sprint sigue siendo realista.",
-    );
-  if (recommendations.length === 0)
-    recommendations.push(
-      "El avance es saludable. Mantener el ritmo y seguimiento actual.",
-    );
+    recommendations.push(t("gen.rec.freeCapacity"));
+  if (healthStatus === "HIGH_RISK") recommendations.push(t("gen.rec.highRisk"));
+  if (recommendations.length === 0) recommendations.push(t("gen.rec.healthy"));
 
   // ---- Executive summary ----
-  const healthLabel =
-    healthStatus === "HEALTHY"
-      ? "saludable"
-      : healthStatus === "MEDIUM_RISK"
-        ? "con riesgo medio"
-        : "con riesgo alto";
+  const healthLabel = t(`gen.health.${healthStatus}`);
   const summaryParts: string[] = [
-    `El equipo completó ${completedPoints} de ${committedPoints} story points (${projectProgress.completionByPoints}%), cerró ${wi.done} tarea(s) y mergeó ${cc.merged} PR/MR. Estado general ${healthLabel}.`,
+    t("gen.summary.main", {
+      completed: completedPoints,
+      committed: committedPoints,
+      pct: projectProgress.completionByPoints,
+      done: wi.done,
+      merged: cc.merged,
+      health: healthLabel,
+    }),
   ];
   const concerns: string[] = [];
   if (criticalStale.length > 0)
-    concerns.push(`${criticalStale.length} crítica(s) sin movimiento`);
-  if (wi.blocked > 0) concerns.push(`${wi.blocked} bloqueada(s)`);
-  if (cc.old > 0) concerns.push(`${cc.old} PR/MR viejo(s)`);
-  if (cc.withoutReviewer > 0) concerns.push(`${cc.withoutReviewer} sin reviewer`);
+    concerns.push(t("gen.concern.criticalStale", { count: criticalStale.length }));
+  if (wi.blocked > 0) concerns.push(t("gen.concern.blocked", { count: wi.blocked }));
+  if (cc.old > 0) concerns.push(t("gen.concern.oldPrs", { count: cc.old }));
+  if (cc.withoutReviewer > 0)
+    concerns.push(t("gen.concern.noReviewer", { count: cc.withoutReviewer }));
   if (concerns.length > 0)
-    summaryParts.push(`Puntos de atención: ${concerns.join(", ")}.`);
+    summaryParts.push(t("gen.summary.concerns", { list: concerns.join(", ") }));
   const summary = summaryParts.join(" ");
 
   // ---- Highlights ----
@@ -519,6 +522,10 @@ export async function generateReportComputation(
     trend,
     people: people.slice(0, 25),
     sources: data.sources,
+    // INT-02: fuentes en modo demo. TODO(demo-flag): agregar `demoSources` a
+    // ReportMetrics en src/lib/reports/types.ts (fuera de este límite de
+    // archivos) para tiparlo formalmente y consumirlo desde la UI/markdown.
+    demoSources: data.demoSources,
   };
 
   const markdown = buildMarkdown({
@@ -530,6 +537,8 @@ export async function generateReportComputation(
     risks,
     recommendations,
     highlights,
+    t,
+    locale,
   });
 
   return {

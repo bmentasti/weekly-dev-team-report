@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/http";
 import type { CiRun, ProviderAdapter, UnifiedCodeChange } from "../types";
 import { fetchPullRequests, testGitHubConnection } from "@/lib/github/service";
 import type { GitHubConnectionConfig } from "@/lib/github/types";
@@ -25,7 +26,7 @@ async function fetchGitHubCi(
   const params = new URLSearchParams({ per_page: "50" });
   if (since) params.set("created", `>=${since.slice(0, 10)}`);
   try {
-    const res = await fetch(
+    const res = await safeFetch(
       `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/actions/runs?${params.toString()}`,
       {
         headers: {

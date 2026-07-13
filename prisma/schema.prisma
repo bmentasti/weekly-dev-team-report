@@ -329,6 +329,8 @@ model ReportConfig {
   frequency   ReportFrequency @default(MANUAL)
   recipients  String[]
   sections    Json?
+  // Idioma de los reportes generados por el cron para este config (es/en).
+  locale      String          @default("es")
   lastRunAt   DateTime?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt

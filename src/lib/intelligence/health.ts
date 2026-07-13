@@ -59,6 +59,17 @@ export interface HealthReport {
   overall: number | null;
   profile: HealthProfile;
   dimensions: HealthDimension[];
+  /**
+   * Dimensiones ponderadas (peso > 0) que NO tienen datos y por lo tanto no
+   * entran en `overall`. Un `overall` alto puede deberse a que faltan estas.
+   */
+  missingWeightedDimensions: string[];
+  /**
+   * Fracción (0..1) del peso total del perfil efectivamente representada en
+   * `overall`. 1 = todas las dimensiones ponderadas tienen datos; valores
+   * bajos indican que `overall` cubre poco del modelo de salud.
+   */
+  coverageOfHealth: number;
 }
 
 function statusFor(score: number): "ok" | "warn" | "risk" {
@@ -122,5 +133,17 @@ export function computeHealth(
       ? null
       : Math.round(scored.reduce((s, d) => s + (d.score as number) * d.weight, 0) / totalWeight);
 
-  return { overall, profile, dimensions };
+  // Dimensiones ponderadas (peso > 0) sin datos → no contribuyen a `overall`.
+  const weightedDims = dimensions.filter((d) => d.weight > 0);
+  const missingWeightedDimensions = weightedDims
+    .filter((d) => d.score === null)
+    .map((d) => d.key);
+  // Cobertura del modelo de salud: peso representado / peso ponderado total.
+  const weightedTotal = weightedDims.reduce((s, d) => s + d.weight, 0);
+  const representedWeight = weightedDims
+    .filter((d) => d.score !== null)
+    .reduce((s, d) => s + d.weight, 0);
+  const coverageOfHealth = weightedTotal === 0 ? 0 : representedWeight / weightedTotal;
+
+  return { overall, profile, dimensions, missingWeightedDimensions, coverageOfHealth };
 }

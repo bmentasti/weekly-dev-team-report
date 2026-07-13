@@ -6,6 +6,7 @@ import {
   RecommendationCard,
   DataConflictCard,
   EmptyState,
+  recoText,
 } from "@/components/intelligence";
 import { ProjectHealthMap, InsightCallout } from "@/components/viz";
 import { useT } from "@/components/i18n-provider";
@@ -26,14 +27,6 @@ const TABS = [
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
-
-const SECTION_STATE_LABEL: Record<SectionState, string> = {
-  AVAILABLE: "Disponible",
-  PARTIAL: "Parcial",
-  LIMITED: "Limitada",
-  NO_DATA: "Sin datos",
-  STALE: "Desactualizada",
-};
 
 const SECTION_STATE_VARIANT: Record<
   SectionState,
@@ -123,9 +116,9 @@ export function IntelligenceView({
             {recommendations[0] && (
               <InsightCallout
                 intent={recommendations[0].priority === "high" ? "danger" : "warning"}
-                title={recommendations[0].title}
+                title={recoText(recommendations[0], t).title}
               >
-                {recommendations[0].action}
+                {recoText(recommendations[0], t).action}
               </InsightCallout>
             )}
             <Card>
@@ -137,7 +130,7 @@ export function IntelligenceView({
                 <div className="flex flex-wrap gap-2">
                   {sections.map((s) => (
                     <Badge key={s.key} variant={SECTION_STATE_VARIANT[s.state]}>
-                      {s.label}: {SECTION_STATE_LABEL[s.state]}
+                      {s.label}: {t(`lib.intel.sectionState.${s.state}`)}
                     </Badge>
                   ))}
                 </div>

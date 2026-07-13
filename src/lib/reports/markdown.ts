@@ -4,7 +4,8 @@ import type {
   ReportMetrics,
   Risk,
 } from "./types";
-import { PERSON_CATEGORY_LABEL } from "./labels";
+import { makeT, type TFunc } from "@/lib/i18n/dictionaries";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 
 export const HEALTH_LABEL: Record<HealthLevel, string> = {
   HEALTHY: "Saludable",
@@ -12,8 +13,8 @@ export const HEALTH_LABEL: Record<HealthLevel, string> = {
   HIGH_RISK: "Riesgo alto",
 };
 
-function fmtDate(d: Date): string {
-  return d.toLocaleDateString("es-AR", {
+function fmtDate(d: Date, locale: Locale): string {
+  return d.toLocaleDateString(locale === "en" ? "en-US" : "es-AR", {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -29,70 +30,79 @@ export function buildMarkdown(input: {
   risks: Risk[];
   recommendations: string[];
   highlights: ReportHighlights;
+  /** Traducción; por defecto español (para llamadas legacy / serializers). */
+  t?: TFunc;
+  locale?: Locale;
 }): string {
   const { metrics: m, highlights: h } = input;
+  const locale = input.locale ?? DEFAULT_LOCALE;
+  const t = input.t ?? makeT(locale);
   const lines: string[] = [];
 
-  lines.push(`# Reporte semanal del equipo`);
+  lines.push(`# ${t("gen.md.title")}`);
   lines.push("");
   lines.push(
-    `**Período:** ${fmtDate(input.periodStart)} al ${fmtDate(input.periodEnd)}  `,
+    `**${t("gen.md.period")}:** ${fmtDate(input.periodStart, locale)} ${t("gen.md.periodTo")} ${fmtDate(input.periodEnd, locale)}  `,
   );
-  lines.push(`**Estado general:** ${HEALTH_LABEL[input.healthStatus]}`);
+  lines.push(
+    `**${t("gen.md.overall")}:** ${t(`lib.health.${input.healthStatus}`)}`,
+  );
   lines.push("");
 
-  lines.push(`## Resumen ejecutivo`);
+  lines.push(`## ${t("gen.md.execSummary")}`);
   lines.push("");
   lines.push(input.summary);
   lines.push("");
 
-  lines.push(`## Capacidad y velocity`);
+  lines.push(`## ${t("gen.md.capacityVelocity")}`);
   lines.push("");
   lines.push(
-    `- Story points: ${m.capacity.completedPoints}/${m.capacity.committedPoints} completados (${m.projectProgress.completionByPoints}%)`,
+    `- ${t("gen.md.storyPoints")}: ${m.capacity.completedPoints}/${m.capacity.committedPoints} ${t("gen.md.completedSuffix")} (${m.projectProgress.completionByPoints}%)`,
   );
-  lines.push(`- Velocity del período: ${m.capacity.velocityPoints} pts`);
-  lines.push(`- Puntos restantes: ${m.capacity.remainingPoints} pts`);
+  lines.push(`- ${t("gen.md.periodVelocity")}: ${m.capacity.velocityPoints} pts`);
+  lines.push(`- ${t("gen.md.remainingPoints")}: ${m.capacity.remainingPoints} pts`);
   if (m.capacity.cycleTimeAvgDays != null)
-    lines.push(`- Cycle time promedio: ${m.capacity.cycleTimeAvgDays} días`);
+    lines.push(
+      `- ${t("gen.md.avgCycleTime")}: ${m.capacity.cycleTimeAvgDays} ${t("gen.md.days")}`,
+    );
   lines.push(
-    `- Avance del proyecto: ${m.projectProgress.doneItems}/${m.projectProgress.totalItems} tareas (${m.projectProgress.completionByCount}%)`,
+    `- ${t("gen.md.projectProgress")}: ${m.projectProgress.doneItems}/${m.projectProgress.totalItems} ${t("gen.md.tasks")} (${m.projectProgress.completionByCount}%)`,
   );
   lines.push("");
 
-  lines.push(`## Métricas principales`);
+  lines.push(`## ${t("gen.md.mainMetrics")}`);
   lines.push("");
-  lines.push(`- Tareas finalizadas: ${m.workItems.done}`);
-  lines.push(`- Tareas en progreso: ${m.workItems.inProgress}`);
-  lines.push(`- Tareas bloqueadas: ${m.workItems.blocked}`);
-  lines.push(`- Tareas sin movimiento: ${m.workItems.stale}`);
-  lines.push(`- Tareas críticas: ${m.workItems.critical}`);
-  lines.push(`- PR/MR abiertos: ${m.codeChanges.open}`);
-  lines.push(`- PR/MR mergeados: ${m.codeChanges.merged}`);
-  lines.push(`- PR/MR sin reviewer: ${m.codeChanges.withoutReviewer}`);
-  lines.push(`- PR/MR abiertos > 72h: ${m.codeChanges.old}`);
+  lines.push(`- ${t("gen.md.tasksDone")}: ${m.workItems.done}`);
+  lines.push(`- ${t("gen.md.tasksInProgress")}: ${m.workItems.inProgress}`);
+  lines.push(`- ${t("gen.md.tasksBlocked")}: ${m.workItems.blocked}`);
+  lines.push(`- ${t("gen.md.tasksStale")}: ${m.workItems.stale}`);
+  lines.push(`- ${t("gen.md.tasksCritical")}: ${m.workItems.critical}`);
+  lines.push(`- ${t("gen.md.prsOpen")}: ${m.codeChanges.open}`);
+  lines.push(`- ${t("gen.md.prsMerged")}: ${m.codeChanges.merged}`);
+  lines.push(`- ${t("gen.md.prsNoReviewer")}: ${m.codeChanges.withoutReviewer}`);
+  lines.push(`- ${t("gen.md.prsOld")}: ${m.codeChanges.old}`);
   if (m.activity.messages > 0)
-    lines.push(`- Posibles blockers (Slack): ${m.activity.blockers}`);
+    lines.push(`- ${t("gen.md.possibleBlockers")}: ${m.activity.blockers}`);
   lines.push("");
 
   if (h.tasksDone.length > 0) {
-    lines.push(`## Tareas finalizadas`);
+    lines.push(`## ${t("gen.md.sectionTasksDone")}`);
     lines.push("");
-    for (const t of h.tasksDone)
-      lines.push(`- ${t.externalId} — ${t.title}${t.meta ? ` (${t.meta})` : ""}`);
+    for (const it of h.tasksDone)
+      lines.push(`- ${it.externalId} — ${it.title}${it.meta ? ` (${it.meta})` : ""}`);
     lines.push("");
   }
 
   if (h.tasksAtRisk.length > 0) {
-    lines.push(`## Tareas en riesgo`);
+    lines.push(`## ${t("gen.md.sectionTasksAtRisk")}`);
     lines.push("");
-    for (const t of h.tasksAtRisk)
-      lines.push(`- ${t.externalId} — ${t.title}${t.meta ? ` (${t.meta})` : ""}`);
+    for (const it of h.tasksAtRisk)
+      lines.push(`- ${it.externalId} — ${it.title}${it.meta ? ` (${it.meta})` : ""}`);
     lines.push("");
   }
 
   if (h.prsMerged.length > 0) {
-    lines.push(`## Pull/Merge Requests mergeados`);
+    lines.push(`## ${t("gen.md.sectionPrsMerged")}`);
     lines.push("");
     for (const p of h.prsMerged)
       lines.push(`- ${p.externalId} — ${p.title}${p.meta ? ` (${p.meta})` : ""}`);
@@ -100,7 +110,7 @@ export function buildMarkdown(input: {
   }
 
   if (h.prsAtRisk.length > 0) {
-    lines.push(`## Pull/Merge Requests con riesgo`);
+    lines.push(`## ${t("gen.md.sectionPrsAtRisk")}`);
     lines.push("");
     for (const p of h.prsAtRisk)
       lines.push(`- ${p.externalId} — ${p.title}${p.meta ? ` (${p.meta})` : ""}`);
@@ -108,41 +118,45 @@ export function buildMarkdown(input: {
   }
 
   if (input.risks.length > 0) {
-    lines.push(`## Riesgos detectados`);
+    lines.push(`## ${t("gen.md.risksDetected")}`);
     lines.push("");
     for (const r of input.risks)
       lines.push(`- [${r.level.toUpperCase()}] ${r.title} — ${r.detail}`);
     lines.push("");
   }
 
-  lines.push(`## Recomendaciones`);
+  lines.push(`## ${t("gen.md.recommendations")}`);
   lines.push("");
   for (const r of input.recommendations) lines.push(`- ${r}`);
   lines.push("");
 
-  lines.push(`## Insumos para el próximo planning`);
+  lines.push(`## ${t("gen.md.planningInputs")}`);
   lines.push("");
-  lines.push(`- Carry-over: ${m.planning.carryOverItems} tarea(s) sin terminar (${m.planning.carryOverPoints} pts)`);
-  lines.push(`- Forecast de capacidad: ~${m.planning.forecastPoints} pts para el próximo período`);
+  lines.push(
+    `- ${t("gen.md.carryOver", { items: m.planning.carryOverItems, points: m.planning.carryOverPoints })}`,
+  );
+  lines.push(
+    `- ${t("gen.md.forecast", { points: m.planning.forecastPoints })}`,
+  );
   if (m.planning.focus.length > 0) {
-    lines.push(`- Foco recomendado:`);
+    lines.push(`- ${t("gen.md.recommendedFocus")}:`);
     for (const f of m.planning.focus)
       lines.push(`  - ${f.externalId} — ${f.title} (${f.reason})`);
   }
   lines.push("");
 
   if (m.people.length > 0) {
-    lines.push(`## Por persona (señales para conversar)`);
+    lines.push(`## ${t("gen.md.byPerson")}`);
+    lines.push("");
+    lines.push(`> ${t("gen.md.peopleNote")}`);
     lines.push("");
     lines.push(
-      `> Estas métricas son proxies (no todo el trabajo se ticketea; los story points varían). Usalas como punto de partida para conversar, no como puntaje absoluto.`,
+      `| # | ${t("gen.md.thPerson")} | ${t("gen.md.thSignal")} | ${t("gen.md.thDone")} | ${t("gen.md.thSpCompleted")} | ${t("gen.md.thInProgress")} | ${t("gen.md.thBlocked")} | ${t("gen.md.thPrMerged")} | ${t("gen.md.thScore")} |`,
     );
-    lines.push("");
-    lines.push(`| # | Persona | Señal | Finalizadas | SP compl. | En progreso | Bloqueadas | PR merg. | Score |`);
     lines.push(`|---|---|---|---|---|---|---|---|---|`);
     for (const p of m.people)
       lines.push(
-        `| ${p.rank} | ${p.name} | ${PERSON_CATEGORY_LABEL[p.category]} | ${p.tasksDone} | ${p.completedPoints} | ${p.tasksInProgress} | ${p.tasksBlocked} | ${p.prsMerged} | ${p.score} |`,
+        `| ${p.rank} | ${p.name} | ${t(`lib.personCategory.${p.category}`)} | ${p.tasksDone} | ${p.completedPoints} | ${p.tasksInProgress} | ${p.tasksBlocked} | ${p.prsMerged} | ${p.score} |`,
       );
     lines.push("");
   }
