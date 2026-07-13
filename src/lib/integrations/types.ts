@@ -13,6 +13,12 @@ export interface UnifiedWorkItem {
   status: string;
   bucket: WorkItemBucket;
   assignee: string | null;
+  /**
+   * Responsables cuando el ítem tiene más de uno (campos multi-persona / linked
+   * records). Si está presente, el rollup por persona atribuye a CADA uno; si
+   * no, se usa `assignee`. Evita "personas" falsas del tipo "A, B".
+   */
+  assignees?: string[];
   priority: string | null;
   isCritical: boolean;
   isStale: boolean; // no movement in > 5 days
@@ -78,11 +84,24 @@ export interface CiRun {
   createdAt: string | null;
 }
 
+/**
+ * Email conocido para un handle de la app (assignee/author). El email es la
+ * clave universal de identidad: permite unificar la misma persona entre apps
+ * distintas con certeza. Los adapters que puedan exponer email lo declaran acá.
+ */
+export interface PersonEmail {
+  /** Handle tal como aparece en workItems/codeChanges (login, nombre, etc.). */
+  handle: string;
+  email: string;
+}
+
 export interface ProviderData {
   workItems?: UnifiedWorkItem[];
   codeChanges?: UnifiedCodeChange[];
   activity?: ActivitySignal[];
   ciRuns?: CiRun[];
+  /** Directorio opcional handle → email para unificación por email. */
+  personEmails?: PersonEmail[];
 }
 
 // ---------------------------------------------------------------------------

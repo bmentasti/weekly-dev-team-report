@@ -10,7 +10,8 @@
 import { prisma } from "@/lib/prisma";
 import { makeT } from "@/lib/i18n/dictionaries";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
-import { makeResolver, type Resolver } from "./identity";
+import { makeResolver, resolvePerson, type Resolver } from "./identity";
+import { autoMergeGroups } from "./identity-suggest";
 import { getIdentityConfig } from "./identity-store";
 import type { PersonCategory, PersonInsight, ReportMetrics } from "./types";
 
@@ -36,12 +37,26 @@ export function unifyPeople(
   resolve: Resolver,
   nextStep: (category: PersonCategory) => string,
 ): PersonInsight[] {
+  // Pasada 1: identidad canónica (alias) por persona.
+  const resolved = people.map((p) => ({ p, r: resolvePerson(resolve, p) }));
+
+  // Auto-merge de alta confianza sobre las identidades distintas (une, p. ej.,
+  // "gonzaloavalos29" de GitHub con "Gonzalo Ávalos" de Airtable sin fusión manual).
+  const distinct = new Map<string, string>();
+  for (const { r } of resolved) if (r.id && !distinct.has(r.id)) distinct.set(r.id, r.name);
+  const { groupId, displayName } = autoMergeGroups(
+    Array.from(distinct, ([id, name]) => ({ id, name })),
+  );
+  const finalKey = (id: string) => groupId.get(id) ?? id;
+  const finalName = (id: string, fallback: string) => displayName.get(id) ?? fallback;
+
   const map = new Map<string, PersonInsight>();
   const cycles = new Map<string, number[]>();
 
-  for (const p of people) {
-    const { id, name } = resolve({ source: null, handle: p.id ?? p.name });
-    const key = id || p.name;
+  for (const { p, r } of resolved) {
+    const rid = r.id || p.name;
+    const key = finalKey(rid);
+    const name = finalName(rid, r.name || p.name);
     let e = map.get(key);
     if (!e) {
       e = {

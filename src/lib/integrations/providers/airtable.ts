@@ -52,10 +52,10 @@ function looksLikeRecordId(s: string): boolean {
  *   disponible; si no, deja el record id (el resto del pipeline igual lo
  *   unifica por identidad).
  */
-export function resolveAssignee(
+export function resolveAssignees(
   raw: unknown,
   nameById: Map<string, string>,
-): string | null {
+): string[] {
   const mapOne = (val: unknown): string => {
     if (typeof val === "string") {
       const s = val.trim();
@@ -68,8 +68,15 @@ export function resolveAssignee(
     .map(mapOne)
     .map((s) => s.trim())
     .filter(Boolean);
-  const unique = Array.from(new Set(names));
-  return unique.length ? unique.join(", ") : null;
+  return Array.from(new Set(names));
+}
+
+/** Compat: primer responsable (o null). El listado completo va en `assignees`. */
+export function resolveAssignee(
+  raw: unknown,
+  nameById: Map<string, string>,
+): string | null {
+  return resolveAssignees(raw, nameById)[0] ?? null;
 }
 
 function toNum(v: unknown): number | null {
@@ -145,6 +152,122 @@ async function atFetchAll(
   return records;
 }
 
+// --- Resolución automática de responsables vinculados (Metadata API) --------
+
+interface MetaField {
+  id: string;
+  name: string;
+  type: string;
+  options?: { linkedTableId?: string };
+}
+interface MetaTable {
+  id: string;
+  name: string;
+  primaryFieldId?: string;
+  fields: MetaField[];
+}
+
+/** Esquema de la base (requiere scope schema.bases:read). null si no hay acceso. */
+async function fetchBaseSchema(
+  baseId: string,
+  token: string,
+): Promise<MetaTable[] | null> {
+  try {
+    const res = await safeFetch(`${API}/meta/bases/${baseId}/tables`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { tables?: MetaTable[] };
+    return data.tables ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Construye el mapa record id -> nombre real para el campo de responsable.
+ * Estrategia:
+ *   1) Metadata API: detecta automáticamente la tabla vinculada del campo y su
+ *      campo primario (sin config manual, si el token tiene schema.bases:read).
+ *   2) Fallback: la tabla configurada manualmente (assigneeTableName).
+ * Si nada aplica, devuelve un mapa vacío (los record ids quedan como están).
+ */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function pickEmail(f: Record<string, unknown>): string | null {
+  for (const k of ["Email", "email", "E-mail", "Mail", "Correo"]) {
+    const v = toStr(f[k]).trim();
+    if (EMAIL_RE.test(v)) return v.toLowerCase();
+  }
+  // Cualquier campo cuyo valor parezca un email.
+  for (const v of Object.values(f)) {
+    const s = toStr(v).trim();
+    if (EMAIL_RE.test(s)) return s.toLowerCase();
+  }
+  return null;
+}
+
+interface AssigneeDirectory {
+  /** record id → nombre real. */
+  nameById: Map<string, string>;
+  /** record id → email (si la tabla de personas lo tiene). */
+  emailById: Map<string, string>;
+}
+
+async function buildAssigneeNameMap(
+  baseId: string,
+  table: string,
+  assigneeField: string,
+  token: string,
+  cfgTable: string,
+  cfgNameField: string,
+): Promise<AssigneeDirectory> {
+  const nameById = new Map<string, string>();
+  const emailById = new Map<string, string>();
+
+  let linkedTable = cfgTable;
+  let nameField = cfgNameField;
+
+  const schema = await fetchBaseSchema(baseId, token);
+  if (schema) {
+    const main = schema.find((t) => t.name === table);
+    const linkField = main?.fields.find((f) => f.name === assigneeField);
+    const linkedId = linkField?.options?.linkedTableId;
+    if (linkedId) {
+      const linked = schema.find((t) => t.id === linkedId);
+      if (linked) {
+        linkedTable = linked.name;
+        // En modo auto (sin tabla configurada) usamos el campo primario.
+        if (!cfgTable) {
+          const primary = linked.fields.find((f) => f.id === linked.primaryFieldId);
+          if (primary) nameField = primary.name;
+        }
+      }
+    }
+  }
+
+  if (!linkedTable) return { nameById, emailById };
+
+  try {
+    const people = await atFetchAll(baseId, linkedTable, token);
+    for (const rec of people) {
+      const f = rec.fields ?? {};
+      const nm =
+        toStr(f[nameField]) ||
+        toStr(f["Name"]) ||
+        toStr(f["Full Name"]) ||
+        toStr(f["Email"]);
+      if (nm) nameById.set(rec.id, nm);
+      const email = pickEmail(f);
+      if (email) emailById.set(rec.id, email);
+    }
+  } catch {
+    // permisos / tabla inexistente: seguimos con los record ids.
+  }
+  return { nameById, emailById };
+}
+
 export const airtableAdapter: ProviderAdapter = {
   slug: "airtable",
   async testConnection(ctx) {
@@ -190,26 +313,23 @@ export const airtableAdapter: ProviderAdapter = {
     const records = await atFetchAll(baseId, table, ctx.secret, opts?.since);
     const now = Date.now();
 
-    // Si el responsable es un registro vinculado, traemos la tabla de personas
-    // una sola vez para mapear record id -> nombre real (sin `since`: queremos
-    // resolver también personas viejas referenciadas por tareas recientes).
-    const nameById = new Map<string, string>();
-    if (assigneeTable) {
-      try {
-        const people = await atFetchAll(baseId, assigneeTable, ctx.secret);
-        for (const rec of people) {
-          const f = rec.fields ?? {};
-          const nm =
-            toStr(f[assigneeNameField]) ||
-            toStr(f["Name"]) ||
-            toStr(f["Full Name"]) ||
-            toStr(f["Email"]);
-          if (nm) nameById.set(rec.id, nm);
-        }
-      } catch {
-        // Si falla (permisos/nombre de tabla), seguimos con los record ids;
-        // la capa de identidad igual los unifica.
-      }
+    // Mapea record ids de responsables vinculados a nombres reales (y emails).
+    // Automático vía Metadata API (detecta la tabla de personas) con fallback
+    // a la config.
+    const { nameById, emailById } = await buildAssigneeNameMap(
+      baseId,
+      table,
+      assigneeField,
+      ctx.secret,
+      assigneeTable,
+      assigneeNameField,
+    );
+
+    // Directorio nombre → email (el email es la clave universal de identidad).
+    const personEmails: { handle: string; email: string }[] = [];
+    for (const [recId, email] of emailById) {
+      const nm = nameById.get(recId);
+      if (nm) personEmails.push({ handle: nm, email });
     }
 
     const workItems: UnifiedWorkItem[] = records.map((rec) => {
@@ -223,6 +343,7 @@ export const airtableAdapter: ProviderAdapter = {
         toStr(f["Updated"]) ||
         rec.createdTime;
       const updatedMs = new Date(updatedRaw).getTime();
+      const assignees = resolveAssignees(f[assigneeField], nameById);
       const isDone = bucket === "DONE";
       const isStale =
         !isDone &&
@@ -235,7 +356,8 @@ export const airtableAdapter: ProviderAdapter = {
         title: toStr(f[titleField]) || "(sin título)",
         status,
         bucket,
-        assignee: resolveAssignee(f[assigneeField], nameById),
+        assignee: assignees[0] ?? null,
+        assignees: assignees.length > 1 ? assignees : undefined,
         priority,
         isCritical: priority ? CRITICAL.test(priority) : false,
         isStale,
@@ -251,6 +373,6 @@ export const airtableAdapter: ProviderAdapter = {
       };
     });
 
-    return { workItems };
+    return { workItems, personEmails };
   },
 };

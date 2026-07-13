@@ -556,7 +556,7 @@ export const PROVIDER_CATALOG: Record<ProviderSlug, ProviderCatalogEntry> = {
         label: "Tabla de personas vinculada",
         placeholder: "People",
         optional: true,
-        help: "Si el responsable es un registro vinculado, indicá la tabla de personas para mostrar el nombre real en vez del record ID.",
+        help: "Opcional: se detecta automáticamente si el token tiene permiso de esquema (schema.bases:read). Indicala solo si querés forzar una tabla concreta.",
       },
       {
         name: "assigneeNameField",
@@ -575,7 +575,7 @@ export const PROVIDER_CATALOG: Record<ProviderSlug, ProviderCatalogEntry> = {
     guide: [
       {
         field: "Personal Access Token",
-        body: "Creá un token en airtable.com/create/tokens con el scope data.records:read y acceso a tu base.",
+        body: "Creá un token en airtable.com/create/tokens con el scope data.records:read (y schema.bases:read para que resuelva automáticamente los nombres de responsables vinculados) y acceso a tu base.",
         link: {
           label: "Crear token en Airtable",
           url: "https://airtable.com/create/tokens",

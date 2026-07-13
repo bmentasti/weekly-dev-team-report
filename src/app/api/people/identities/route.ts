@@ -4,8 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveProject, canManageProject } from "@/lib/project";
 import { canAccessPeople } from "@/lib/reports/people-access";
-import { makeResolver } from "@/lib/reports/identity";
-import { suggestMerges } from "@/lib/reports/identity-suggest";
+import { makeResolver, resolvePerson } from "@/lib/reports/identity";
+import { suggestMerges, autoMergeGroups } from "@/lib/reports/identity-suggest";
 import {
   getIdentityConfig,
   listIdentities,
@@ -31,16 +31,30 @@ async function canonicalPeople(projectId: string) {
     getIdentityConfig(projectId),
   ]);
   const resolve = makeResolver(config);
-  const seen = new Map<string, { id: string; name: string; rawHandles: Set<string> }>();
+  const resolved: { p: { name: string }; id: string; name: string }[] = [];
   for (const r of reports) {
     const m = r.metrics as ReportMetrics | null;
     for (const p of m?.people ?? []) {
-      const { id, name } = resolve({ source: null, handle: p.id ?? p.name });
-      const key = id || p.name;
-      const e = seen.get(key) ?? { id: key, name: name || p.name, rawHandles: new Set<string>() };
-      e.rawHandles.add(p.name);
-      seen.set(key, e);
+      const { id, name } = resolvePerson(resolve, p);
+      resolved.push({ p, id: id || p.name, name: name || p.name });
     }
+  }
+  const distinct = new Map<string, string>();
+  for (const r of resolved) if (!distinct.has(r.id)) distinct.set(r.id, r.name);
+  const { groupId, displayName } = autoMergeGroups(
+    Array.from(distinct, ([id, name]) => ({ id, name })),
+  );
+
+  const seen = new Map<string, { id: string; name: string; rawHandles: Set<string> }>();
+  for (const { p, id, name } of resolved) {
+    const key = groupId.get(id) ?? id;
+    const e = seen.get(key) ?? {
+      id: key,
+      name: displayName.get(id) ?? name,
+      rawHandles: new Set<string>(),
+    };
+    e.rawHandles.add(p.name);
+    seen.set(key, e);
   }
   return Array.from(seen.values())
     .map((e) => ({ id: e.id, name: e.name, rawHandles: Array.from(e.rawHandles) }))

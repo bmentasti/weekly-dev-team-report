@@ -127,33 +127,42 @@ function pickPrimary(members: SuggestPerson[]): SuggestPerson {
   })[0];
 }
 
+interface GroupResult {
+  /** Miembros por raíz de componente. */
+  groups: Map<string, SuggestPerson[]>;
+  /** Raíz (find) por id. */
+  rootOf: (id: string) => string;
+  /** Info del par por clave "x|y". */
+  pairInfo: Map<string, PairScore>;
+}
+
 /**
- * Devuelve grupos de personas probablemente iguales. Usa union-find para
- * agrupar transitivamente (3 variantes del mismo nombre → una sola sugerencia).
+ * Agrupa personas por similitud con union-find. `accept` decide qué pares unir
+ * (todos, o solo alta confianza para el auto-merge).
  */
-export function suggestMerges(people: SuggestPerson[]): MergeSuggestion[] {
+function groupPeople(
+  people: SuggestPerson[],
+  accept: (s: PairScore) => boolean,
+): GroupResult {
   const usable = people.filter((p) => !isUninformative(p));
   const parent = new Map<string, string>();
   const find = (x: string): string => {
     let r = x;
-    while (parent.get(r) !== r) r = parent.get(r)!;
-    let c = x;
-    while (parent.get(c) !== r) {
-      const next = parent.get(c)!;
-      parent.set(c, r);
-      c = next;
-    }
+    while (parent.get(r) !== undefined && parent.get(r) !== r) r = parent.get(r)!;
     return r;
   };
-  const union = (x: string, y: string) => parent.set(find(x), find(y));
+  const union = (x: string, y: string) => {
+    const rx = find(x);
+    const ry = find(y);
+    if (rx !== ry) parent.set(rx, ry);
+  };
   for (const p of usable) parent.set(p.id, p.id);
 
-  // Peor confianza / razón representativa por componente.
   const pairInfo = new Map<string, PairScore>();
   for (let i = 0; i < usable.length; i++) {
     for (let j = i + 1; j < usable.length; j++) {
       const s = scorePair(usable[i], usable[j]);
-      if (!s) continue;
+      if (!s || !accept(s)) continue;
       union(usable[i].id, usable[j].id);
       pairInfo.set(`${usable[i].id}|${usable[j].id}`, s);
     }
@@ -164,30 +173,55 @@ export function suggestMerges(people: SuggestPerson[]): MergeSuggestion[] {
     const root = find(p.id);
     (groups.get(root) ?? groups.set(root, []).get(root)!).push(p);
   }
+  return { groups, rootOf: find, pairInfo };
+}
 
-  const byId = new Map(usable.map((p) => [p.id, p]));
+/**
+ * Sugerencias de fusión (alta + media confianza) para revisar y confirmar.
+ */
+export function suggestMerges(people: SuggestPerson[]): MergeSuggestion[] {
+  const { groups, rootOf, pairInfo } = groupPeople(people, () => true);
   const suggestions: MergeSuggestion[] = [];
   for (const members of groups.values()) {
     if (members.length < 2) continue;
     const primary = pickPrimary(members);
     const ids = [primary.id, ...members.filter((m) => m.id !== primary.id).map((m) => m.id)];
-    // Confianza del grupo = la peor de sus pares conectados; razón = de un par.
     let confidence: "alta" | "media" = "alta";
     let reason = "nombres muy parecidos";
     for (const [k, s] of pairInfo) {
       const [x, y] = k.split("|");
-      if (byId.has(x) && byId.has(y) && find(x) === find(members[0].id)) {
+      if (rootOf(x) === rootOf(members[0].id)) {
         reason = s.reason;
         if (s.confidence === "media") confidence = "media";
       }
     }
     suggestions.push({ ids, displayName: primary.name, confidence, reason });
   }
-
-  // Alta primero, y grupos más grandes primero.
   suggestions.sort((a, b) => {
     if (a.confidence !== b.confidence) return a.confidence === "alta" ? -1 : 1;
     return b.ids.length - a.ids.length;
   });
   return suggestions;
+}
+
+/**
+ * Auto-merge determinista y de BAJO riesgo: agrupa SOLO matches de alta
+ * confianza (mismo nombre compacto, contención clara o nombre+apellido). Se
+ * aplica sin intervención del usuario para que el informe salga unificado.
+ * Devuelve el id de grupo (primario) y el nombre a mostrar por cada persona.
+ */
+export function autoMergeGroups(
+  people: SuggestPerson[],
+): { groupId: Map<string, string>; displayName: Map<string, string> } {
+  const { groups } = groupPeople(people, (s) => s.confidence === "alta");
+  const groupId = new Map<string, string>();
+  const displayName = new Map<string, string>();
+  for (const members of groups.values()) {
+    const primary = pickPrimary(members);
+    for (const m of members) {
+      groupId.set(m.id, primary.id);
+      displayName.set(m.id, primary.name);
+    }
+  }
+  return { groupId, displayName };
 }

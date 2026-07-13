@@ -2,8 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { computeTier, type PerfTier } from "./people-profile";
 import type { PersonInput } from "./matrix";
 import type { PersonInsight, ReportMetrics } from "./types";
-import { makeResolver } from "./identity";
+import { makeResolver, resolvePerson } from "./identity";
 import { getIdentityConfig } from "./identity-store";
+import { autoMergeGroups } from "./identity-suggest";
 
 /** Arma los datos por persona del proyecto (quant + contexto) para la matriz. */
 export async function getProjectPeople(projectId: string): Promise<PersonInput[]> {
@@ -18,8 +19,25 @@ export async function getProjectPeople(projectId: string): Promise<PersonInput[]
   ]);
   const resolve = makeResolver(identityConfig);
 
-  // Agrupa por identidad canónica (id ?? name resuelto). Esto unifica personas
-  // que en reportes viejos venían separadas y aplica los alias definidos.
+  // Pasada 1: identidad canónica (alias) de cada persona de cada reporte.
+  const resolved: { p: PersonInsight; id: string; name: string }[] = [];
+  for (const r of reports) {
+    const m = r.metrics as ReportMetrics | null;
+    for (const p of m?.people ?? []) {
+      const { id, name } = resolvePerson(resolve, p);
+      resolved.push({ p, id: id || p.name, name: name || p.name });
+    }
+  }
+
+  // Auto-merge de alta confianza sobre las identidades distintas.
+  const distinct = new Map<string, string>();
+  for (const r of resolved) if (!distinct.has(r.id)) distinct.set(r.id, r.name);
+  const { groupId, displayName } = autoMergeGroups(
+    Array.from(distinct, ([id, name]) => ({ id, name })),
+  );
+
+  // Agrupa por identidad canónica + auto-merge. Unifica personas que venían
+  // separadas por app y aplica los alias definidos.
   const byPerson = new Map<
     string,
     {
@@ -30,27 +48,24 @@ export async function getProjectPeople(projectId: string): Promise<PersonInput[]
       rawNames: Set<string>;
     }
   >();
-  for (const r of reports) {
-    const m = r.metrics as ReportMetrics | null;
-    for (const p of m?.people ?? []) {
-      const { id, name } = resolve({ source: null, handle: p.id ?? p.name });
-      const key = id || p.name;
-      const e =
-        byPerson.get(key) ??
-        {
-          tiers: [],
-          latest: p,
-          throughputs: [],
-          displayName: name || p.name,
-          rawNames: new Set<string>(),
-        };
-      e.tiers.push(computeTier(p));
-      e.throughputs.push(p.throughput);
-      e.latest = p;
-      e.displayName = name || p.name;
-      e.rawNames.add(p.name);
-      byPerson.set(key, e);
-    }
+  for (const { p, id, name } of resolved) {
+    const key = groupId.get(id) ?? id;
+    const display = displayName.get(id) ?? name;
+    const e =
+      byPerson.get(key) ??
+      {
+        tiers: [],
+        latest: p,
+        throughputs: [],
+        displayName: display,
+        rawNames: new Set<string>(),
+      };
+    e.tiers.push(computeTier(p));
+    e.throughputs.push(p.throughput);
+    e.latest = p;
+    e.displayName = display;
+    e.rawNames.add(p.name);
+    byPerson.set(key, e);
   }
 
   const contexts = await prisma.personContext.findMany({ where: { projectId } });

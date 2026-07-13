@@ -73,4 +73,22 @@ describe("identity resolver", () => {
     const r = makeResolver({ identities: [], aliases: [] });
     expect(r({ source: "github", handle: "  " }).id).toBe("");
   });
+
+  it("EMAIL es la clave universal: mismo email en apps distintas => misma identidad", () => {
+    const r = makeResolver({ identities: [], aliases: [] });
+    const a = r({ source: "airtable", handle: "Gonzalo Ávalos", email: "gonza@acme.com" });
+    const b = r({ source: "jira", handle: "gonzalo.avalos", email: "GONZA@acme.com" });
+    expect(a.id).toBe("email:gonza@acme.com");
+    expect(a.id).toBe(b.id);
+    // El nombre a mostrar es el humano, no el email.
+    expect(a.name).toBe("Gonzalo Ávalos");
+  });
+
+  it("el email tiene prioridad sobre el nombre para agrupar", () => {
+    const r = makeResolver({ identities: [], aliases: [] });
+    // Mismo nombre pero DISTINTO email => personas distintas (homónimos).
+    const a = r({ source: "airtable", handle: "Juan Pérez", email: "juan1@acme.com" });
+    const b = r({ source: "jira", handle: "Juan Pérez", email: "juan2@acme.com" });
+    expect(a.id).not.toBe(b.id);
+  });
 });

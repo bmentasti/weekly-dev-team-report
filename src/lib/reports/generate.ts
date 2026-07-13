@@ -15,7 +15,6 @@ import type {
 } from "@/lib/integrations/types";
 import type {
   HealthLevel,
-  PersonCategory,
   PersonInsight,
   ReportComputation,
   Risk,
@@ -26,14 +25,16 @@ import { makeT, type TFunc } from "@/lib/i18n/dictionaries";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 import { makeResolver, type Resolver } from "./identity";
 import { getIdentityConfig } from "./identity-store";
+import { unifyPeople } from "./people-unify";
 
-const OVERLOAD_WIP = 5;
 
 interface CollectedData {
   workItems: UnifiedWorkItem[];
   codeChanges: UnifiedCodeChange[];
   activity: ActivitySignal[];
   ciRuns: CiRun[];
+  /** handle normalizado (`${source}::${handle}`) → email, para unificar por email. */
+  emailByHandle: Map<string, string>;
   sources: ProviderSlug[];
   sourcesWithError: ProviderSlug[];
   /**
@@ -56,6 +57,7 @@ async function collect(
     codeChanges: [],
     activity: [],
     ciRuns: [],
+    emailByHandle: new Map<string, string>(),
     sources: [],
     sourcesWithError: [],
     demoSources: [],
@@ -84,6 +86,13 @@ async function collect(
         if (data.codeChanges) out.codeChanges.push(...data.codeChanges);
         if (data.activity) out.activity.push(...data.activity);
         if (data.ciRuns) out.ciRuns.push(...data.ciRuns);
+        for (const pe of data.personEmails ?? []) {
+          if (pe.handle && pe.email)
+            out.emailByHandle.set(
+              `${entry.slug}::${pe.handle.trim().toLowerCase()}`,
+              pe.email.trim().toLowerCase(),
+            );
+        }
         out.sources.push(entry.slug);
         if (isDemo(loaded.ctx.config)) out.demoSources.push(entry.slug);
       } catch {
@@ -168,15 +177,19 @@ function buildPeople(
   codeChanges: UnifiedCodeChange[],
   t: TFunc,
   resolve: Resolver,
+  emailByHandle: Map<string, string>,
 ): PersonInsight[] {
   const map = new Map<string, PersonInsight>();
   const itemsByPerson = new Map<string, UnifiedWorkItem[]>();
 
   // Resuelve el identificador crudo de una app a la identidad canónica y
-  // devuelve el rollup de esa persona (creándolo si no existe). Así dos handles
-  // distintos (p. ej. GitHub y Airtable) de la misma persona suman en la misma fila.
+  // devuelve el rollup de esa persona (creándolo si no existe). Si conocemos el
+  // email de ese handle, se usa como clave universal (misma persona entre apps).
   const get = (source: string | null, handle: string): PersonInsight | null => {
-    const { id, name } = resolve({ source, handle });
+    const email =
+      (source && emailByHandle.get(`${source}::${handle.trim().toLowerCase()}`)) ||
+      undefined;
+    const { id, name } = resolve({ source, handle, email });
     if (!id) return null;
     let p = map.get(id);
     if (!p) {
@@ -206,17 +219,26 @@ function buildPeople(
   };
 
   for (const w of workItems) {
-    if (!w.assignee) continue;
-    const p = get(w.source, w.assignee);
-    if (!p) continue;
-    itemsByPerson.get(p.id!)!.push(w);
-    if (w.bucket === "DONE") {
-      p.tasksDone++;
-      p.completedPoints += sp(w);
-    } else if (w.bucket === "IN_PROGRESS") p.tasksInProgress++;
-    else if (w.bucket === "BLOCKED") p.tasksBlocked++;
-    if (w.isStale) p.tasksStale++;
-    if (w.bucket !== "TODO") p.committedPoints += sp(w);
+    // Un ítem puede tener varios responsables (campos multi-persona / linked
+    // records): se atribuye a CADA uno. Antes se unían en una "persona" falsa.
+    const handles =
+      w.assignees && w.assignees.length > 0
+        ? w.assignees
+        : w.assignee
+          ? [w.assignee]
+          : [];
+    for (const handle of handles) {
+      const p = get(w.source, handle);
+      if (!p) continue;
+      itemsByPerson.get(p.id!)!.push(w);
+      if (w.bucket === "DONE") {
+        p.tasksDone++;
+        p.completedPoints += sp(w);
+      } else if (w.bucket === "IN_PROGRESS") p.tasksInProgress++;
+      else if (w.bucket === "BLOCKED") p.tasksBlocked++;
+      if (w.isStale) p.tasksStale++;
+      if (w.bucket !== "TODO") p.committedPoints += sp(w);
+    }
   }
   for (const c of codeChanges) {
     if (!c.author) continue;
@@ -228,34 +250,13 @@ function buildPeople(
 
   const people = Array.from(map.values());
   for (const p of people) {
-    p.wip = p.tasksInProgress;
-    p.throughput = p.tasksDone + p.prsMerged;
+    // Cycle time real (sobre los ítems de la persona) antes de unificar.
     p.cycleTimeAvgDays = cycleTimeDays(itemsByPerson.get(p.id!) ?? []);
-    // Contribution score: completed work + merged code, weighted.
-    p.score =
-      p.completedPoints * 2 + p.tasksDone * 2 + p.prsMerged * 3 + p.prsOpen;
-    // Category (actionability first).
-    p.category = categorize(p);
-    p.nextStep = nextStepFor(p, t);
   }
 
-  people.sort((a, b) => b.score - a.score);
-  people.forEach((p, i) => (p.rank = i + 1));
-  return people;
-}
-
-function categorize(p: PersonInsight): PersonCategory {
-  if (p.tasksBlocked > 0 || p.tasksStale >= 2) return "SUPPORT";
-  if (p.wip >= OVERLOAD_WIP) return "OVERLOADED";
-  if (p.throughput >= 3 && p.tasksBlocked === 0 && p.tasksStale === 0)
-    return "RECOGNIZE";
-  if (p.wip === 0 && p.throughput <= 1 && p.committedPoints <= 2)
-    return "FREE_CAPACITY";
-  return "ON_TRACK";
-}
-
-function nextStepFor(p: PersonInsight, t: TFunc): string {
-  return t(`gen.nextStep.${p.category}`);
+  // Unifica por identidad canónica + auto-merge de alta confianza (une la misma
+  // persona aunque venga de apps distintas) y recalcula derivados/ranking.
+  return unifyPeople(people, resolve, (c) => t(`gen.nextStep.${c}`));
 }
 
 function fmtDay(d: Date, locale: Locale): string {
@@ -517,7 +518,7 @@ export async function generateReportComputation(
       totalPoints > 0 ? Math.round((completedPoints / totalPoints) * 100) : 0,
   };
 
-  const people = buildPeople(workItems, codeChanges, t, resolve);
+  const people = buildPeople(workItems, codeChanges, t, resolve, data.emailByHandle);
 
   // ---- Risks ----
   const risks: Risk[] = [];

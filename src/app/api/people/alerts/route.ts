@@ -6,8 +6,9 @@ import { resolveActiveProject } from "@/lib/project";
 import { canAccessPeople } from "@/lib/reports/people-access";
 import { computeTier, sustainedLow, type PerfTier } from "@/lib/reports/people-profile";
 import type { PersonInsight, ReportMetrics } from "@/lib/reports/types";
-import { makeResolver } from "@/lib/reports/identity";
+import { makeResolver, resolvePerson } from "@/lib/reports/identity";
 import { getIdentityConfig } from "@/lib/reports/identity-store";
+import { autoMergeGroups } from "@/lib/reports/identity-suggest";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -33,22 +34,34 @@ export async function GET(req: Request) {
 
   const resolve = makeResolver(await getIdentityConfig(project.id));
 
+  // Pasada 1: identidad canónica por persona.
+  const resolved: { p: PersonInsight; id: string; name: string }[] = [];
+  for (const r of reports) {
+    const m = r.metrics as ReportMetrics | null;
+    for (const p of m?.people ?? []) {
+      const { id, name } = resolvePerson(resolve, p);
+      resolved.push({ p, id: id || p.name, name: name || p.name });
+    }
+  }
+  // Auto-merge de alta confianza.
+  const distinct = new Map<string, string>();
+  for (const r of resolved) if (!distinct.has(r.id)) distinct.set(r.id, r.name);
+  const { groupId, displayName } = autoMergeGroups(
+    Array.from(distinct, ([id, name]) => ({ id, name })),
+  );
+
   // identidad canónica -> serie de tiers (oldest first) + último insight
   const byPerson = new Map<
     string,
     { tiers: PerfTier[]; latest: PersonInsight; name: string }
   >();
-  for (const r of reports) {
-    const m = r.metrics as ReportMetrics | null;
-    for (const p of m?.people ?? []) {
-      const { id, name } = resolve({ source: null, handle: p.id ?? p.name });
-      const key = id || p.name;
-      const entry = byPerson.get(key) ?? { tiers: [], latest: p, name: name || p.name };
-      entry.tiers.push(computeTier(p));
-      entry.latest = p;
-      entry.name = name || p.name;
-      byPerson.set(key, entry);
-    }
+  for (const { p, id, name } of resolved) {
+    const key = groupId.get(id) ?? id;
+    const entry = byPerson.get(key) ?? { tiers: [], latest: p, name: displayName.get(id) ?? name };
+    entry.tiers.push(computeTier(p));
+    entry.latest = p;
+    entry.name = displayName.get(id) ?? name;
+    byPerson.set(key, entry);
   }
 
   const alerts = [];
