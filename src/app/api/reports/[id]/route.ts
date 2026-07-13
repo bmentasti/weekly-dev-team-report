@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { resolveWorkspaceForUser } from "@/lib/workspace";
 import { getReportAccess, redactReportForAccess } from "@/lib/reports/access";
 import { resolveWorkspaceRole } from "@/lib/workspace";
 import { can } from "@/lib/permissions";
@@ -97,14 +96,25 @@ export async function DELETE(
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const workspace = await resolveWorkspaceForUser(session.user.id);
-  if (!workspace) {
-    return NextResponse.json({ error: "No tenés un workspace." }, { status: 400 });
+  // Resolver el workspace DESDE el reporte (como GET/PATCH). Antes se usaba
+  // resolveWorkspaceForUser sin id, que con más de un workspace podía devolver
+  // otro distinto al del reporte y el delete fallaba con 404.
+  const access = await getReportAccess(session.user.id, params.id);
+  if (!access || !access.isWorkspaceMember) {
+    return NextResponse.json({ error: "Sin acceso al reporte." }, { status: 403 });
   }
 
-  // Ensure the report belongs to the user's workspace before deleting.
+  // Eliminar requiere la misma capability que editar (editReport).
+  const role = await resolveWorkspaceRole(session.user.id, access.workspaceId);
+  if (!can(role, "editReport")) {
+    return NextResponse.json(
+      { error: "Tu rol no permite eliminar reportes." },
+      { status: 403 },
+    );
+  }
+
   const deleted = await prisma.report.deleteMany({
-    where: { id: params.id, workspaceId: workspace.id },
+    where: { id: params.id, workspaceId: access.workspaceId },
   });
 
   if (deleted.count === 0) {

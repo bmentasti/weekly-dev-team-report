@@ -98,6 +98,55 @@ async function collect(
 
 const sp = (w: UnifiedWorkItem) => w.storyPoints ?? 0;
 
+// ---------------------------------------------------------------------------
+// Recorte al período seleccionado. Los adapters filtran por `since`
+// (periodStart) pero traen todo hasta HOY; acá acotamos también por
+// periodEnd para que un período histórico muestre solo su ventana.
+// Fechas nulas/inválidas no excluyen el ítem (no podemos juzgarlas).
+// ---------------------------------------------------------------------------
+
+function ts(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
+function clampToPeriod(
+  data: CollectedData,
+  periodStart: Date,
+  periodEnd: Date,
+): CollectedData {
+  const startMs = periodStart.getTime();
+  const endMs = periodEnd.getTime();
+  const within = (t: number | null) =>
+    t === null || (t >= startMs && t <= endMs);
+
+  return {
+    ...data,
+    // Un work item pertenece al período si existía antes del fin del período
+    // y, si está DONE, se resolvió dentro de la ventana (lo abierto cuenta
+    // como trabajo en curso del período).
+    workItems: data.workItems.filter((i) => {
+      const created = ts(i.createdAt);
+      if (created !== null && created > endMs) return false;
+      if (i.bucket === "DONE")
+        return within(ts(i.resolvedAt) ?? ts(i.updatedAt));
+      return true;
+    }),
+    // PRs: creados antes del fin del período; merged/closed dentro de la
+    // ventana para contar como actividad del período.
+    codeChanges: data.codeChanges.filter((c) => {
+      const created = ts(c.createdAt);
+      if (created !== null && created > endMs) return false;
+      if (c.state === "MERGED") return within(ts(c.mergedAt));
+      if (c.state === "CLOSED") return within(ts(c.closedAt));
+      return true;
+    }),
+    activity: data.activity.filter((a) => within(ts(a.createdAt))),
+    ciRuns: data.ciRuns.filter((r) => within(ts(r.createdAt))),
+  };
+}
+
 function cycleTimeDays(items: UnifiedWorkItem[]): number | null {
   const durations: number[] = [];
   for (const i of items) {
@@ -241,7 +290,11 @@ export async function generateReportComputation(
   locale: Locale = DEFAULT_LOCALE,
 ): Promise<ReportComputation> {
   const t = makeT(locale);
-  const data = await collect(projectId, periodStart);
+  const data = clampToPeriod(
+    await collect(projectId, periodStart),
+    periodStart,
+    periodEnd,
+  );
   const { workItems, codeChanges, activity, ciRuns } = data;
 
   const wi = {

@@ -65,6 +65,52 @@ async function atFetch(
   });
 }
 
+// Tope defensivo para no traer bases enormes completas.
+const MAX_RECORDS = 500;
+
+/**
+ * Trae todos los records paginando (Airtable devuelve `offset` mientras haya
+ * más páginas). Si se pasa `since`, filtra server-side por fecha de creación o
+ * última modificación para respetar el período del reporte.
+ */
+async function atFetchAll(
+  baseId: string,
+  table: string,
+  token: string,
+  since?: string,
+): Promise<RawRecord[]> {
+  const params = new URLSearchParams({ pageSize: "100" });
+  if (since) {
+    // ISO 8601 no contiene comillas simples, es seguro interpolarlo.
+    params.set(
+      "filterByFormula",
+      `OR(IS_AFTER(CREATED_TIME(), '${since}'), IS_AFTER(LAST_MODIFIED_TIME(), '${since}'))`,
+    );
+  }
+
+  const records: RawRecord[] = [];
+  let offset: string | undefined;
+  do {
+    const qs = new URLSearchParams(params);
+    if (offset) qs.set("offset", offset);
+    const res = await atFetch(baseId, table, token, `?${qs.toString()}`);
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(
+        `Airtable devolvió ${res.status}. ${detail.slice(0, 160)}`,
+      );
+    }
+    const data = (await res.json()) as {
+      records?: RawRecord[];
+      offset?: string;
+    };
+    records.push(...(data.records ?? []));
+    offset = data.offset;
+  } while (offset && records.length < MAX_RECORDS);
+
+  return records;
+}
+
 export const airtableAdapter: ProviderAdapter = {
   slug: "airtable",
   async testConnection(ctx) {
@@ -95,7 +141,7 @@ export const airtableAdapter: ProviderAdapter = {
     }
   },
 
-  async fetchData(ctx) {
+  async fetchData(ctx, opts) {
     const baseId = ctx.config.baseId?.trim() ?? "";
     const table = ctx.config.tableName?.trim() ?? "";
     const statusField = field(ctx.config, "statusField", "Status");
@@ -103,17 +149,12 @@ export const airtableAdapter: ProviderAdapter = {
     const pointsField = field(ctx.config, "pointsField", "Story Points");
     const titleField = field(ctx.config, "titleField", "Name");
 
-    const res = await atFetch(baseId, table, ctx.secret, "?maxRecords=100");
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      throw new Error(
-        `Airtable devolvió ${res.status}. ${detail.slice(0, 160)}`,
-      );
-    }
-    const data = (await res.json()) as { records?: RawRecord[] };
+    // Respeta el período del reporte: solo records creados/modificados desde
+    // `since`. Antes se ignoraba y todos los reportes traían los mismos datos.
+    const records = await atFetchAll(baseId, table, ctx.secret, opts?.since);
     const now = Date.now();
 
-    const workItems: UnifiedWorkItem[] = (data.records ?? []).map((rec) => {
+    const workItems: UnifiedWorkItem[] = records.map((rec) => {
       const f = rec.fields ?? {};
       const status = toStr(f[statusField]) || "To Do";
       const bucket = bucketFor(status);
