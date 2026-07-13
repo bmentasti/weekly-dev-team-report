@@ -52,7 +52,7 @@ function looksLikeRecordId(s: string): boolean {
  *   disponible; si no, deja el record id (el resto del pipeline igual lo
  *   unifica por identidad).
  */
-function resolveAssignee(
+export function resolveAssignee(
   raw: unknown,
   nameById: Map<string, string>,
 ): string | null {
