@@ -415,11 +415,22 @@ export default function ReportPreviewPage() {
                 <CardTitle className="text-lg">{t("rep.trend")}</CardTitle>
               </CardHeader>
               <CardContent>
-                {report.rawData && m.trend.length >= 2 ? (
+                {/* Preferimos la evolución interna del período (timeline: fechas
+                    de corte cada ~15 días, siempre distintas). Los reportes
+                    generados antes de esta versión no la tienen y caen al
+                    histórico entre reportes (trend). */}
+                {report.rawData &&
+                ((m.timeline && m.timeline.length >= 2) || m.trend.length >= 2) ? (
                   <div>
                     <div className="h-48 sm:h-64">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={m.trend}>
+                        <AreaChart
+                          data={
+                            m.timeline && m.timeline.length >= 2
+                              ? m.timeline
+                              : m.trend
+                          }
+                        >
                           <defs>
                             <LinearGradient id={gradientId("rep-velocity")} color={SERIES.velocity} />
                           </defs>

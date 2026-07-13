@@ -128,6 +128,13 @@ export interface ReportMetrics {
   statusDistribution: StatusDistribution;
   planning: PlanningInputs;
   trend: TrendPoint[];
+  /**
+   * Evolución DENTRO del período del reporte, en cortes de ~15 días. Es lo que
+   * grafica la card "Tendencia" del detalle (fechas siempre distintas);
+   * `trend` (histórico entre reportes) queda para previsibilidad/planning y
+   * como fallback en reportes viejos que no tienen timeline.
+   */
+  timeline?: TrendPoint[];
   people: PersonInsight[];
   sources: ProviderSlug[];
 }

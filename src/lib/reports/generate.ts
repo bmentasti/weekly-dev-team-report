@@ -263,6 +263,71 @@ function periodLabel(start: Date, end: Date, locale: Locale): string {
   return `${fmtDay(start, locale)}–${fmtDay(end, locale)}`;
 }
 
+/**
+ * Evolución DENTRO del período del reporte: divide [periodStart, periodEnd] en
+ * cortes de ~15 días (entre 2 y 8 según la duración) y computa por corte las
+ * finalizadas (resolvedAt), PRs mergeados (mergedAt), velocity (SP resueltos)
+ * y bloqueadas (ítems hoy bloqueados, ubicados por su última actualización).
+ * Cada punto lleva la fecha de fin de su corte, así el eje SIEMPRE muestra
+ * fechas distintas (a diferencia del histórico entre reportes).
+ */
+function buildTimeline(
+  workItems: UnifiedWorkItem[],
+  codeChanges: UnifiedCodeChange[],
+  periodStart: Date,
+  periodEnd: Date,
+  locale: Locale,
+): TrendPoint[] {
+  const startMs = periodStart.getTime();
+  const endMs = periodEnd.getTime();
+  if (!(endMs > startMs)) return [];
+
+  const days = (endMs - startMs) / 864e5;
+  // ~1 corte cada 15 días (ej.: 90 días → 6 fechas), acotado a [2, 8].
+  const buckets = Math.min(8, Math.max(2, Math.round(days / 15)));
+  const step = (endMs - startMs) / buckets;
+
+  const at = (iso: string | null | undefined): number | null => {
+    if (!iso) return null;
+    const t = new Date(iso).getTime();
+    return Number.isNaN(t) ? null : t;
+  };
+  const bucketOf = (t: number | null): number | null => {
+    if (t === null || t < startMs || t > endMs) return null;
+    return Math.min(buckets - 1, Math.floor((t - startMs) / step));
+  };
+
+  const points: TrendPoint[] = Array.from({ length: buckets }, (_, i) => ({
+    label: fmtDay(new Date(startMs + (i + 1) * step), locale),
+    done: 0,
+    merged: 0,
+    blocked: 0,
+    velocityPoints: 0,
+    health: null,
+  }));
+
+  for (const w of workItems) {
+    if (w.bucket === "DONE") {
+      const b = bucketOf(at(w.resolvedAt) ?? at(w.updatedAt));
+      if (b !== null) {
+        points[b].done++;
+        points[b].velocityPoints += w.storyPoints ?? 0;
+      }
+    } else if (w.bucket === "BLOCKED") {
+      const b = bucketOf(at(w.updatedAt));
+      if (b !== null) points[b].blocked++;
+    }
+  }
+  for (const c of codeChanges) {
+    if (c.state === "MERGED") {
+      const b = bucketOf(at(c.mergedAt));
+      if (b !== null) points[b].merged++;
+    }
+  }
+
+  return points;
+}
+
 async function buildTrend(
   projectId: string,
   current: TrendPoint,
@@ -519,6 +584,15 @@ export async function generateReportComputation(
     { start: periodStart, end: periodEnd },
   );
 
+  // Evolución interna del período (lo que grafica la card "Tendencia").
+  const timeline = buildTimeline(
+    workItems,
+    codeChanges,
+    periodStart,
+    periodEnd,
+    locale,
+  );
+
   // ---- Planning ----
   const carryOver = workItems.filter((i) => i.bucket !== "DONE");
   const velocities = trend.map((t) => t.velocityPoints).filter((v) => v > 0);
@@ -620,6 +694,7 @@ export async function generateReportComputation(
     statusDistribution,
     planning,
     trend,
+    timeline,
     people: people.slice(0, 25),
     sources: data.sources,
     // INT-02: fuentes en modo demo. TODO(demo-flag): agregar `demoSources` a
