@@ -36,10 +36,13 @@ export async function POST(request: Request) {
     );
   }
 
-  // Cap de reportes/mes por plan (Free = 10). (Pricing)
+  // Cap de reportes/mes: override manual del backoffice > cap del plan.
   const workspace = await resolveWorkspaceForUser(session.user.id);
   const plan = effectivePlan(workspace);
-  const cap = PLANS[plan].maxReportsPerMonth;
+  const quotaOverride = (
+    workspace as { reportQuotaOverride?: number | null } | null
+  )?.reportQuotaOverride;
+  const cap = quotaOverride ?? PLANS[plan].maxReportsPerMonth;
   if (cap !== null && workspace) {
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
@@ -50,7 +53,7 @@ export async function POST(request: Request) {
     if (usedThisMonth >= cap) {
       return NextResponse.json(
         {
-          error: `Alcanzaste el límite de ${cap} reportes este mes en el plan Free. Actualizá a Team para generar sin límite.`,
+          error: `Alcanzaste el límite de ${cap} reportes este mes. Actualizá tu plan para generar más.`,
           requiresUpgrade: true,
         },
         { status: 402 },

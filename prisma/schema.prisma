@@ -124,6 +124,8 @@ model User {
   passwordHash String
   company      String?
   role         UserRole @default(OTHER)
+  /// Backoffice: acceso total al panel /admin (ver/editar usuarios y planes).
+  isSuperAdmin Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -144,6 +146,8 @@ model Workspace {
   ownerId       String
   plan          PlanTier      @default(FREE)
   billingPeriod BillingPeriod @default(MONTHLY)
+  /// Backoffice: si está seteado, reemplaza el cap de reportes/mes del plan.
+  reportQuotaOverride Int?
   // Reverse trial: mientras trialEndsAt sea futuro, el workspace tiene Pro.
   trialEndsAt   DateTime?
   createdAt     DateTime      @default(now())

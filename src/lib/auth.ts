@@ -18,7 +18,21 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, req) {
-        const parsed = loginSchema.safeParse(credentials);
+        // Backoffice: permite loguearse con el USERNAME del admin (sin "@").
+        // Se traduce al email interno antes de validar el schema.
+        const adminUsername = process.env.ADMIN_USERNAME ?? "brunoAdmin";
+        const adminEmail =
+          process.env.ADMIN_EMAIL ?? "brunoadmin@devmetrics.local";
+        let input = credentials;
+        if (
+          input?.email &&
+          !input.email.includes("@") &&
+          input.email.trim().toLowerCase() === adminUsername.toLowerCase()
+        ) {
+          input = { ...input, email: adminEmail };
+        }
+
+        const parsed = loginSchema.safeParse(input);
         if (!parsed.success) return null;
 
         // Rate limit por IP para frenar fuerza bruta de contraseñas (H10).
@@ -43,6 +57,8 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           role: user.role,
+          isSuperAdmin:
+            (user as { isSuperAdmin?: boolean }).isSuperAdmin === true,
         };
       },
     }),
@@ -52,6 +68,8 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as { role?: string }).role;
+        token.isSuperAdmin =
+          (user as { isSuperAdmin?: boolean }).isSuperAdmin === true;
       }
       return token;
     },
@@ -59,6 +77,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string | undefined;
+        session.user.isSuperAdmin = token.isSuperAdmin === true;
       }
       return session;
     },

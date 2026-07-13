@@ -51,10 +51,13 @@ export default function LoginPage() {
         )}
         <div className="space-y-2">
           <Label htmlFor="email">{t("auth.workEmail")}</Label>
+          {/* type=text (no email) para permitir el username del backoffice;
+              el formato de email se valida server-side igual que antes. */}
           <Input
             id="email"
             name="email"
-            type="email"
+            type="text"
+            autoComplete="username"
             placeholder={t("auth.emailPlaceholder")}
             required
           />
