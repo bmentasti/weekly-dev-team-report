@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { healthBadgeVariant } from "@/lib/reports/health";
+import { formatDate } from "@/lib/utils";
 import { BackButton } from "@/components/back-button";
 import { useT } from "@/components/i18n-provider";
 import {
@@ -35,7 +36,7 @@ interface FullReport {
 }
 
 function label(r: ReportRow) {
-  return `${new Date(r.periodStart).toLocaleDateString()}–${new Date(r.periodEnd).toLocaleDateString()}`;
+  return `${formatDate(r.periodStart)}–${formatDate(r.periodEnd)}`;
 }
 
 function trendVariant(c: TrendClass): "success" | "secondary" | "warning" | "destructive" {
@@ -196,7 +197,7 @@ export default function ComparePage() {
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(r.periodStart).toLocaleDateString()} – {new Date(r.periodEnd).toLocaleDateString()}
+                      {formatDate(r.periodStart)} – {formatDate(r.periodEnd)}
                     </p>
                   </CardHeader>
                   <CardContent>

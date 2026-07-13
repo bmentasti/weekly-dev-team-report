@@ -6,13 +6,17 @@ import { resolveActiveProject } from "@/lib/project";
 import { canAccessPeople } from "@/lib/reports/people-access";
 import { computeTier, sustainedLow, type PerfTier } from "@/lib/reports/people-profile";
 import type { PersonInsight, ReportMetrics } from "@/lib/reports/types";
+import { makeResolver } from "@/lib/reports/identity";
+import { getIdentityConfig } from "@/lib/reports/identity-store";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id)
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const project = await resolveActiveProject(session.user.id);
+  const explicitId =
+    new URL(req.url).searchParams.get("projectId") ?? undefined;
+  const project = await resolveActiveProject(session.user.id, explicitId);
   if (project && !(await canAccessPeople(session.user.id, project.workspaceId)))
     return NextResponse.json(
       { error: "Sin permiso para ver datos por persona." },
@@ -27,20 +31,28 @@ export async function GET() {
     select: { metrics: true },
   });
 
-  // name -> serie de tiers (oldest first) + último insight
-  const byPerson = new Map<string, { tiers: PerfTier[]; latest: PersonInsight }>();
+  const resolve = makeResolver(await getIdentityConfig(project.id));
+
+  // identidad canónica -> serie de tiers (oldest first) + último insight
+  const byPerson = new Map<
+    string,
+    { tiers: PerfTier[]; latest: PersonInsight; name: string }
+  >();
   for (const r of reports) {
     const m = r.metrics as ReportMetrics | null;
     for (const p of m?.people ?? []) {
-      const entry = byPerson.get(p.name) ?? { tiers: [], latest: p };
+      const { id, name } = resolve({ source: null, handle: p.id ?? p.name });
+      const key = id || p.name;
+      const entry = byPerson.get(key) ?? { tiers: [], latest: p, name: name || p.name };
       entry.tiers.push(computeTier(p));
       entry.latest = p;
-      byPerson.set(p.name, entry);
+      entry.name = name || p.name;
+      byPerson.set(key, entry);
     }
   }
 
   const alerts = [];
-  for (const [name, { tiers, latest }] of byPerson) {
+  for (const { tiers, latest, name } of byPerson.values()) {
     const s = sustainedLow(tiers);
     if (!s) continue;
     const evidence: string[] = [];

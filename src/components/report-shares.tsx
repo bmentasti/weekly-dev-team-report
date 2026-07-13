@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useT } from "@/components/i18n-provider";
+import { formatDate } from "@/lib/utils";
 
 interface Share {
   id: string;
@@ -107,7 +108,7 @@ export function ReportShares({ reportId }: { reportId: string }) {
                   <Badge variant="outline">{t("rep.invited")}</Badge>
                 ) : s.viewedAt ? (
                   <Badge variant="success">
-                    {t("rep.seenPre")} {new Date(s.viewedAt).toLocaleDateString()}
+                    {t("rep.seenPre")} {formatDate(s.viewedAt)}
                   </Badge>
                 ) : (
                   <Badge variant="warning">{t("rep.notSeen")}</Badge>

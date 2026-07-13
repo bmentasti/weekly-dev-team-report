@@ -552,6 +552,20 @@ export const PROVIDER_CATALOG: Record<ProviderSlug, ProviderCatalogEntry> = {
         help: "Por defecto: Assignee",
       },
       {
+        name: "assigneeTableName",
+        label: "Tabla de personas vinculada",
+        placeholder: "People",
+        optional: true,
+        help: "Si el responsable es un registro vinculado, indicá la tabla de personas para mostrar el nombre real en vez del record ID.",
+      },
+      {
+        name: "assigneeNameField",
+        label: "Campo de nombre en esa tabla",
+        placeholder: "Name",
+        optional: true,
+        help: "Por defecto: Name (o Email).",
+      },
+      {
         name: "pointsField",
         label: "Campo de story points",
         placeholder: "Story Points",
@@ -579,6 +593,10 @@ export const PROVIDER_CATALOG: Record<ProviderSlug, ProviderCatalogEntry> = {
       {
         field: "Campos (opcional)",
         body: "Si tus columnas se llaman distinto, indicá cuáles son el estado, el responsable y los story points. Si no, usamos Status / Assignee / Story Points.",
+      },
+      {
+        field: "Responsable vinculado (opcional)",
+        body: "Si el campo de responsable enlaza a otra tabla (aparece como record id 'rec...'), indicá el nombre de esa tabla de personas y el campo de nombre para que el reporte muestre el nombre real.",
       },
     ],
   },

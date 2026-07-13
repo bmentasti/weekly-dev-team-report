@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/utils";
 
 interface AdminWorkspace {
   id: string;
@@ -205,7 +206,7 @@ export default function AdminPage() {
                       </select>
                     </td>
                     <td className="py-3 pr-3 text-xs text-muted-foreground">
-                      {new Date(u.createdAt).toLocaleDateString()}
+                      {formatDate(u.createdAt)}
                     </td>
                     <td className="py-3 pr-3">
                       {u.workspaces.length === 0 && (

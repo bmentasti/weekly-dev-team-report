@@ -1,6 +1,7 @@
 import type { ReportMetrics, Risk } from "./types";
 import type { Locale } from "@/lib/i18n/config";
 import { makeT } from "@/lib/i18n/dictionaries";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface ReportLike {
   periodStart: Date | string;
@@ -55,8 +56,7 @@ function buildLines(report: ReportLike, locale: Locale = "es"): Line[] {
   const m = report.metrics as ReportMetrics | null;
   const risks = (report.risks as Risk[] | null) ?? [];
   const recs = (report.recommendations as string[] | null) ?? [];
-  const d = (v: Date | string) =>
-    new Date(v).toLocaleDateString(locale === "en" ? "en-US" : "es-AR");
+  const d = (v: Date | string) => formatDate(v);
   const healthLabel = report.healthStatus
     ? t(`lib.health.${report.healthStatus}`)
     : "-";
@@ -124,7 +124,7 @@ function buildLines(report: ReportLike, locale: Locale = "es"): Line[] {
 
   lines.push({ text: "", size: 10 });
   lines.push({
-    text: `${t("exp.generatedBy")} · ${new Date().toLocaleString(locale === "en" ? "en-US" : "es-AR")}`,
+    text: `${t("exp.generatedBy")} · ${formatDateTime(new Date())}`,
     size: 8,
   });
   return lines;

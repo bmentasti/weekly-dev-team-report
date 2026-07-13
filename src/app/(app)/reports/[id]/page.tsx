@@ -36,6 +36,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDate } from "@/lib/utils";
 import { ReportNotes } from "@/components/report-notes";
 import { ScoreBreakdown } from "@/components/score-breakdown";
 import { CustomAlerts } from "@/components/custom-alerts";
@@ -275,8 +276,8 @@ export default function ReportPreviewPage() {
             {t("rep.teamReport")}
           </h1>
           <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-            {new Date(report.periodStart).toLocaleDateString()} –{" "}
-            {new Date(report.periodEnd).toLocaleDateString()} ({days} {t("rep.daysSuffix")})
+            {formatDate(report.periodStart)} –{" "}
+            {formatDate(report.periodEnd)} ({days} {t("rep.daysSuffix")})
             <Badge variant={healthBadgeVariant(report.healthStatus)}>
               {report.healthStatus ? t(`lib.health.${report.healthStatus}`) : "—"}
             </Badge>

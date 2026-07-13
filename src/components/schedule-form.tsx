@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useT } from "@/components/i18n-provider";
+import { formatDateTime } from "@/lib/utils";
 
 export function ScheduleForm() {
   const { t } = useT();
@@ -127,7 +128,7 @@ export function ScheduleForm() {
           </Button>
           {lastRunAt && (
             <span className="text-xs text-muted-foreground">
-              {t("rep2.schedule.lastSend")} {new Date(lastRunAt).toLocaleString()}
+              {t("rep2.schedule.lastSend")} {formatDateTime(lastRunAt)}
             </span>
           )}
         </div>

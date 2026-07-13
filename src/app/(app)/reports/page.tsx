@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScheduleForm } from "@/components/schedule-form";
+import { formatDate } from "@/lib/utils";
 import { useT } from "@/components/i18n-provider";
 import { useDialogs } from "@/components/ui/dialog-provider";
 import {
@@ -304,7 +305,7 @@ export default function ReportsPage() {
   }, [reports, role]);
 
   const filtered = reports.filter((r) => {
-    if (q && !(`${r.summary ?? ""} ${new Date(r.periodStart).toLocaleDateString()} ${r.tags.join(" ")}`.toLowerCase().includes(q.toLowerCase()))) return false;
+    if (q && !(`${r.summary ?? ""} ${formatDate(r.periodStart)} ${r.tags.join(" ")}`.toLowerCase().includes(q.toLowerCase()))) return false;
     if (levelF !== "ALL" && r.level !== levelF) return false;
     if (trendF !== "ALL" && r.trend !== trendF) return false;
     if (onlyAlerts && r.alerts === 0) return false;
@@ -414,7 +415,7 @@ export default function ReportsPage() {
               <Link key={r.id} href={`/reports/${r.id}`} className="block rounded-input border p-3 hover:bg-muted/40">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-medium">
-                    {new Date(r.periodStart).toLocaleDateString()}–{new Date(r.periodEnd).toLocaleDateString()}
+                    {formatDate(r.periodStart)}–{formatDate(r.periodEnd)}
                   </span>
                   <Badge variant={levelVariant(r.level)}>{t(`lib.level.${r.level}`)}</Badge>
                 </div>
@@ -487,7 +488,7 @@ export default function ReportsPage() {
                           <Star aria-hidden="true" className={`h-4 w-4 ${r.pinned ? "fill-warning text-warning" : "text-muted-foreground"}`} />
                         </button>
                         <Link href={`/reports/${r.id}`} className="font-medium hover:text-primary">
-                          {new Date(r.periodStart).toLocaleDateString()}–{new Date(r.periodEnd).toLocaleDateString()}
+                          {formatDate(r.periodStart)}–{formatDate(r.periodEnd)}
                         </Link>
                         <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">{r.type}</span>
                         {r.reviewedAt && <span className="text-[10px] text-success">{t("rep.reviewed")}</span>}
@@ -504,7 +505,7 @@ export default function ReportsPage() {
                     </td>
                     <td className="px-4 py-3 text-xs">{trendMark(r.trend, t)}</td>
                     <td className="px-4 py-3">{r.alerts > 0 ? <Badge variant="warning">{r.alerts}</Badge> : <span className="text-muted-foreground">0</span>}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{new Date(r.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{formatDate(r.createdAt)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <Link href={`/reports/${r.id}`} className="text-primary hover:underline">{t("rep.view")}</Link>

@@ -234,6 +234,8 @@ model Project {
   reportConfigs  ReportConfig[]
   reports        Report[]
   personContexts PersonContext[]
+  personIdentities PersonIdentity[]
+  personAliases    PersonAlias[]
 
   @@index([workspaceId])
 }
@@ -258,6 +260,47 @@ model PersonContext {
 
   @@unique([projectId, name])
   @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// Identidad canónica de personas (unifica identificadores cross-app)
+// ---------------------------------------------------------------------------
+
+/// Persona canónica dentro de un proyecto. `key` es el ID único y estable que
+/// usan los reportes; distintos handles de apps se resuelven contra esta clave
+/// vía PersonAlias, evitando duplicar a la misma persona en cada integración.
+model PersonIdentity {
+  id          String   @id @default(cuid())
+  projectId   String
+  key         String   // ID canónico (clave estable de la persona)
+  displayName String
+  email       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  aliases PersonAlias[]
+
+  @@unique([projectId, key])
+  @@index([projectId])
+}
+
+/// Alias que mapea un identificador de una app (o el ID de otra persona) a una
+/// identidad canónica. `source` es el slug del provider o "*" para cualquiera.
+model PersonAlias {
+  id         String   @id @default(cuid())
+  projectId  String
+  identityId String
+  source     String   @default("*")
+  handle     String
+  createdAt  DateTime @default(now())
+
+  project  Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  identity PersonIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, source, handle])
+  @@index([projectId])
+  @@index([identityId])
 }
 
 model ProjectMember {

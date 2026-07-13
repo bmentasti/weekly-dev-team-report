@@ -6,11 +6,13 @@ import { canAccessPeople } from "@/lib/reports/people-access";
 import { getProjectPeople } from "@/lib/reports/people-data";
 import { buildMatrixRow, matrixToCsv } from "@/lib/reports/matrix";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id)
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  const project = await resolveActiveProject(session.user.id);
+  const explicitId =
+    new URL(req.url).searchParams.get("projectId") ?? undefined;
+  const project = await resolveActiveProject(session.user.id, explicitId);
   if (project && !(await canAccessPeople(session.user.id, project.workspaceId)))
     return NextResponse.json(
       { error: "Sin permiso para ver datos por persona." },

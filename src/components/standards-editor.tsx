@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDialogs } from "@/components/ui/dialog-provider";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import {
   DEFAULT_STANDARD,
   DIMENSION_LABEL,
@@ -465,7 +465,7 @@ export function StandardsEditor() {
                         {h.reason ? `: “${h.reason}”` : "."}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(h.createdAt).toLocaleString()}
+                        {formatDateTime(h.createdAt)}
                       </p>
                     </div>
                     {canEdit && (

@@ -6,6 +6,7 @@ import type {
 } from "./types";
 import { makeT, type TFunc } from "@/lib/i18n/dictionaries";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
+import { formatDate } from "@/lib/utils";
 
 export const HEALTH_LABEL: Record<HealthLevel, string> = {
   HEALTHY: "Saludable",
@@ -13,12 +14,8 @@ export const HEALTH_LABEL: Record<HealthLevel, string> = {
   HIGH_RISK: "Riesgo alto",
 };
 
-function fmtDate(d: Date, locale: Locale): string {
-  return d.toLocaleDateString(locale === "en" ? "en-US" : "es-AR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+function fmtDate(d: Date): string {
+  return formatDate(d);
 }
 
 export function buildMarkdown(input: {
@@ -42,7 +39,7 @@ export function buildMarkdown(input: {
   lines.push(`# ${t("gen.md.title")}`);
   lines.push("");
   lines.push(
-    `**${t("gen.md.period")}:** ${fmtDate(input.periodStart, locale)} ${t("gen.md.periodTo")} ${fmtDate(input.periodEnd, locale)}  `,
+    `**${t("gen.md.period")}:** ${fmtDate(input.periodStart)} ${t("gen.md.periodTo")} ${fmtDate(input.periodEnd)}  `,
   );
   lines.push(
     `**${t("gen.md.overall")}:** ${t(`lib.health.${input.healthStatus}`)}`,

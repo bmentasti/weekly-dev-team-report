@@ -253,6 +253,20 @@ export const es: Record<string, string> = {
     "Sin datos de personas todavía. Generá reportes para poblar la matriz.",
   "ws.matrix.note":
     "La matriz completa (18 columnas: causas, acción, objetivo, indicador, fecha de revisión, etc.) está en el CSV.",
+  // Identidades (unificación de personas cross-app)
+  "ws.identity.title": "Identidades del equipo",
+  "ws.identity.subtitle":
+    "Cada persona tiene un ID único. Si una misma persona aparece separada por venir de apps distintas (ej. GitHub y Airtable), seleccionalas y fusionalas para que no se dupliquen.",
+  "ws.identity.empty": "No hay personas detectadas todavía. Generá reportes primero.",
+  "ws.identity.selectToMerge": "Seleccioná 2 o más personas para fusionarlas.",
+  "ws.identity.merge": "Fusionar seleccionadas",
+  "ws.identity.mergePrompt": "¿Con qué nombre querés mostrar a esta persona fusionada?",
+  "ws.identity.mergedTitle": "Personas fusionadas",
+  "ws.identity.aliasesLabel": "identificadores unificados",
+  "ws.identity.unmerge": "Separar",
+  "ws.identity.merging": "Fusionando…",
+  "ws.identity.selectedCount": "seleccionadas",
+  "ws.identity.restricted": "No tenés permiso para gestionar identidades.",
   // Team alerts
   "ws.alerts.title": "Desempeño sostenido a seguir",
   "ws.alerts.disclaimer":
@@ -663,6 +677,20 @@ export const en: Record<string, string> = {
     "No people data yet. Generate reports to populate the matrix.",
   "ws.matrix.note":
     "The full matrix (18 columns: causes, action, goal, indicator, review date, etc.) is in the CSV.",
+  // Identities (cross-app people unification)
+  "ws.identity.title": "Team identities",
+  "ws.identity.subtitle":
+    "Each person has a unique ID. If the same person shows up split because they come from different apps (e.g. GitHub and Airtable), select them and merge so they aren't duplicated.",
+  "ws.identity.empty": "No people detected yet. Generate reports first.",
+  "ws.identity.selectToMerge": "Select 2 or more people to merge them.",
+  "ws.identity.merge": "Merge selected",
+  "ws.identity.mergePrompt": "What name should this merged person show as?",
+  "ws.identity.mergedTitle": "Merged people",
+  "ws.identity.aliasesLabel": "unified identifiers",
+  "ws.identity.unmerge": "Split",
+  "ws.identity.merging": "Merging…",
+  "ws.identity.selectedCount": "selected",
+  "ws.identity.restricted": "You don't have permission to manage identities.",
   // Team alerts
   "ws.alerts.title": "Sustained performance to track",
   "ws.alerts.disclaimer":

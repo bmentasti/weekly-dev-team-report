@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/components/i18n-provider";
+import { formatDateTime } from "@/lib/utils";
 
 interface Notification {
   id: string;
@@ -143,7 +144,7 @@ export function NotificationsBell() {
                 )}
                 {n.message}
                 <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                  {new Date(n.createdAt).toLocaleString()}
+                  {formatDateTime(n.createdAt)}
                 </span>
               </button>
             ))}

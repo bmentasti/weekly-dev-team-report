@@ -8,7 +8,7 @@ import { useT } from "@/components/i18n-provider";
 
 type Row = Record<string, string>;
 
-export function TeamMatrix() {
+export function TeamMatrix({ projectId }: { projectId?: string }) {
   const { t } = useT();
   const cols = [
     t("ws.matrix.colPerson"),
@@ -30,12 +30,19 @@ export function TeamMatrix() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    let active = true;
+    setLoaded(false);
     (async () => {
-      const res = await fetch("/api/people/matrix");
+      const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+      const res = await fetch(`/api/people/matrix${qs}`);
+      if (!active) return;
       if (res.ok) setRows((await res.json()).rows ?? []);
       setLoaded(true);
     })();
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [projectId]);
 
   if (!loaded) return null;
 
@@ -45,7 +52,11 @@ export function TeamMatrix() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-lg">{t("ws.matrix.title")}</CardTitle>
           <Button variant="outline" size="sm" asChild>
-            <a href="/api/people/matrix/export">{t("ws.matrix.exportCsv")}</a>
+            <a
+              href={`/api/people/matrix/export${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""}`}
+            >
+              {t("ws.matrix.exportCsv")}
+            </a>
           </Button>
         </div>
       </CardHeader>

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveWorkspaceForUser, resolveWorkspaceRole } from "@/lib/workspace";
 import { can } from "@/lib/permissions";
 import { listAudit } from "@/lib/audit";
+import { formatDateTime } from "@/lib/utils";
 import { BillingManager } from "@/components/billing-manager";
 import {
   PLANS,
@@ -198,7 +199,7 @@ export default async function SettingsPage() {
                         {a.target ? ` · ${a.target}` : ""}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(a.createdAt).toLocaleString()}
+                        {formatDateTime(a.createdAt)}
                       </p>
                     </div>
                   </li>

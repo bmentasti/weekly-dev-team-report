@@ -6,6 +6,7 @@ import { can } from "@/lib/permissions";
 import { ProjectTeam } from "@/components/project-team";
 import { TeamAlerts } from "@/components/team-alerts";
 import { TeamMatrix } from "@/components/team-matrix";
+import { IdentityManager } from "@/components/identity-manager";
 import { MembersManager } from "@/components/members-manager";
 import { Card, CardContent } from "@/components/ui/card";
 import { getT } from "@/lib/i18n/server";
@@ -37,8 +38,9 @@ export default async function TeamsPage() {
       {project ? (
         canViewPeople ? (
           <>
-            <TeamAlerts />
-            <TeamMatrix />
+            <TeamAlerts projectId={project.id} />
+            <IdentityManager projectId={project.id} />
+            <TeamMatrix projectId={project.id} />
             <ProjectTeam projectId={project.id} />
           </>
         ) : (

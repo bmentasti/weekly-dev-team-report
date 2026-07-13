@@ -17,18 +17,25 @@ interface PersonAlert {
   reviewInDays: number;
 }
 
-export function TeamAlerts() {
+export function TeamAlerts({ projectId }: { projectId?: string }) {
   const { t } = useT();
   const [alerts, setAlerts] = useState<PersonAlert[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    let active = true;
+    setLoaded(false);
     (async () => {
-      const res = await fetch("/api/people/alerts");
+      const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+      const res = await fetch(`/api/people/alerts${qs}`);
+      if (!active) return;
       if (res.ok) setAlerts((await res.json()).alerts ?? []);
       setLoaded(true);
     })();
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [projectId]);
 
   if (!loaded) return null;
 

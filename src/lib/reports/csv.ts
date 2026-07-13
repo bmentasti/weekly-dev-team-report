@@ -1,6 +1,7 @@
 import type { ReportMetrics, Risk } from "./types";
 import type { Locale } from "@/lib/i18n/config";
 import { makeT } from "@/lib/i18n/dictionaries";
+import { formatDate } from "@/lib/utils";
 
 interface ReportLike {
   periodStart: Date | string;
@@ -34,8 +35,7 @@ export function buildReportCsv(report: ReportLike, locale: Locale = "es"): strin
   const recs = (report.recommendations as string[] | null) ?? [];
   const lines: string[] = [];
 
-  const d = (v: Date | string) =>
-    new Date(v).toLocaleDateString(locale === "en" ? "en-US" : "es-AR");
+  const d = (v: Date | string) => formatDate(v);
 
   lines.push(row(t("exp.teamReport")));
   lines.push(row(t("exp.period"), `${d(report.periodStart)} - ${d(report.periodEnd)}`));

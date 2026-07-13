@@ -2,6 +2,7 @@ import type { ReportMetrics } from "./types";
 import type { HealthLevel } from "./types";
 import { makeT } from "@/lib/i18n/dictionaries";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
+import { formatDate } from "@/lib/utils";
 
 interface ReportLike {
   id: string;
@@ -21,8 +22,7 @@ export function buildReportEmailHtml(
   const t = makeT(locale);
   const m = report.metrics as ReportMetrics | null;
   const recs = (report.recommendations as string[] | null) ?? [];
-  const d = (v: Date | string) =>
-    new Date(v).toLocaleDateString(locale === "en" ? "en-US" : "es-AR");
+  const d = (v: Date | string) => formatDate(v);
   const health = report.healthStatus as HealthLevel | null;
   const healthLabel = health ? t(`lib.health.${health}`) : "—";
 

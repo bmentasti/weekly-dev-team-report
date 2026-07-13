@@ -38,6 +38,40 @@ function toStr(v: unknown): string {
   return String(v);
 }
 
+// Record id opaco de Airtable ("rec" + 14+ alfanuméricos).
+const RECORD_ID_RE = /^rec[A-Za-z0-9]{14,}$/;
+
+function looksLikeRecordId(s: string): boolean {
+  return RECORD_ID_RE.test(s.trim());
+}
+
+/**
+ * Resuelve el valor crudo de un campo de responsable a un nombre legible.
+ * - Colaboradores / objetos: usa name/email (vía toStr).
+ * - Registros vinculados (record ids): los mapea con `nameById` si está
+ *   disponible; si no, deja el record id (el resto del pipeline igual lo
+ *   unifica por identidad).
+ */
+function resolveAssignee(
+  raw: unknown,
+  nameById: Map<string, string>,
+): string | null {
+  const mapOne = (val: unknown): string => {
+    if (typeof val === "string") {
+      const s = val.trim();
+      if (looksLikeRecordId(s)) return nameById.get(s) || s;
+      return s;
+    }
+    return toStr(val);
+  };
+  const names = (Array.isArray(raw) ? raw : [raw])
+    .map(mapOne)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const unique = Array.from(new Set(names));
+  return unique.length ? unique.join(", ") : null;
+}
+
 function toNum(v: unknown): number | null {
   if (typeof v === "number") return v;
   if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v)))
@@ -146,6 +180,8 @@ export const airtableAdapter: ProviderAdapter = {
     const table = ctx.config.tableName?.trim() ?? "";
     const statusField = field(ctx.config, "statusField", "Status");
     const assigneeField = field(ctx.config, "assigneeField", "Assignee");
+    const assigneeTable = ctx.config.assigneeTableName?.trim() ?? "";
+    const assigneeNameField = field(ctx.config, "assigneeNameField", "Name");
     const pointsField = field(ctx.config, "pointsField", "Story Points");
     const titleField = field(ctx.config, "titleField", "Name");
 
@@ -153,6 +189,28 @@ export const airtableAdapter: ProviderAdapter = {
     // `since`. Antes se ignoraba y todos los reportes traían los mismos datos.
     const records = await atFetchAll(baseId, table, ctx.secret, opts?.since);
     const now = Date.now();
+
+    // Si el responsable es un registro vinculado, traemos la tabla de personas
+    // una sola vez para mapear record id -> nombre real (sin `since`: queremos
+    // resolver también personas viejas referenciadas por tareas recientes).
+    const nameById = new Map<string, string>();
+    if (assigneeTable) {
+      try {
+        const people = await atFetchAll(baseId, assigneeTable, ctx.secret);
+        for (const rec of people) {
+          const f = rec.fields ?? {};
+          const nm =
+            toStr(f[assigneeNameField]) ||
+            toStr(f["Name"]) ||
+            toStr(f["Full Name"]) ||
+            toStr(f["Email"]);
+          if (nm) nameById.set(rec.id, nm);
+        }
+      } catch {
+        // Si falla (permisos/nombre de tabla), seguimos con los record ids;
+        // la capa de identidad igual los unifica.
+      }
+    }
 
     const workItems: UnifiedWorkItem[] = records.map((rec) => {
       const f = rec.fields ?? {};
@@ -177,7 +235,7 @@ export const airtableAdapter: ProviderAdapter = {
         title: toStr(f[titleField]) || "(sin título)",
         status,
         bucket,
-        assignee: toStr(f[assigneeField]) || null,
+        assignee: resolveAssignee(f[assigneeField], nameById),
         priority,
         isCritical: priority ? CRITICAL.test(priority) : false,
         isStale,

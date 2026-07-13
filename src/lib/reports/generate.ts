@@ -24,6 +24,8 @@ import type {
 import { buildMarkdown } from "./markdown";
 import { makeT, type TFunc } from "@/lib/i18n/dictionaries";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
+import { makeResolver, type Resolver } from "./identity";
+import { getIdentityConfig } from "./identity-store";
 
 const OVERLOAD_WIP = 5;
 
@@ -165,14 +167,21 @@ function buildPeople(
   workItems: UnifiedWorkItem[],
   codeChanges: UnifiedCodeChange[],
   t: TFunc,
+  resolve: Resolver,
 ): PersonInsight[] {
   const map = new Map<string, PersonInsight>();
   const itemsByPerson = new Map<string, UnifiedWorkItem[]>();
 
-  const get = (name: string): PersonInsight => {
-    let p = map.get(name);
+  // Resuelve el identificador crudo de una app a la identidad canónica y
+  // devuelve el rollup de esa persona (creándolo si no existe). Así dos handles
+  // distintos (p. ej. GitHub y Airtable) de la misma persona suman en la misma fila.
+  const get = (source: string | null, handle: string): PersonInsight | null => {
+    const { id, name } = resolve({ source, handle });
+    if (!id) return null;
+    let p = map.get(id);
     if (!p) {
       p = {
+        id,
         name,
         tasksDone: 0,
         tasksInProgress: 0,
@@ -190,16 +199,17 @@ function buildPeople(
         rank: 0,
         nextStep: "",
       };
-      map.set(name, p);
-      itemsByPerson.set(name, []);
+      map.set(id, p);
+      itemsByPerson.set(id, []);
     }
     return p;
   };
 
   for (const w of workItems) {
     if (!w.assignee) continue;
-    const p = get(w.assignee);
-    itemsByPerson.get(w.assignee)!.push(w);
+    const p = get(w.source, w.assignee);
+    if (!p) continue;
+    itemsByPerson.get(p.id!)!.push(w);
     if (w.bucket === "DONE") {
       p.tasksDone++;
       p.completedPoints += sp(w);
@@ -210,7 +220,8 @@ function buildPeople(
   }
   for (const c of codeChanges) {
     if (!c.author) continue;
-    const p = get(c.author);
+    const p = get(c.source, c.author);
+    if (!p) continue;
     if (c.state === "OPEN") p.prsOpen++;
     else if (c.state === "MERGED") p.prsMerged++;
   }
@@ -219,7 +230,7 @@ function buildPeople(
   for (const p of people) {
     p.wip = p.tasksInProgress;
     p.throughput = p.tasksDone + p.prsMerged;
-    p.cycleTimeAvgDays = cycleTimeDays(itemsByPerson.get(p.name) ?? []);
+    p.cycleTimeAvgDays = cycleTimeDays(itemsByPerson.get(p.id!) ?? []);
     // Contribution score: completed work + merged code, weighted.
     p.score =
       p.completedPoints * 2 + p.tasksDone * 2 + p.prsMerged * 3 + p.prsOpen;
@@ -397,11 +408,13 @@ export async function generateReportComputation(
   locale: Locale = DEFAULT_LOCALE,
 ): Promise<ReportComputation> {
   const t = makeT(locale);
-  const data = clampToPeriod(
-    await collect(projectId, periodStart),
-    periodStart,
-    periodEnd,
-  );
+  const [data, identityConfig] = await Promise.all([
+    collect(projectId, periodStart).then((d) =>
+      clampToPeriod(d, periodStart, periodEnd),
+    ),
+    getIdentityConfig(projectId),
+  ]);
+  const resolve = makeResolver(identityConfig);
   const { workItems, codeChanges, activity, ciRuns } = data;
 
   const wi = {
@@ -504,7 +517,7 @@ export async function generateReportComputation(
       totalPoints > 0 ? Math.round((completedPoints / totalPoints) * 100) : 0,
   };
 
-  const people = buildPeople(workItems, codeChanges, t);
+  const people = buildPeople(workItems, codeChanges, t, resolve);
 
   // ---- Risks ----
   const risks: Risk[] = [];

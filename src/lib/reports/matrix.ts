@@ -1,4 +1,5 @@
 import type { PersonInsight } from "./types";
+import { formatDate } from "@/lib/utils";
 import {
   computeTier,
   contextHypotheses,
@@ -101,7 +102,7 @@ export function buildMatrixRow(p: PersonInput): MatrixRow {
     Acción: coachingSteps(tier)[0],
     "Objetivo próximo sprint": OBJECTIVE[tier],
     "Indicador de mejora": INDICATOR[tier],
-    Revisión: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+    Revisión: formatDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)),
   };
 }
 

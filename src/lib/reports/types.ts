@@ -31,6 +31,12 @@ export interface ActivityMetrics {
 }
 
 export interface PersonRollup {
+  /**
+   * ID canónico y único de la persona dentro del proyecto (identity layer).
+   * Estable entre reportes y unificado cross-app. Opcional por retro-
+   * compatibilidad con reportes viejos; el keying downstream usa `id ?? name`.
+   */
+  id?: string;
   name: string;
   tasksDone: number;
   tasksInProgress: number;

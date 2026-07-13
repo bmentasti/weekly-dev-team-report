@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDialogs } from "@/components/ui/dialog-provider";
 import { useT } from "@/components/i18n-provider";
+import { formatDateTime } from "@/lib/utils";
 
 interface Note {
   id: string;
@@ -111,7 +112,7 @@ export function ReportNotes({ reportId }: { reportId: string }) {
                   <p className="whitespace-pre-wrap text-sm">{n.body}</p>
                   <div className="mt-1 flex items-center justify-between">
                     <span className="text-[11px] text-muted-foreground">
-                      {n.authorName} · {new Date(n.createdAt).toLocaleString()}
+                      {n.authorName} · {formatDateTime(n.createdAt)}
                       {n.updatedAt !== n.createdAt ? ` ${t("rep.edited")}` : ""}
                     </span>
                     {currentUserId === n.authorId && (

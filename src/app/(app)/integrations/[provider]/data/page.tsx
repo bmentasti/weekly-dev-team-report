@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProvider } from "@/lib/integrations/catalog";
 import { BackButton } from "@/components/back-button";
 import { useT } from "@/components/i18n-provider";
+import { formatDateTime } from "@/lib/utils";
 import type {
   ActivitySignal,
   ProviderData,
@@ -274,7 +275,7 @@ function Activity({
                 <p className="text-xs text-muted-foreground">
                   {i.author ?? "?"}{" "}
                   {i.createdAt
-                    ? `· ${new Date(i.createdAt).toLocaleString()}`
+                    ? `· ${formatDateTime(i.createdAt)}`
                     : ""}
                 </p>
               </div>
