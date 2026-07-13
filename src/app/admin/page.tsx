@@ -87,6 +87,22 @@ export default function AdminPage() {
     load();
   }
 
+  async function deleteUser(u: AdminUser) {
+    const ok = window.confirm(
+      `¿Eliminar a ${u.name} (${u.email})?\n\nSe borran TAMBIÉN sus workspaces propios con todos sus proyectos, reportes e integraciones. Esta acción no se puede deshacer.`,
+    );
+    if (!ok) return;
+    setSaving(u.id);
+    const res = await fetch(`/api/admin/users/${u.id}`, { method: "DELETE" });
+    setSaving(null);
+    if (res.ok) flash("Usuario eliminado.");
+    else {
+      const json = await res.json().catch(() => ({}));
+      flash(json.error ?? "No se pudo eliminar el usuario.");
+    }
+    load();
+  }
+
   async function saveWorkspace(
     wsId: string,
     patch: { plan?: string; reportQuotaOverride?: number | null },
@@ -159,6 +175,7 @@ export default function AdminPage() {
                   <th className="py-2 pr-3 font-medium">Rol</th>
                   <th className="py-2 pr-3 font-medium">Registrado</th>
                   <th className="py-2 pr-3 font-medium">Workspace / Plan / Cuota mensual</th>
+                  <th className="py-2 pr-3 font-medium" />
                 </tr>
               </thead>
               <tbody>
@@ -206,6 +223,19 @@ export default function AdminPage() {
                           />
                         ))}
                       </div>
+                    </td>
+                    <td className="py-3">
+                      {!u.isSuperAdmin && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive hover:bg-destructive/10"
+                          disabled={saving === u.id}
+                          onClick={() => deleteUser(u)}
+                        >
+                          Eliminar
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}

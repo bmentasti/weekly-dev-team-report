@@ -135,6 +135,22 @@ model User {
   reportShares      ReportShare[]     @relation("UserShares")
   notifications     Notification[]    @relation("UserNotifications")
   projectMembers    ProjectMember[]   @relation("UserProjectMembers")
+  passwordResets    PasswordResetToken[]
+}
+
+/// Tokens de recuperación de contraseña. Se guarda el HASH del token (nunca el
+/// token en claro); expiran a la hora y son de un solo uso.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Workspace {
