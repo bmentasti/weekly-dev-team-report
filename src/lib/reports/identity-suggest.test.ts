@@ -50,3 +50,44 @@ describe("suggestMerges", () => {
     expect(suggestMerges([])).toEqual([]);
   });
 });
+
+describe("suggestMerges — handle pegado vs nombre completo (con segundo nombre)", () => {
+  const people = [
+    { id: "gonzaloavalos29", name: "gonzaloavalos29" },
+    { id: "jira:1", name: "Gonzalo Matias Avalos" },
+    { id: "eduardoemanuelcf", name: "eduardoemanuelcf" },
+    { id: "jira:2", name: "Eduardo Emanuel Cabral" },
+    { id: "marielgutierrez", name: "marielgutierrez" },
+    { id: "jira:3", name: "Mariel Gutierrez" },
+    { id: "aghosteada", name: "aghosteada" },
+    { id: "jira:4", name: "Agostina de Yurka" },
+    { id: "kevinalexis7", name: "kevinalexis7" },
+    { id: "jira:5", name: "Brisa Abigail Ibarra" },
+  ];
+  const s = suggestMerges(people);
+
+  it("une el login de GitHub con el nombre completo aunque tenga segundo nombre", () => {
+    const g = group(s, ["gonzaloavalos29", "jira:1"]);
+    expect(g).toBeTruthy();
+    expect(g!.confidence).toBe("alta");
+    expect(g!.displayName).toBe("Gonzalo Matias Avalos");
+  });
+
+  it("une con apellido abreviado en el handle", () => {
+    const g = group(s, ["eduardoemanuelcf", "jira:2"]);
+    expect(g).toBeTruthy();
+    expect(g!.displayName).toBe("Eduardo Emanuel Cabral");
+  });
+
+  it("une handle sin dígitos con nombre y apellido", () => {
+    expect(group(s, ["marielgutierrez", "jira:3"])).toBeTruthy();
+  });
+
+  it("no fusiona handles que no coinciden con ningún nombre", () => {
+    // "aghosteada" no empieza por "agostina"; "kevinalexis7" y "Brisa..." no comparten raíz.
+    expect(
+      s.some((g) => g.ids.includes("aghosteada") && g.ids.includes("jira:4")),
+    ).toBe(false);
+    expect(s.some((g) => g.ids.includes("kevinalexis7"))).toBe(false);
+  });
+});

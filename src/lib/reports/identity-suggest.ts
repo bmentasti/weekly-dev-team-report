@@ -48,6 +48,44 @@ function tokens(name: string): string[] {
     .filter((t) => t.length >= 2);
 }
 
+/** ¿El nombre tiene espacios? (señal de nombre real vs. handle pegado). */
+function hasSpace(name: string): boolean {
+  return name.trim().includes(" ");
+}
+
+/**
+ * ¿Un handle pegado (sin espacios, estilo GitHub) es consistente con un nombre
+ * completo con espacios? Consume el handle con los tokens del nombre EN ORDEN,
+ * aceptando prefijos completos y, después del primer nombre, la inicial de un
+ * token (para apellidos abreviados). Tolera segundos nombres ausentes y
+ * sufijos cortos (dígitos ya removidos por compact).
+ *
+ * Ejemplos que matchea:
+ *   "gonzaloavalos29"  ↔ "Gonzalo Matias Avalos"  (salta el segundo nombre)
+ *   "eduardoemanuelcf" ↔ "Eduardo Emanuel Cabral" ("c" = inicial de Cabral)
+ *   "marielgutierrez"  ↔ "Mariel Gutierrez"
+ */
+function handleMatchesFullName(handleName: string, fullName: string): boolean {
+  const h = compact(handleName); // solo letras
+  const toks = tokens(fullName);
+  if (h.length < 5 || toks.length < 2) return false;
+  if (!h.startsWith(toks[0])) return false; // debe empezar por el primer nombre
+
+  let pos = 0;
+  let fullMatched = 0; // tokens consumidos por prefijo completo
+  for (const t of toks) {
+    if (h.startsWith(t, pos)) {
+      pos += t.length;
+      fullMatched++;
+    } else if (fullMatched >= 1 && h[pos] === t[0]) {
+      pos += 1; // inicial de un token (ej. apellido abreviado)
+    }
+    // si no matchea prefijo ni inicial, se saltea (segundo nombre ausente)
+  }
+  const leftover = h.length - pos;
+  return fullMatched >= 2 && leftover <= 2;
+}
+
 /** Un id/ nombre sin señal utilizable (record id opaco, email sin nombre, muy corto). */
 function isUninformative(p: SuggestPerson): boolean {
   const c = compact(p.name);
@@ -98,6 +136,19 @@ function scorePair(a: SuggestPerson, b: SuggestPerson): PairScore | null {
   const longer = ca.length <= cb.length ? cb : ca;
   if (shorter.length >= 5 && longer.includes(shorter))
     return { confidence: "alta", reason: "un nombre contiene al otro" };
+
+  // Handle pegado (GitHub) vs. nombre completo con espacios (Jira/Airtable),
+  // tolerando segundo nombre o apellido abreviado:
+  // "gonzaloavalos29" ~ "Gonzalo Matias Avalos".
+  if (hasSpace(a.name) !== hasSpace(b.name)) {
+    const handle = hasSpace(a.name) ? b.name : a.name;
+    const full = hasSpace(a.name) ? a.name : b.name;
+    if (handleMatchesFullName(handle, full))
+      return {
+        confidence: "alta",
+        reason: "el handle coincide con nombre y apellido",
+      };
+  }
 
   const ta = new Set(tokens(a.name));
   const tb = tokens(b.name);
