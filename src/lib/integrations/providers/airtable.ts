@@ -387,6 +387,17 @@ export const airtableAdapter: ProviderAdapter = {
       assigneeNameField,
     );
 
+    // Deep link al REGISTRO exacto. Airtable acepta
+    // https://airtable.com/{baseId}/{tableId}/{recordId} (o el mínimo
+    // {baseId}/{recordId} si no conocemos el tableId). Antes se usaba solo la
+    // base, por lo que el link abría un registro cualquiera ("tarea equivocada").
+    const schema = await fetchBaseSchema(baseId, ctx.secret);
+    const tableId = schema?.find((t) => t.name === table)?.id;
+    const recordUrl = (recId: string): string =>
+      tableId
+        ? `https://airtable.com/${baseId}/${tableId}/${recId}`
+        : `https://airtable.com/${baseId}/${recId}`;
+
     // Directorio nombre → email (el email es la clave universal de identidad).
     const personEmails: { handle: string; email: string }[] = [];
     for (const [recId, email] of emailById) {
@@ -428,7 +439,7 @@ export const airtableAdapter: ProviderAdapter = {
         type: null,
         project: table,
         sprint: null,
-        url: `https://airtable.com/${baseId}`,
+        url: recordUrl(rec.id),
         createdAt: rec.createdTime,
         updatedAt: updatedRaw,
         resolvedAt: isDone ? updatedRaw : null,
