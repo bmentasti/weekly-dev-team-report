@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { encrypt } from "@/lib/encryption";
+import { encrypt, decrypt } from "@/lib/encryption";
 import { resolveActiveProject } from "@/lib/project";
 import { getProvider } from "@/lib/integrations/catalog";
 import { integrationAllowed, PLANS, effectivePlan } from "@/lib/plans";
@@ -37,18 +37,57 @@ export async function POST(
   }
 
   const { config, secret, missing } = parseConnectionBody(entry, body);
-  if (missing.length > 0) {
-    return NextResponse.json(
-      { ok: false, error: `Faltan campos: ${missing.join(", ")}` },
-      { status: 200 },
-    );
-  }
 
   const project = await resolveActiveProject(session.user.id);
   if (!project) {
     return NextResponse.json(
       { error: "No tenés un proyecto. Creá uno primero." },
       { status: 400 },
+    );
+  }
+
+  const type = entry.type as IntegrationType;
+
+  // Al EDITAR una conexión ya existente, el token no se reingresa: si el campo
+  // secreto vino vacío pero hay un token guardado, se reutiliza el almacenado
+  // (cifrado). Solo se pide de nuevo al conectar por primera vez o al elegir
+  // "Reemplazar token".
+  const existing = await prisma.integration.findUnique({
+    where: { projectId_type: { projectId: project.id, type } },
+  });
+  const secretLabel = entry.fields.find(
+    (f) => f.name === entry.secretField,
+  )?.label;
+
+  let effectiveSecret = secret;
+  let keepStoredToken = false;
+  if (!secret && existing?.encryptedAccessToken) {
+    try {
+      effectiveSecret = decrypt(existing.encryptedAccessToken);
+      keepStoredToken = true;
+    } catch {
+      // token guardado ilegible: se exigirá reingresarlo (queda en `missing`).
+    }
+  }
+
+  const missingFinal = keepStoredToken
+    ? missing.filter((m) => m !== secretLabel)
+    : missing;
+  if (missingFinal.length > 0) {
+    return NextResponse.json(
+      { ok: false, error: `Faltan campos: ${missingFinal.join(", ")}` },
+      { status: 200 },
+    );
+  }
+
+  // Mapeo de columnas confirmado por el usuario (opcional): se persiste en la
+  // config para que el adapter lo use al sincronizar.
+  if (body.fieldMap && typeof body.fieldMap === "object") {
+    config.fieldMap = JSON.stringify(body.fieldMap);
+  } else if (existing?.config && (existing.config as Record<string, unknown>).fieldMap) {
+    // Preservar el mapeo previo si esta edición no lo reenvía.
+    config.fieldMap = String(
+      (existing.config as Record<string, unknown>).fieldMap,
     );
   }
 
@@ -67,18 +106,18 @@ export async function POST(
   }
 
   // Validate before persisting so we never store a broken integration.
-  const test = await adapter.testConnection({ config, secret });
+  const test = await adapter.testConnection({ config, secret: effectiveSecret });
   if (!test.ok) {
     return NextResponse.json({ ok: false, error: test.error }, { status: 200 });
   }
 
-  const type = entry.type as IntegrationType;
   await prisma.integration.upsert({
     where: { projectId_type: { projectId: project.id, type } },
     update: {
       status: "CONNECTED",
       config,
-      encryptedAccessToken: encrypt(secret),
+      // Solo se reescribe el token si el usuario ingresó uno nuevo.
+      ...(keepStoredToken ? {} : { encryptedAccessToken: encrypt(secret) }),
     },
     create: {
       workspaceId: project.workspaceId,
@@ -86,7 +125,7 @@ export async function POST(
       type,
       status: "CONNECTED",
       config,
-      encryptedAccessToken: encrypt(secret),
+      encryptedAccessToken: encrypt(effectiveSecret),
     },
   });
 

@@ -25,16 +25,21 @@ export function GenericConnectForm({
   entry,
   initialConfig,
   connected,
+  hasStoredToken = false,
 }: {
   entry: ProviderCatalogEntry;
   initialConfig: Record<string, string>;
   connected: boolean;
+  hasStoredToken?: boolean;
 }) {
   const router = useRouter();
   const { t } = useT();
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
+  // Al editar una conexión con token guardado, no se reingresa salvo que el
+  // usuario elija reemplazarlo explícitamente.
+  const [replacingSecret, setReplacingSecret] = useState(false);
 
   function readForm(form: HTMLFormElement) {
     const data = new FormData(form);
@@ -145,29 +150,70 @@ export function GenericConnectForm({
             </p>
           )}
 
-          {entry.fields.map((field) => (
-            <div className="space-y-2" key={field.name}>
-              <Label htmlFor={field.name}>
-                {field.label}
-                {field.optional && (
-                  <span className="ml-1 text-xs font-normal text-muted-foreground">
-                    {t("ws.connect.optional")}
-                  </span>
+          {entry.fields.map((field) => {
+            const isStoredSecret =
+              field.secret && hasStoredToken && !replacingSecret;
+            return (
+              <div className="space-y-2" key={field.name}>
+                <Label htmlFor={field.name}>
+                  {field.label}
+                  {field.optional && (
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">
+                      {t("ws.connect.optional")}
+                    </span>
+                  )}
+                </Label>
+                {isStoredSecret ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value="••••••••••••"
+                      type="text"
+                      readOnly
+                      disabled
+                      aria-label={`${field.label} (guardado)`}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setReplacingSecret(true)}
+                    >
+                      Reemplazar token
+                    </Button>
+                  </div>
+                ) : (
+                  <Input
+                    id={field.name}
+                    name={field.name}
+                    type={field.secret ? "password" : "text"}
+                    placeholder={field.placeholder}
+                    defaultValue={
+                      field.secret ? undefined : initialConfig[field.name]
+                    }
+                    required={!field.optional}
+                  />
                 )}
-              </Label>
-              <Input
-                id={field.name}
-                name={field.name}
-                type={field.secret ? "password" : "text"}
-                placeholder={field.placeholder}
-                defaultValue={field.secret ? undefined : initialConfig[field.name]}
-                required={!field.optional}
-              />
-              {field.help && (
-                <p className="text-xs text-muted-foreground">{field.help}</p>
-              )}
-            </div>
-          ))}
+                {field.secret && hasStoredToken && replacingSecret && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:underline"
+                    onClick={() => setReplacingSecret(false)}
+                  >
+                    Cancelar y conservar el token guardado
+                  </button>
+                )}
+                {field.secret && hasStoredToken && !replacingSecret && (
+                  <p className="text-xs text-muted-foreground">
+                    El token guardado se conserva cifrado. Podés validar la
+                    conexión sin reingresarlo.
+                  </p>
+                )}
+                {field.help && !isStoredSecret && (
+                  <p className="text-xs text-muted-foreground">{field.help}</p>
+                )}
+              </div>
+            );
+          })}
         </CardContent>
         <CardFooter className="flex justify-between gap-3">
           <Button

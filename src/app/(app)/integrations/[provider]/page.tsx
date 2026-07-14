@@ -53,6 +53,7 @@ export default async function IntegrationConnectPage({
 
   let initialConfig: Record<string, string> = {};
   let connected = false;
+  let hasStoredToken = false;
   if (project) {
     const integration = await prisma.integration.findUnique({
       where: {
@@ -66,6 +67,7 @@ export default async function IntegrationConnectPage({
       initialConfig =
         (integration.config as Record<string, string> | null) ?? {};
       connected = integration.status === "CONNECTED";
+      hasStoredToken = Boolean(integration.encryptedAccessToken);
     }
   }
 
@@ -76,6 +78,7 @@ export default async function IntegrationConnectPage({
         entry={entry}
         initialConfig={initialConfig}
         connected={connected}
+        hasStoredToken={hasStoredToken}
       />
     </div>
   );

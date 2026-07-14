@@ -4,6 +4,12 @@ import type {
   UnifiedWorkItem,
   WorkItemBucket,
 } from "../types";
+import {
+  bestColumnByName,
+  parseFieldMap,
+  type DevMetricsField,
+  type FieldMap,
+} from "@/lib/integrations/airtable/mapping";
 
 // Airtable adapter — maps records of a table to unified WorkItems.
 // Auth: Personal Access Token (data.records:read) via Bearer header.
@@ -336,17 +342,41 @@ export const airtableAdapter: ProviderAdapter = {
   async fetchData(ctx, opts) {
     const baseId = ctx.config.baseId?.trim() ?? "";
     const table = ctx.config.tableName?.trim() ?? "";
-    const statusField = field(ctx.config, "statusField", "Status");
-    const assigneeField = field(ctx.config, "assigneeField", "Assignee");
     const assigneeTable = ctx.config.assigneeTableName?.trim() ?? "";
     const assigneeNameField = field(ctx.config, "assigneeNameField", "Name");
-    const pointsField = field(ctx.config, "pointsField", "Story Points");
-    const titleField = field(ctx.config, "titleField", "Name");
 
     // Respeta el período del reporte: solo records creados/modificados desde
     // `since`. Antes se ignoraba y todos los reportes traían los mismos datos.
     const records = await atFetchAll(baseId, table, ctx.secret, opts?.since);
     const now = Date.now();
+
+    // Resolución dinámica de columnas: mapeo confirmado por el usuario
+    // (config.fieldMap) > config legacy por campo > heurística por sinónimos >
+    // default. Así la lectura nunca falla porque no exista una columna con un
+    // nombre fijo como "Name"/"Assignee"/"Status".
+    const fieldMap: FieldMap = parseFieldMap(ctx.config.fieldMap);
+    const keys = Array.from(
+      new Set(records.flatMap((r) => Object.keys(r.fields ?? {}))),
+    );
+    const resolveCol = (
+      logical: DevMetricsField,
+      legacyKey: string | undefined,
+      dflt: string,
+    ): string => {
+      const mapped = fieldMap[logical];
+      if (mapped && keys.includes(mapped)) return mapped;
+      const legacy = legacyKey ? ctx.config[legacyKey]?.trim() : "";
+      if (legacy && keys.includes(legacy)) return legacy;
+      const auto = bestColumnByName(logical, keys);
+      if (auto) return auto;
+      return dflt;
+    };
+
+    const statusField = resolveCol("status", "statusField", "Status");
+    const assigneeField = resolveCol("assignee", "assigneeField", "Assignee");
+    const pointsField = resolveCol("storyPoints", "pointsField", "Story Points");
+    const titleField = resolveCol("title", "titleField", "Name");
+    const priorityField = resolveCol("priority", undefined, "Priority");
 
     // Mapea record ids de responsables vinculados a nombres reales (y emails).
     // Automático vía Metadata API (mapa global de la base) con fallback a config.
@@ -368,7 +398,7 @@ export const airtableAdapter: ProviderAdapter = {
       const f = rec.fields ?? {};
       const status = toStr(f[statusField]) || "To Do";
       const bucket = bucketFor(status);
-      const priority = toStr(f["Priority"]) || null;
+      const priority = toStr(f[priorityField]) || null;
       const updatedRaw =
         toStr(f["Last Modified"]) ||
         toStr(f["Last modified time"]) ||
