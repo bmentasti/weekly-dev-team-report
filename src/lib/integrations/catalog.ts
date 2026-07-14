@@ -194,11 +194,15 @@ export const PROVIDER_CATALOG: Record<ProviderSlug, ProviderCatalogEntry> = {
       },
       {
         field: "Access Token",
-        body: "Creá un fine-grained token con acceso de solo lectura a Pull requests, Contents y Checks del repo (o un token clásico con scope repo).",
+        body: "Creá un fine-grained token con acceso de solo lectura a Metadata, Pull requests, Contents y Checks del repo (o un token clásico con scope repo).",
         link: {
           label: "Crear token en GitHub",
           url: "https://github.com/settings/tokens?type=beta",
         },
+      },
+      {
+        field: "Repos de una organización",
+        body: "Si el repo pertenece a una organización, al crear el fine-grained token elegí la organización en el desplegable \"Resource owner\" (no tu cuenta personal). En \"Repository access\" seleccioná ese repo. Si la org exige aprobación, el token queda \"pending\" hasta que un admin lo apruebe y hasta entonces no ve repos privados (da error de repositorio no encontrado).",
       },
     ],
   },

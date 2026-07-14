@@ -64,7 +64,7 @@ export async function testGitHubConnection(
       return {
         ok: false,
         error:
-          "No se encontró el repositorio (revisá owner/repo o los permisos del token).",
+          "No se encontró el repositorio. Revisá owner/repo. Si es de una organización, el token fine-grained debe tener a la organización como \"Resource owner\", incluir el repo en \"Repository access\" y estar aprobado por la org (no \"pending\").",
       };
     }
     if (!res.ok) {

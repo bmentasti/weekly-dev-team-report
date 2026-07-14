@@ -8,6 +8,15 @@ import type {
 // JiraIntegrationService — thin server-side client for Jira Cloud REST v3.
 // Authenticates with Basic auth (email + API token). Never called from the
 // browser; tokens live encrypted in the DB and are decrypted only here.
+//
+// Supports both flavours of Atlassian account API tokens:
+//   - Classic (unscoped) tokens, which authenticate against the instance URL
+//     (https://empresa.atlassian.net/rest/...).
+//   - Scoped / granular tokens (the only kind service accounts can create),
+//     which MUST be routed through the API gateway
+//     (https://api.atlassian.com/ex/jira/<cloudId>/rest/...).
+// We resolve the right base URL automatically: we try the instance URL first
+// and, on 401/403, fall back to the gateway using the site's cloudId.
 
 const JIRA_FIELDS = [
   "summary",
@@ -39,14 +48,19 @@ function authHeader(email: string, apiToken: string): string {
   return `Basic ${token}`;
 }
 
+/**
+ * Low-level fetch against a fully-qualified Jira API base URL.
+ * `base` is either https://<domain> (classic) or
+ * https://api.atlassian.com/ex/jira/<cloudId> (scoped).
+ */
 async function jiraFetch(
-  domain: string,
+  base: string,
   path: string,
   email: string,
   apiToken: string,
   init?: RequestInit,
 ): Promise<Response> {
-  const url = `https://${domain}${path}`;
+  const url = `${base}${path}`;
   return fetch(url, {
     ...init,
     headers: {
@@ -58,6 +72,75 @@ async function jiraFetch(
     // Never cache Jira responses.
     cache: "no-store",
   });
+}
+
+/**
+ * Resolves the site's cloudId via the public tenant_info edge endpoint.
+ * This endpoint requires no authentication. Returns null if unavailable.
+ */
+async function fetchCloudId(domain: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://${domain}/_edge/tenant_info`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { cloudId?: string };
+    return data.cloudId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+interface ResolvedBase {
+  /** Base URL to prefix REST paths with (no trailing slash). */
+  base: string;
+  /** The `/myself` response for the chosen base, so callers can reuse it. */
+  meRes: Response;
+  /** True when we fell back to the scoped-token API gateway. */
+  scoped: boolean;
+}
+
+/**
+ * Picks the correct API base URL for the given credentials.
+ *
+ * Strategy: try the instance URL first (works for classic tokens). If Jira
+ * answers 401/403 there, resolve the site's cloudId and retry through the
+ * gateway (works for scoped/granular tokens). Returns whichever `/myself`
+ * response we obtained so callers don't have to probe again.
+ */
+async function resolveApiBase(
+  domain: string,
+  email: string,
+  apiToken: string,
+): Promise<ResolvedBase> {
+  const instanceBase = `https://${domain}`;
+  const meRes = await jiraFetch(
+    instanceBase,
+    "/rest/api/3/myself",
+    email,
+    apiToken,
+  );
+
+  // Classic token (or already authorized): use the instance URL.
+  if (meRes.status !== 401 && meRes.status !== 403) {
+    return { base: instanceBase, meRes, scoped: false };
+  }
+
+  // 401/403 on the instance URL — likely a scoped token. Try the gateway.
+  const cloudId = await fetchCloudId(domain);
+  if (!cloudId) {
+    // Could not resolve cloudId; surface the original (instance) response.
+    return { base: instanceBase, meRes, scoped: false };
+  }
+
+  const gatewayBase = `https://api.atlassian.com/ex/jira/${cloudId}`;
+  const gatewayMeRes = await jiraFetch(
+    gatewayBase,
+    "/rest/api/3/myself",
+    email,
+    apiToken,
+  );
+  return { base: gatewayBase, meRes: gatewayMeRes, scoped: true };
 }
 
 export interface TestConnectionResult {
@@ -83,13 +166,8 @@ export async function testJiraConnection(
   }
 
   try {
-    // 1. Auth check.
-    const meRes = await jiraFetch(
-      domain,
-      "/rest/api/3/myself",
-      config.email,
-      apiToken,
-    );
+    // 1. Auth check — resolves the correct base URL (instance vs. gateway).
+    const { base, meRes } = await resolveApiBase(domain, config.email, apiToken);
     if (meRes.status === 401 || meRes.status === 403) {
       return { ok: false, error: "Credenciales inválidas (email o token)." };
     }
@@ -103,7 +181,7 @@ export async function testJiraConnection(
 
     // 2. Project access check.
     const projectRes = await jiraFetch(
-      domain,
+      base,
       `/rest/api/3/project/${encodeURIComponent(config.projectKey)}`,
       config.email,
       apiToken,
@@ -155,6 +233,10 @@ export async function fetchProjectIssues(
   const domain = normalizeDomain(config.domain);
   const maxResults = Math.min(options.maxResults ?? 100, 100);
 
+  // Resolve the correct API base (instance for classic tokens, gateway for
+  // scoped tokens). Browse URLs on issues still use the instance domain.
+  const { base } = await resolveApiBase(domain, config.email, apiToken);
+
   const clauses = [`project = "${config.projectKey}"`];
   if (options.updatedSince) {
     // Jira JQL accepts yyyy-MM-dd.
@@ -164,7 +246,7 @@ export async function fetchProjectIssues(
   const jql = `${clauses.join(" AND ")} ORDER BY updated DESC`;
 
   const res = await jiraFetch(
-    domain,
+    base,
     "/rest/api/3/search",
     config.email,
     apiToken,
