@@ -63,6 +63,14 @@ export interface PersonInsight extends PersonRollup {
   score: number;
   rank: number;
   nextStep: string;
+  /**
+   * Última actividad conocida de la persona en CUALQUIER integración (ISO),
+   * medida sobre datos sin recortar al período. Se usa para excluir a quienes
+   * llevan más de `REPORT_INACTIVE_DAYS` sin actividad (gente que salió del
+   * proyecto). Opcional: reportes viejos previos a esta capa no lo tienen y se
+   * tratan como activos.
+   */
+  lastActivityAt?: string | null;
 }
 
 export interface CapacityMetrics {

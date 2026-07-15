@@ -13,6 +13,7 @@ import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 import { makeResolver, resolvePerson, type Resolver } from "./identity";
 import { autoMergeGroups } from "./identity-suggest";
 import { getIdentityConfig } from "./identity-store";
+import { filterActivePeople, maxIso } from "./activity";
 import type { PersonCategory, PersonInsight, ReportMetrics } from "./types";
 
 const OVERLOAD_WIP = 5;
@@ -77,10 +78,14 @@ export function unifyPeople(
         score: 0,
         rank: 0,
         nextStep: "",
+        lastActivityAt: null,
       };
       map.set(key, e);
       cycles.set(key, []);
     }
+    // La última actividad de la identidad unificada es la más reciente entre
+    // las filas que se fusionan (cross-app / cross-alias).
+    e.lastActivityAt = maxIso(e.lastActivityAt, p.lastActivityAt);
     e.tasksDone += p.tasksDone;
     e.tasksInProgress += p.tasksInProgress;
     e.tasksBlocked += p.tasksBlocked;
@@ -124,7 +129,10 @@ export async function unifyReportMetricsPeople(
   try {
     const resolve = makeResolver(await getIdentityConfig(projectId));
     const t = makeT(locale);
-    const people = unifyPeople(metrics.people, resolve, (c) => t(`gen.nextStep.${c}`));
+    const unified = unifyPeople(metrics.people, resolve, (c) => t(`gen.nextStep.${c}`));
+    // Excluye a quienes llevan > REPORT_INACTIVE_DAYS sin actividad (medido
+    // contra hoy). Reportes viejos sin `lastActivityAt` no se ven afectados.
+    const people = filterActivePeople(unified);
     return { ...metrics, people };
   } catch (err) {
     console.error("[identity] unifyReportMetricsPeople falló, dejo metrics original:", err);

@@ -26,6 +26,7 @@ import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 import { makeResolver, type Resolver } from "./identity";
 import { getIdentityConfig } from "./identity-store";
 import { unifyPeople } from "./people-unify";
+import { filterActivePeople } from "./activity";
 
 
 interface CollectedData {
@@ -172,12 +173,65 @@ function cycleTimeDays(items: UnifiedWorkItem[]): number | null {
   return Math.round((durations.reduce((a, b) => a + b, 0) / durations.length) * 10) / 10;
 }
 
+/**
+ * Última actividad (epoch ms) por identidad canónica sobre datos SIN recortar
+ * al período: los adapters traen ítems hasta HOY, así que esto captura si la
+ * persona sigue activa aunque la ventana del reporte sea corta. Se resuelve la
+ * identidad igual que en `buildPeople` (con email como clave universal) para
+ * que las claves coincidan.
+ */
+function computeLastActivity(
+  data: CollectedData,
+  resolve: Resolver,
+): Map<string, number> {
+  const { emailByHandle } = data;
+  const last = new Map<string, number>();
+
+  const idOf = (source: string | null, handle: string): string | null => {
+    const email =
+      (source && emailByHandle.get(`${source}::${handle.trim().toLowerCase()}`)) ||
+      undefined;
+    return resolve({ source, handle, email }).id || null;
+  };
+  const bump = (id: string | null, ...isos: (string | null | undefined)[]) => {
+    if (!id) return;
+    for (const t of isos) {
+      const ms = ts(t);
+      if (ms === null) continue;
+      const prev = last.get(id);
+      if (prev === undefined || ms > prev) last.set(id, ms);
+    }
+  };
+
+  for (const w of data.workItems) {
+    const handles =
+      w.assignees && w.assignees.length > 0
+        ? w.assignees
+        : w.assignee
+          ? [w.assignee]
+          : [];
+    for (const handle of handles)
+      bump(idOf(w.source, handle), w.updatedAt, w.resolvedAt, w.createdAt);
+  }
+  for (const c of data.codeChanges) {
+    if (!c.author) continue;
+    bump(idOf(c.source, c.author), c.updatedAt, c.mergedAt, c.closedAt, c.createdAt);
+  }
+  for (const a of data.activity) {
+    if (!a.author) continue;
+    bump(idOf(a.source, a.author), a.createdAt);
+  }
+
+  return last;
+}
+
 function buildPeople(
   workItems: UnifiedWorkItem[],
   codeChanges: UnifiedCodeChange[],
   t: TFunc,
   resolve: Resolver,
   emailByHandle: Map<string, string>,
+  lastActivity: Map<string, number>,
 ): PersonInsight[] {
   const map = new Map<string, PersonInsight>();
   const itemsByPerson = new Map<string, UnifiedWorkItem[]>();
@@ -252,11 +306,19 @@ function buildPeople(
   for (const p of people) {
     // Cycle time real (sobre los ítems de la persona) antes de unificar.
     p.cycleTimeAvgDays = cycleTimeDays(itemsByPerson.get(p.id!) ?? []);
+    // Última actividad conocida (datos sin recortar) para el filtro de inactivos.
+    const la = lastActivity.get(p.id!);
+    p.lastActivityAt = la !== undefined ? new Date(la).toISOString() : null;
   }
 
   // Unifica por identidad canónica + auto-merge de alta confianza (une la misma
   // persona aunque venga de apps distintas) y recalcula derivados/ranking.
-  return unifyPeople(people, resolve, (c) => t(`gen.nextStep.${c}`));
+  const unified = unifyPeople(people, resolve, (c) => t(`gen.nextStep.${c}`));
+
+  // Excluye a quienes llevan > REPORT_INACTIVE_DAYS sin actividad en NINGUNA
+  // integración (medido contra hoy): equipos que rotan, gente desvinculada o
+  // reemplazada deja de contaminar el estado actual del proyecto.
+  return filterActivePeople(unified);
 }
 
 function fmtDay(d: Date, locale: Locale): string {
@@ -409,13 +471,15 @@ export async function generateReportComputation(
   locale: Locale = DEFAULT_LOCALE,
 ): Promise<ReportComputation> {
   const t = makeT(locale);
-  const [data, identityConfig] = await Promise.all([
-    collect(projectId, periodStart).then((d) =>
-      clampToPeriod(d, periodStart, periodEnd),
-    ),
+  const [raw, identityConfig] = await Promise.all([
+    collect(projectId, periodStart),
     getIdentityConfig(projectId),
   ]);
   const resolve = makeResolver(identityConfig);
+  // Última actividad por persona sobre datos SIN recortar (llegan hasta hoy):
+  // detecta inactividad > umbral aunque el período del reporte sea corto.
+  const lastActivity = computeLastActivity(raw, resolve);
+  const data = clampToPeriod(raw, periodStart, periodEnd);
   const { workItems, codeChanges, activity, ciRuns } = data;
 
   const wi = {
@@ -518,7 +582,14 @@ export async function generateReportComputation(
       totalPoints > 0 ? Math.round((completedPoints / totalPoints) * 100) : 0,
   };
 
-  const people = buildPeople(workItems, codeChanges, t, resolve, data.emailByHandle);
+  const people = buildPeople(
+    workItems,
+    codeChanges,
+    t,
+    resolve,
+    data.emailByHandle,
+    lastActivity,
+  );
 
   // ---- Risks ----
   const risks: Risk[] = [];

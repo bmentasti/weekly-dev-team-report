@@ -5,6 +5,7 @@ import type { PersonInsight, ReportMetrics } from "./types";
 import { makeResolver, resolvePerson } from "./identity";
 import { getIdentityConfig } from "./identity-store";
 import { autoMergeGroups } from "./identity-suggest";
+import { isPersonActive, maxIso } from "./activity";
 
 /** Arma los datos por persona del proyecto (quant + contexto) para la matriz. */
 export async function getProjectPeople(projectId: string): Promise<PersonInput[]> {
@@ -46,6 +47,7 @@ export async function getProjectPeople(projectId: string): Promise<PersonInput[]
       throughputs: number[];
       displayName: string;
       rawNames: Set<string>;
+      lastActivityAt: string | null;
     }
   >();
   for (const { p, id, name } of resolved) {
@@ -59,12 +61,15 @@ export async function getProjectPeople(projectId: string): Promise<PersonInput[]
         throughputs: [],
         displayName: display,
         rawNames: new Set<string>(),
+        lastActivityAt: null,
       };
     e.tiers.push(computeTier(p));
     e.throughputs.push(p.throughput);
     e.latest = p;
     e.displayName = display;
     e.rawNames.add(p.name);
+    // La más reciente entre todos los reportes/alias de esta persona.
+    e.lastActivityAt = maxIso(e.lastActivityAt, p.lastActivityAt);
     byPerson.set(key, e);
   }
 
@@ -88,6 +93,9 @@ export async function getProjectPeople(projectId: string): Promise<PersonInput[]
 
   const out: PersonInput[] = [];
   for (const e of byPerson.values()) {
+    // Excluye a quien lleva > REPORT_INACTIVE_DAYS sin actividad (medido contra
+    // hoy). Personas de reportes viejos sin dato de actividad no se filtran.
+    if (!isPersonActive(e.lastActivityAt)) continue;
     const t = e.throughputs;
     const trend =
       t.length >= 2

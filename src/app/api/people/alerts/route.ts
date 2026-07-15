@@ -9,6 +9,7 @@ import type { PersonInsight, ReportMetrics } from "@/lib/reports/types";
 import { makeResolver, resolvePerson } from "@/lib/reports/identity";
 import { getIdentityConfig } from "@/lib/reports/identity-store";
 import { autoMergeGroups } from "@/lib/reports/identity-suggest";
+import { isPersonActive, maxIso } from "@/lib/reports/activity";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -53,19 +54,25 @@ export async function GET(req: Request) {
   // identidad canónica -> serie de tiers (oldest first) + último insight
   const byPerson = new Map<
     string,
-    { tiers: PerfTier[]; latest: PersonInsight; name: string }
+    { tiers: PerfTier[]; latest: PersonInsight; name: string; lastActivityAt: string | null }
   >();
   for (const { p, id, name } of resolved) {
     const key = groupId.get(id) ?? id;
-    const entry = byPerson.get(key) ?? { tiers: [], latest: p, name: displayName.get(id) ?? name };
+    const entry =
+      byPerson.get(key) ??
+      { tiers: [], latest: p, name: displayName.get(id) ?? name, lastActivityAt: null };
     entry.tiers.push(computeTier(p));
     entry.latest = p;
     entry.name = displayName.get(id) ?? name;
+    entry.lastActivityAt = maxIso(entry.lastActivityAt, p.lastActivityAt);
     byPerson.set(key, entry);
   }
 
   const alerts = [];
-  for (const { tiers, latest, name } of byPerson.values()) {
+  for (const { tiers, latest, name, lastActivityAt } of byPerson.values()) {
+    // No alertamos sobre gente inactiva > umbral (probablemente ya no está en
+    // el proyecto): no tiene sentido sugerir un 1:1 con alguien que salió.
+    if (!isPersonActive(lastActivityAt)) continue;
     const s = sustainedLow(tiers);
     if (!s) continue;
     const evidence: string[] = [];
