@@ -102,6 +102,12 @@ export interface ProviderData {
   ciRuns?: CiRun[];
   /** Directorio opcional handle → email para unificación por email. */
   personEmails?: PersonEmail[];
+  /**
+   * Fallos PARCIALES no fatales del sync (p. ej. no se pudo traer CI pero sí
+   * los PRs). Si viene con contenido, la integración se marca PARTIALLY_SYNCED
+   * en vez de CONNECTED, con estos mensajes como detalle/acción recomendada.
+   */
+  warnings?: string[];
 }
 
 // ---------------------------------------------------------------------------

@@ -53,6 +53,19 @@ export type PersonCategory =
   | "FREE_CAPACITY"
   | "ON_TRACK";
 
+/**
+ * Punto de la evolución DENTRO del período del reporte, por persona. Permite que
+ * el gráfico del perfil muestre el avance a lo largo de los días del sprint (no
+ * un único punto por reporte). Opcional: reportes viejos no lo tienen.
+ */
+export interface PersonTimelinePoint {
+  label: string;
+  done: number;
+  merged: number;
+  blocked: number;
+  velocityPoints: number;
+}
+
 export interface PersonInsight extends PersonRollup {
   committedPoints: number;
   completedPoints: number;
@@ -63,6 +76,12 @@ export interface PersonInsight extends PersonRollup {
   score: number;
   rank: number;
   nextStep: string;
+  /**
+   * Evolución por cortes dentro del período (finalizadas, PRs mergeados,
+   * bloqueadas, velocity). Se computa en la generación y se suma al unificar
+   * identidades. Opcional por retro-compatibilidad con reportes previos.
+   */
+  timeline?: PersonTimelinePoint[];
   /**
    * Última actividad conocida de la persona en CUALQUIER integración (ISO),
    * medida sobre datos sin recortar al período. Se usa para excluir a quienes

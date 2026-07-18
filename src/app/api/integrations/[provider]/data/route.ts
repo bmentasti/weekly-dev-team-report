@@ -59,8 +59,9 @@ export async function GET(
   try {
     const data = await adapter.fetchData(loaded.ctx, { since });
     // Salud REAL: no basta con que la auth funcione; medimos qué se pudo traer.
+    // `data.warnings` (fallos parciales, p. ej. CI) degrada a PARTIALLY_SYNCED.
     const summary = summarizeData(data);
-    const cls = classifySyncSuccess(summary, entry.label);
+    const cls = classifySyncSuccess(summary, entry.label, data.warnings ?? []);
 
     // Asociación: participantes vinculados, actividad sin persona e identidades
     // pendientes de confirmar (sugerencias sin verificar del proyecto).

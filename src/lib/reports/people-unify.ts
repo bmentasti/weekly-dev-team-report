@@ -14,9 +14,41 @@ import { makeResolver, resolvePerson, type Resolver } from "./identity";
 import { autoMergeGroups } from "./identity-suggest";
 import { getIdentityConfig } from "./identity-store";
 import { filterActivePeople, maxIso } from "./activity";
-import type { PersonCategory, PersonInsight, ReportMetrics } from "./types";
+import type {
+  PersonCategory,
+  PersonInsight,
+  PersonTimelinePoint,
+  ReportMetrics,
+} from "./types";
 
 const OVERLOAD_WIP = 5;
+
+/**
+ * Suma dos timelines por índice (todos los del mismo reporte comparten cortes,
+ * así que alinean por posición). Devuelve el que exista si el otro falta.
+ */
+function mergeTimeline(
+  a: PersonTimelinePoint[] | undefined,
+  b: PersonTimelinePoint[] | undefined,
+): PersonTimelinePoint[] | undefined {
+  if (!a) return b ? b.map((p) => ({ ...p })) : undefined;
+  if (!b) return a.map((p) => ({ ...p }));
+  const n = Math.max(a.length, b.length);
+  const out: PersonTimelinePoint[] = [];
+  for (let i = 0; i < n; i++) {
+    const x = a[i];
+    const y = b[i];
+    const base = x ?? y!;
+    out.push({
+      label: base.label,
+      done: (x?.done ?? 0) + (y?.done ?? 0),
+      merged: (x?.merged ?? 0) + (y?.merged ?? 0),
+      blocked: (x?.blocked ?? 0) + (y?.blocked ?? 0),
+      velocityPoints: (x?.velocityPoints ?? 0) + (y?.velocityPoints ?? 0),
+    });
+  }
+  return out;
+}
 
 // Misma clasificación que generate.ts::categorize (mantener en sync).
 function categorize(p: PersonInsight): PersonCategory {
@@ -86,6 +118,7 @@ export function unifyPeople(
     // La última actividad de la identidad unificada es la más reciente entre
     // las filas que se fusionan (cross-app / cross-alias).
     e.lastActivityAt = maxIso(e.lastActivityAt, p.lastActivityAt);
+    e.timeline = mergeTimeline(e.timeline, p.timeline);
     e.tasksDone += p.tasksDone;
     e.tasksInProgress += p.tasksInProgress;
     e.tasksBlocked += p.tasksBlocked;

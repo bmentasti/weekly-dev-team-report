@@ -120,6 +120,21 @@ export default function PersonProfilePage() {
   const steps = coachingSteps(profile.tier, t);
   const sustained = sustainedLow(profile.points.map((p) => p.tier));
 
+  // Gráfico de evolución: preferimos la línea DENTRO del período (por días) del
+  // último reporte, que muestra el avance a lo largo de los días. Si el reporte
+  // es viejo y no tiene timeline por persona, caemos a la comparación entre
+  // reportes (un punto por sprint).
+  const withinPeriod = latest?.timeline ?? [];
+  const usesTimeline = withinPeriod.length >= 2;
+  const chartData = usesTimeline
+    ? withinPeriod.map((tp) => ({
+        label: tp.label,
+        throughput: tp.done + tp.merged,
+        completedPoints: tp.velocityPoints,
+        blocked: tp.blocked,
+      }))
+    : profile.points;
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <BackButton />
@@ -286,7 +301,7 @@ export default function PersonProfilePage() {
         <CardContent>
           <div className="h-48 sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={profile.points}>
+              <AreaChart data={chartData}>
                 <defs>
                   <LinearGradient id={gradientId("person-tp")} color={SERIES.throughput} />
                 </defs>

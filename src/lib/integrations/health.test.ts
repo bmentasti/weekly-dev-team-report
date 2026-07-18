@@ -55,4 +55,11 @@ describe("integration health classifier", () => {
     expect(s.recordsImported).toBe(2);
     expect(classifySyncSuccess(s).status).toBe("CONNECTED");
   });
+
+  it("con datos pero warnings parciales (ej. CI) => PARTIALLY_SYNCED", () => {
+    const s = summarizeData({ codeChanges: [{ externalId: "2" } as never] });
+    const c = classifySyncSuccess(s, "GitHub", ["No se pudo traer CI/CD"]);
+    expect(c.status).toBe("PARTIALLY_SYNCED");
+    expect(c.lastErrorMessage).toContain("CI/CD");
+  });
 });

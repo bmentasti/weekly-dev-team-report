@@ -232,9 +232,13 @@ function buildPeople(
   resolve: Resolver,
   emailByHandle: Map<string, string>,
   lastActivity: Map<string, number>,
+  periodStart: Date,
+  periodEnd: Date,
+  locale: Locale,
 ): PersonInsight[] {
   const map = new Map<string, PersonInsight>();
   const itemsByPerson = new Map<string, UnifiedWorkItem[]>();
+  const prsByPerson = new Map<string, UnifiedCodeChange[]>();
 
   // Resuelve el identificador crudo de una app a la identidad canónica y
   // devuelve el rollup de esa persona (creándolo si no existe). Si conocemos el
@@ -268,6 +272,7 @@ function buildPeople(
       };
       map.set(id, p);
       itemsByPerson.set(id, []);
+      prsByPerson.set(id, []);
     }
     return p;
   };
@@ -298,6 +303,7 @@ function buildPeople(
     if (!c.author) continue;
     const p = get(c.source, c.author);
     if (!p) continue;
+    prsByPerson.get(p.id!)!.push(c);
     if (c.state === "OPEN") p.prsOpen++;
     else if (c.state === "MERGED") p.prsMerged++;
   }
@@ -309,6 +315,21 @@ function buildPeople(
     // Última actividad conocida (datos sin recortar) para el filtro de inactivos.
     const la = lastActivity.get(p.id!);
     p.lastActivityAt = la !== undefined ? new Date(la).toISOString() : null;
+    // Evolución dentro del período (por cortes) para el gráfico del perfil: el
+    // avance a lo largo de los días, no un único punto por reporte.
+    p.timeline = buildTimeline(
+      itemsByPerson.get(p.id!) ?? [],
+      prsByPerson.get(p.id!) ?? [],
+      periodStart,
+      periodEnd,
+      locale,
+    ).map((tp) => ({
+      label: tp.label,
+      done: tp.done,
+      merged: tp.merged,
+      blocked: tp.blocked,
+      velocityPoints: tp.velocityPoints,
+    }));
   }
 
   // Unifica por identidad canónica + auto-merge de alta confianza (une la misma
@@ -589,6 +610,9 @@ export async function generateReportComputation(
     resolve,
     data.emailByHandle,
     lastActivity,
+    periodStart,
+    periodEnd,
+    locale,
   );
 
   // ---- Risks ----

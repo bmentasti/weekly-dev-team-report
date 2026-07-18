@@ -138,28 +138,56 @@ async function getChecksState(
   }
 }
 
+// Tope de páginas para acotar tiempo/rate-limit (100/página → hasta 1000 PRs).
+const MAX_PR_PAGES = 10;
+
+/**
+ * Lista PRs paginando. Para `open` trae todas las páginas (todos los PRs
+ * abiertos son relevantes). Para `closed`, como vienen ordenados por `updated`
+ * desc, corta apenas una página entera cae antes de `stopBefore` (esos PRs ya no
+ * pueden estar dentro del período), evitando recorrer todo el historial.
+ */
 async function listPulls(
   config: GitHubConnectionConfig,
   token: string,
   state: "open" | "closed",
+  stopBefore?: Date,
 ): Promise<RawGitHubPr[]> {
-  const params = new URLSearchParams({
-    state,
-    per_page: "100",
-    sort: "updated",
-    direction: "desc",
-  });
-  const res = await ghFetch(
-    `/repos/${config.owner}/${config.repo}/pulls?${params.toString()}`,
-    token,
-  );
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(
-      `GitHub devolvió estado ${res.status} al listar PRs. ${detail.slice(0, 200)}`,
+  const out: RawGitHubPr[] = [];
+  for (let page = 1; page <= MAX_PR_PAGES; page++) {
+    const params = new URLSearchParams({
+      state,
+      per_page: "100",
+      sort: "updated",
+      direction: "desc",
+      page: String(page),
+    });
+    const res = await ghFetch(
+      `/repos/${config.owner}/${config.repo}/pulls?${params.toString()}`,
+      token,
     );
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(
+        `GitHub devolvió estado ${res.status} al listar PRs. ${detail.slice(0, 200)}`,
+      );
+    }
+    const batch = (await res.json()) as RawGitHubPr[];
+    out.push(...batch);
+    // Última página (menos de un page completo).
+    if (batch.length < 100) break;
+    // Corte temprano para `closed`: si TODO el batch quedó antes del período,
+    // las páginas siguientes (más viejas) tampoco entran.
+    if (state === "closed" && stopBefore) {
+      const newest = batch.reduce((max, pr) => {
+        const s = pr.merged_at ?? pr.closed_at ?? pr.updated_at;
+        const t = s ? new Date(s).getTime() : 0;
+        return Math.max(max, t);
+      }, 0);
+      if (newest < stopBefore.getTime()) break;
+    }
   }
-  return (await res.json()) as RawGitHubPr[];
+  return out;
 }
 
 export interface FetchPrsOptions {
@@ -183,7 +211,7 @@ export async function fetchPullRequests(
 
   const [openRaw, closedRaw] = await Promise.all([
     listPulls(config, token, "open"),
-    listPulls(config, token, "closed"),
+    listPulls(config, token, "closed", since),
   ]);
 
   // Closed PRs relevant to the period: merged or closed within [since, now].

@@ -132,7 +132,7 @@ export async function POST(
   try {
     const probe = await adapter.fetchData({ config, secret: effectiveSecret });
     const summary = summarizeData(probe);
-    health = classifySyncSuccess(summary, entry.label);
+    health = classifySyncSuccess(summary, entry.label, probe.warnings ?? []);
     syncFields.recordsImported = summary.recordsImported;
     syncFields.healthDetail = { ...summary, classifiedAt: now.toISOString() };
     if (summary.recordsImported > 0) syncFields.lastSuccessfulSyncAt = now;

@@ -153,6 +153,7 @@ export function summarizeData(data: ProviderData | null | undefined): DataSummar
 export function classifySyncSuccess(
   summary: DataSummary,
   providerLabel = "la integración",
+  warnings: string[] = [],
 ): SyncClassification {
   if (summary.recordsImported === 0) {
     return {
@@ -160,6 +161,17 @@ export function classifySyncSuccess(
       lastErrorMessage: `${providerLabel} conectó pero no devolvió registros en el período consultado.`,
       recommendedAction:
         "Verificá que el proyecto/repositorio seleccionado sea el correcto y que el token tenga acceso a sus datos.",
+      missingPermissions: [],
+    };
+  }
+  // Trajo datos, pero hubo fallos PARCIALES (p. ej. CI no disponible): se marca
+  // como sync parcial con el detalle, en vez de declararlo sano.
+  if (warnings.length > 0) {
+    return {
+      status: "PARTIALLY_SYNCED",
+      lastErrorMessage: warnings.join(" | "),
+      recommendedAction:
+        "El sync trajo la mayoría de los datos pero parte falló; reintentá o revisá permisos/estado del proveedor.",
       missingPermissions: [],
     };
   }
