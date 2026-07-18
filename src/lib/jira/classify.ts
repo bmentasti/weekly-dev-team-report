@@ -3,6 +3,7 @@ import type {
   NormalizedIssue,
   RawJiraIssue,
 } from "./types";
+import { assigneeChanges, assigneeAt, wasReassigned } from "./assignment-history";
 
 // Rules from the MVP spec (section 6 & 11):
 //   - Stale (sin movimiento): not updated in more than 5 days.
@@ -95,6 +96,19 @@ export function normalizeIssue(
 
   const isStale = !isDone && daysSince(fields.updated, now) > STALE_DAYS;
 
+  // §5: para una tarea resuelta, el responsable a atribuir es quien lo era al
+  // resolverse (según changelog), no el assignee actual si cambió después.
+  const currentAssignee = fields.assignee?.displayName ?? null;
+  const changes = assigneeChanges(raw.changelog);
+  const resolutionMs = fields.resolutiondate
+    ? new Date(fields.resolutiondate).getTime()
+    : null;
+  const assigneeAtResolution =
+    isDone && changes.length > 0
+      ? assigneeAt(currentAssignee, changes, resolutionMs)
+      : undefined;
+  const reassigned = changes.length > 0 ? wasReassigned(changes, null) : undefined;
+
   let bucket: IssueBucket;
   if (isBlocked && !isDone) {
     bucket = "BLOCKED";
@@ -111,7 +125,7 @@ export function normalizeIssue(
     summary: fields.summary ?? "(sin título)",
     status: statusName || "Desconocido",
     statusCategory,
-    assignee: fields.assignee?.displayName ?? null,
+    assignee: currentAssignee,
     priority,
     issueType: fields.issuetype?.name ?? null,
     labels,
@@ -125,6 +139,8 @@ export function normalizeIssue(
     isBlocked,
     isCritical,
     isStale,
+    assigneeAtResolution,
+    reassigned,
   };
 }
 

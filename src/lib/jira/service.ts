@@ -260,6 +260,9 @@ export async function fetchProjectIssues(
         jql,
         fields: JIRA_FIELDS,
         maxResults,
+        // §5: traer el changelog para atribuir tareas resueltas a quien era el
+        // responsable al resolverse (no al assignee actual si cambió después).
+        expand: ["changelog"],
       }),
     },
   );

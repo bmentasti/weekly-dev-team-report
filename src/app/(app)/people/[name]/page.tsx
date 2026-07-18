@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import {
   Area,
   AreaChart,
@@ -37,6 +37,8 @@ import {
 } from "@/lib/reports/people-profile";
 import type { EvaluationConfidence } from "@/lib/reports/evaluation-confidence";
 import type { PersonSelfComparison } from "@/lib/reports/person-history";
+import { formatMetric, type MetricValue } from "@/lib/reports/metric-value";
+import type { EvaluationBreakdown } from "@/lib/reports/evaluation-dimensions";
 
 interface GatedVerdictDTO {
   show: boolean;
@@ -44,16 +46,49 @@ interface GatedVerdictDTO {
   fixFirst: string[];
 }
 
+interface IntegrationAccountDTO {
+  provider: string;
+  externalUserId: string | null;
+  username: string | null;
+  email: string | null;
+  verified: boolean;
+  mappingSource: string;
+}
+
+interface IdentityDTO {
+  participantId: string;
+  projectId: string;
+  displayName: string;
+  primaryEmail: string | null;
+  emailAliases: string[];
+  integrationAccounts: IntegrationAccountDTO[];
+  found: boolean;
+  periodsMatched: number;
+}
+
 export default function PersonProfilePage() {
   const { t } = useT();
   const params = useParams<{ name: string }>();
+  const search = useSearchParams();
   const name = decodeURIComponent(params.name);
+  // Scope explícito: el detalle pertenece al proyecto del reporte, no al activo.
+  const projectId = search.get("projectId") ?? undefined;
+  // Clave de selección estable: incluye projectId para no reusar datos de otro
+  // proyecto ni de otra persona (evita mezclas / caché cruzada).
+  const selectionKey = `${projectId ?? "active"}::${name}`;
   const [profile, setProfile] = useState<PersonProfile | null>(null);
+  const [identity, setIdentity] = useState<IdentityDTO | null>(null);
+  const [metricStates, setMetricStates] = useState<Record<string, MetricValue> | null>(null);
+  const [evaluation, setEvaluation] = useState<EvaluationBreakdown | null>(null);
   const [confidence, setConfidence] = useState<EvaluationConfidence | null>(null);
   const [selfComparison, setSelfComparison] = useState<PersonSelfComparison | null>(null);
   const [verdict, setVerdict] = useState<GatedVerdictDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Clave a la que pertenecen los datos actualmente en estado. Si no coincide con
+  // la selección vigente, los datos son STALE y NO se renderizan (evita mostrar
+  // a otra persona durante la carga o el cambio de selección).
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [ai, setAi] = useState<string | null>(null);
   const [aiErr, setAiErr] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -62,17 +97,32 @@ export default function PersonProfilePage() {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
+    // Limpieza del estado anterior antes de renderizar el nuevo participante.
+    setProfile(null);
+    setIdentity(null);
+    setMetricStates(null);
+    setEvaluation(null);
+    setConfidence(null);
+    setSelfComparison(null);
+    setVerdict(null);
+    setAi(null);
+    setAiErr(null);
+    const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
     (async () => {
       try {
-        const res = await fetch(`/api/people/${encodeURIComponent(name)}`, {
+        const res = await fetch(`/api/people/${encodeURIComponent(name)}${qs}`, {
           signal: controller.signal,
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json.error ?? t("ws.people.loadError"));
         setProfile(json.profile);
+        setIdentity(json.identity ?? null);
+        setMetricStates(json.metricStates ?? null);
+        setEvaluation(json.evaluation ?? null);
         setConfidence(json.confidence ?? null);
         setSelfComparison(json.selfComparison ?? null);
         setVerdict(json.verdict ?? null);
+        setLoadedFor(selectionKey); // los datos ya pertenecen a esta selección
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         setError(err instanceof Error ? err.message : t("ws.people.netError"));
@@ -82,13 +132,14 @@ export default function PersonProfilePage() {
     })();
     return () => controller.abort();
     // `t` es estable (useMemo en el provider); sólo re-corre si cambia el idioma.
-  }, [name, t]);
+  }, [selectionKey, name, projectId, t]);
 
   async function coach() {
     setAiLoading(true);
     setAiErr(null);
     setAi(null);
-    const res = await fetch(`/api/people/${encodeURIComponent(name)}/coach`, {
+    const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+    const res = await fetch(`/api/people/${encodeURIComponent(name)}/coach${qs}`, {
       method: "POST",
     });
     const json = await res.json().catch(() => ({}));
@@ -97,8 +148,13 @@ export default function PersonProfilePage() {
     else setAiErr(json.error ?? t("ws.people.aiError"));
   }
 
-  if (loading)
-    return <p className="text-sm text-muted-foreground">{t("ws.people.loading")}</p>;
+  // Datos stale (de otra selección) o cargando → skeleton, NUNCA datos ajenos.
+  if (loading || loadedFor !== selectionKey)
+    return (
+      <p data-testid="person-loading" className="text-sm text-muted-foreground">
+        {t("ws.people.loading")}
+      </p>
+    );
   if (error)
     return (
       <div className="space-y-4">
@@ -116,6 +172,12 @@ export default function PersonProfilePage() {
       </div>
     );
 
+  // Nombre para MOSTRAR: el resuelto por la API (nunca el id crudo de la URL).
+  const displayName = profile.name || identity?.displayName || name;
+  // Formatea una métrica respetando su estado (§6): 0 real vs Sin datos vs No
+  // vinculada, etc. Nunca muestra "0" cuando en realidad faltan datos.
+  const mv = (key: string, raw: number): string =>
+    metricStates && metricStates[key] ? formatMetric(metricStates[key], t) : String(raw);
   const latest = profile.latest;
   const hypotheses = contextHypotheses(latest, t);
   const steps = coachingSteps(profile.tier, t);
@@ -142,10 +204,16 @@ export default function PersonProfilePage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-            {name.charAt(0).toUpperCase()}
+            {displayName.charAt(0).toUpperCase()}
           </span>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{name}</h1>
+            <h1
+              data-testid="person-name"
+              data-participant-id={identity?.participantId ?? ""}
+              className="text-2xl font-bold tracking-tight"
+            >
+              {displayName}
+            </h1>
             <p className="text-sm text-muted-foreground">
               {`${t("ws.people.perfProfilePrefix")} ${profile.points.length} ${t("ws.people.perfProfileSuffix")}`}
             </p>
@@ -189,6 +257,51 @@ export default function PersonProfilePage() {
             ))}
           </ul>
         </div>
+      )}
+
+      {/* Identidad / procedencia: quién es y por qué está vinculado así */}
+      {identity && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t("ws.people.identity.title")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex flex-wrap gap-x-6 gap-y-1">
+              <span className="text-muted-foreground">
+                {t("ws.people.identity.id")}:{" "}
+                <span className="font-mono text-[11px] text-foreground">
+                  {identity.participantId}
+                </span>
+              </span>
+              <span className="text-muted-foreground">
+                {t("ws.people.identity.email")}:{" "}
+                <span className="text-foreground">
+                  {identity.primaryEmail ?? t("ws.people.identity.noEmail")}
+                </span>
+              </span>
+            </div>
+            <div>
+              <p className="mb-1 text-xs font-medium">{t("ws.people.identity.accounts")}</p>
+              {identity.integrationAccounts.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("ws.people.identity.none")}
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {identity.integrationAccounts.map((a, i) => (
+                    <Badge key={i} variant={a.verified ? "success" : "warning"}>
+                      {a.provider}
+                      {a.externalUserId ? ` · ${a.externalUserId}` : ""} ·{" "}
+                      {a.verified
+                        ? t("ws.people.identity.verified")
+                        : t("ws.people.identity.suggested")}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Confianza de la evaluación + evolución vs período propio */}
@@ -334,14 +447,63 @@ export default function PersonProfilePage() {
             <CardTitle className="text-lg">{t("ws.people.lastSprint")}</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label={t("ws.people.done")} value={latest.tasksDone} />
-            <Stat label={t("ws.people.completedPoints")} value={latest.completedPoints} />
-            <Stat label={t("ws.people.wip")} value={latest.wip} />
-            <Stat label={t("ws.people.blocked")} value={latest.tasksBlocked} />
-            <Stat label={t("ws.people.prsMerged")} value={latest.prsMerged} />
-            <Stat label={t("ws.people.stale")} value={latest.tasksStale} />
-            <Stat label={t("ws.people.throughput")} value={latest.throughput} />
+            <Stat label={t("ws.people.done")} value={mv("tasksDone", latest.tasksDone)} />
+            <Stat label={t("ws.people.completedPoints")} value={mv("completedPoints", latest.completedPoints)} />
+            <Stat label={t("ws.people.wip")} value={mv("wip", latest.wip)} />
+            <Stat label={t("ws.people.blocked")} value={mv("tasksBlocked", latest.tasksBlocked)} />
+            <Stat label={t("ws.people.prsMerged")} value={mv("prsMerged", latest.prsMerged)} />
+            <Stat label={t("ws.people.stale")} value={mv("tasksStale", latest.tasksStale)} />
+            <Stat label={t("ws.people.throughput")} value={mv("throughput", latest.throughput)} />
             <Stat label={t("ws.people.trend")} value={profile.trend === "up" ? "▲" : profile.trend === "down" ? "▼" : "="} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Evaluación multidimensional (§8) */}
+      {evaluation && (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-lg">{t("ws.eval.dim.title")}</CardTitle>
+              {evaluation.sufficient && evaluation.overall != null && (
+                <Badge variant="secondary">
+                  {t("ws.eval.overall")}: {evaluation.overall}/100
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {!evaluation.sufficient && (
+              <p className="rounded-input bg-warning-soft px-3 py-2 text-warning">
+                {t("ws.eval.insufficient")}
+              </p>
+            )}
+            {evaluation.dimensions.map((d) => (
+              <div key={d.key}>
+                <div className="mb-1 flex justify-between text-xs">
+                  <span className="text-muted-foreground" title={d.formula}>
+                    {t(`ws.eval.dim.${d.key}`)}
+                  </span>
+                  <span className="font-medium">
+                    {d.available && d.score != null
+                      ? `${d.score}/100`
+                      : t("ws.eval.noData")}
+                  </span>
+                </div>
+                {d.available && d.score != null ? (
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={`h-full rounded-full ${
+                        d.score >= 70 ? "bg-success" : d.score >= 45 ? "bg-warning" : "bg-destructive"
+                      }`}
+                      style={{ width: `${d.score}%` }}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">{d.evidence[0]}</p>
+                )}
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}
@@ -382,7 +544,7 @@ export default function PersonProfilePage() {
         </Card>
       </div>
 
-      <PersonContextForm name={name} />
+      <PersonContextForm name={displayName} />
 
       {/* AI 1:1 (Pro) */}
       <Card>

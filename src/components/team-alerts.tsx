@@ -60,7 +60,9 @@ export function TeamAlerts({ projectId }: { projectId?: string }) {
                 {`${t("ws.alerts.severityPrefix")} ${a.severity}`}
               </Badge>
               <Link
-                href={`/people/${encodeURIComponent(a.name)}`}
+                href={`/people/${encodeURIComponent(a.name)}${
+                  projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""
+                }`}
                 className="font-medium hover:text-primary hover:underline"
               >
                 {a.name}

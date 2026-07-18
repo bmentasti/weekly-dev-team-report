@@ -595,7 +595,18 @@ export default function ReportPreviewPage() {
                           <td className="py-2 pr-3 text-muted-foreground">{p.rank}</td>
                           <td className="py-2 pr-3 font-medium">
                             <Link
-                              href={`/people/${encodeURIComponent(p.name)}`}
+                              // Selección por ID canónico ESTABLE (no por nombre)
+                              // + scope al proyecto del reporte, para que el
+                              // detalle corresponda exactamente a esta persona y
+                              // a este proyecto (evita colisiones de homónimos y
+                              // datos de otro proyecto).
+                              data-testid="participant-link"
+                              data-participant-id={p.id ?? p.name}
+                              href={`/people/${encodeURIComponent(p.id ?? p.name)}${
+                                report.projectId
+                                  ? `?projectId=${encodeURIComponent(report.projectId)}`
+                                  : ""
+                              }`}
                               className="hover:text-primary hover:underline"
                             >
                               {p.name}

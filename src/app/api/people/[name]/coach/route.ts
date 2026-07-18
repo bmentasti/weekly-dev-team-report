@@ -13,6 +13,9 @@ import {
   type AiType,
 } from "@/lib/reports/ai";
 import { computeTier, TIER_LABEL } from "@/lib/reports/people-profile";
+import { makeResolver } from "@/lib/reports/identity";
+import { getIdentityConfig } from "@/lib/reports/identity-store";
+import { selectParticipant } from "@/lib/reports/participant-detail";
 import type { PersonInsight, ReportMetrics } from "@/lib/reports/types";
 import { effectivePlan } from "@/lib/plans";
 import type { IntegrationType } from "@prisma/client";
@@ -20,14 +23,16 @@ import type { IntegrationType } from "@prisma/client";
 const AI_TYPES: AiType[] = ["ANTHROPIC", "OPENAI", "GEMINI", "COPILOT"];
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: { name: string } },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id)
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const project = await resolveActiveProject(session.user.id);
+  const explicitProjectId =
+    new URL(request.url).searchParams.get("projectId") ?? undefined;
+  const project = await resolveActiveProject(session.user.id, explicitProjectId);
   if (project && !(await canAccessPeople(session.user.id, project.workspaceId)))
     return NextResponse.json(
       { error: "Sin permiso para ver datos por persona." },
@@ -58,31 +63,45 @@ export async function POST(
       { status: 400 },
     );
 
-  const name = decodeURIComponent(params.name);
-  // Datos recientes de la persona.
-  const reports = await prisma.report.findMany({
-    where: { projectId: project.id },
-    orderBy: { periodEnd: "desc" },
-    take: 4,
-    select: { metrics: true },
-  });
+  const key = decodeURIComponent(params.name);
+  // Datos recientes de la persona, seleccionados por IDENTIDAD CANÓNICA (no por
+  // nombre crudo) para que la IA reciba el contexto de la persona correcta.
+  const [reports, identityConfig] = await Promise.all([
+    prisma.report.findMany({
+      where: { projectId: project.id },
+      orderBy: { periodEnd: "desc" },
+      take: 4,
+      select: { periodEnd: true, metrics: true },
+    }),
+    getIdentityConfig(project.id),
+  ]);
+  const resolve = makeResolver(identityConfig);
+  const { matches, participantId } = selectParticipant(
+    reports.map((r) => ({
+      periodEnd: r.periodEnd,
+      people: ((r.metrics as ReportMetrics | null)?.people ?? []) as PersonInsight[],
+    })),
+    key,
+    resolve,
+  );
   let latest: PersonInsight | null = null;
   const series: PersonInsight[] = [];
-  for (const r of reports) {
-    const m = r.metrics as ReportMetrics | null;
-    const person = m?.people?.find((p) => p.name === name);
-    if (person) {
-      if (!latest) latest = person;
-      series.push(person);
-    }
+  for (const { person } of matches) {
+    if (!latest) latest = person;
+    series.push(person);
   }
+  const name = latest?.name ?? key;
 
   const loaded = await loadConnectionContext(project.id, aiIntegration.type);
   if (!loaded)
     return NextResponse.json({ error: "No se pudo cargar la IA." }, { status: 400 });
 
   const question = `Actuá como People Manager con mirada humana y justa. NO uses etiquetas agresivas ni conclusiones definitivas sin evidencia repetida. Para ${name} (clasificación tentativa: ${TIER_LABEL[computeTier(latest)]}), devolvé: 1) posibles hipótesis de contexto, 2) un plan de acompañamiento 1:1 (preguntas + pasos), 3) objetivo medible para el próximo sprint. Basate solo en los datos.`;
-  const context = JSON.stringify({ persona: name, ultimosSprints: series });
+  const context = JSON.stringify({
+    participantId: participantId ?? key,
+    persona: name,
+    ultimosSprints: series,
+  });
 
   if (isAiDemo(loaded.ctx.config)) {
     return NextResponse.json({

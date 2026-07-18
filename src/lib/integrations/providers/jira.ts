@@ -40,7 +40,12 @@ export const jiraAdapter: ProviderAdapter = {
       title: i.summary,
       status: i.status,
       bucket: i.bucket,
-      assignee: i.assignee,
+      // §5: si la tarea está resuelta y hubo reasignaciones, se atribuye a quien
+      // era responsable al resolverse; si no, al assignee actual.
+      assignee:
+        i.bucket === "DONE" && i.assigneeAtResolution !== undefined
+          ? i.assigneeAtResolution
+          : i.assignee,
       priority: i.priority,
       isCritical: i.isCritical,
       isStale: i.isStale,
