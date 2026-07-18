@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Users, Merge, X, Sparkles } from "lucide-react";
+import { Users, Merge, X, Sparkles, Check, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,11 +14,23 @@ interface Person {
   rawHandles: string[];
 }
 
+interface Alias {
+  id: string;
+  source: string;
+  handle: string;
+  externalUserId?: string | null;
+  username?: string | null;
+  email?: string | null;
+  matchMethod: string;
+  confidence: number;
+  verified: boolean;
+}
+
 interface Identity {
   id: string;
   key: string;
   displayName: string;
-  aliases: { source: string; handle: string }[];
+  aliases: Alias[];
 }
 
 interface Suggestion {
@@ -61,6 +73,17 @@ export function IdentityManager({ projectId }: { projectId?: string }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ primaryId, displayName, mergeIds }),
+    });
+    setBusy(false);
+    await load();
+  }
+
+  async function aliasAction(action: "confirm" | "unlink", aliasId: string) {
+    setBusy(true);
+    await fetch(`/api/people/identities${qs}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, aliasId }),
     });
     setBusy(false);
     await load();
@@ -214,28 +237,72 @@ export function IdentityManager({ projectId }: { projectId?: string }) {
             <p className="mb-2 text-sm font-medium">{t("ws.identity.mergedTitle")}</p>
             <div className="space-y-2">
               {identities.map((idn) => (
-                <div
-                  key={idn.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-input border p-2 text-sm"
-                >
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{idn.displayName}</span>
-                    <Badge variant="secondary">
-                      {`${idn.aliases.length + 1} ${t("ws.identity.aliasesLabel")}`}
-                    </Badge>
-                    <span className="text-[11px] text-muted-foreground">
-                      {[idn.key, ...idn.aliases.map((a) => a.handle)].join(" · ")}
+                <div key={idn.id} className="rounded-input border p-2 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{idn.displayName}</span>
+                      <Badge variant="secondary">
+                        {`${idn.aliases.length + 1} ${t("ws.identity.aliasesLabel")}`}
+                      </Badge>
+                      <span className="text-[11px] text-muted-foreground">{idn.key}</span>
                     </span>
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => unmerge(idn)}
-                    disabled={busy}
-                  >
-                    <X className="mr-1 h-4 w-4" />
-                    {t("ws.identity.unmerge")}
-                  </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => unmerge(idn)}
+                      disabled={busy}
+                    >
+                      <X className="mr-1 h-4 w-4" />
+                      {t("ws.identity.unmerge")}
+                    </Button>
+                  </div>
+                  {idn.aliases.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {idn.aliases.map((a) => (
+                        <li
+                          key={a.id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-input bg-muted/40 px-2 py-1"
+                        >
+                          <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                            <span className="truncate font-mono text-[11px]">
+                              {a.source !== "*" ? `${a.source}:` : ""}
+                              {a.username || a.handle}
+                            </span>
+                            <Badge variant={a.verified ? "success" : "warning"}>
+                              {a.verified ? t("ws.identity.verified") : t("ws.identity.pending")}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">
+                              {a.matchMethod}
+                              {a.externalUserId ? ` · ${t("ws.identity.stableId")}` : ""}
+                              {` · ${Math.round((a.confidence ?? 1) * 100)}%`}
+                            </span>
+                          </span>
+                          <span className="flex items-center gap-1">
+                            {!a.verified && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => aliasAction("confirm", a.id)}
+                                disabled={busy}
+                              >
+                                <Check className="mr-1 h-3.5 w-3.5" />
+                                {t("ws.identity.confirm")}
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => aliasAction("unlink", a.id)}
+                              disabled={busy}
+                              title={t("ws.identity.unlinkAlias")}
+                            >
+                              <Unlink className="h-3.5 w-3.5" />
+                            </Button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ))}
             </div>

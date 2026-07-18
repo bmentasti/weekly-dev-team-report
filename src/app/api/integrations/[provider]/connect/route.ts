@@ -9,6 +9,12 @@ import { integrationAllowed, PLANS, effectivePlan } from "@/lib/plans";
 import { logAudit } from "@/lib/audit";
 import { getAdapter } from "@/lib/integrations/registry";
 import { parseConnectionBody } from "@/lib/integrations/connect-helpers";
+import {
+  classifySyncError,
+  classifySyncSuccess,
+  summarizeData,
+  type SyncClassification,
+} from "@/lib/integrations/health";
 import type { IntegrationType } from "@prisma/client";
 
 export async function POST(
@@ -111,23 +117,59 @@ export async function POST(
     return NextResponse.json({ ok: false, error: test.error }, { status: 200 });
   }
 
-  await prisma.integration.upsert({
-    where: { projectId_type: { projectId: project.id, type } },
-    update: {
-      status: "CONNECTED",
-      config,
-      // Solo se reescribe el token si el usuario ingresó uno nuevo.
-      ...(keepStoredToken ? {} : { encryptedAccessToken: encrypt(secret) }),
-    },
-    create: {
-      workspaceId: project.workspaceId,
-      projectId: project.id,
-      type,
-      status: "CONNECTED",
-      config,
-      encryptedAccessToken: encrypt(effectiveSecret),
-    },
-  });
+  // La auth OK NO alcanza para declarar la integración sana: probamos que
+  // realmente pueda RECUPERAR datos. El token ya es válido, así que persistimos
+  // igual, pero el estado refleja el acceso REAL (CONNECTED / PARTIALLY_SYNCED /
+  // PERMISSION_REQUIRED / …) junto con una acción recomendada si algo falta.
+  let health: SyncClassification = {
+    status: "CONNECTED",
+    lastErrorMessage: "",
+    recommendedAction: "",
+    missingPermissions: [],
+  };
+  const now = new Date();
+  const syncFields: Record<string, unknown> = { lastSyncAttemptAt: now };
+  try {
+    const probe = await adapter.fetchData({ config, secret: effectiveSecret });
+    const summary = summarizeData(probe);
+    health = classifySyncSuccess(summary, entry.label);
+    syncFields.recordsImported = summary.recordsImported;
+    syncFields.healthDetail = { ...summary, classifiedAt: now.toISOString() };
+    if (summary.recordsImported > 0) syncFields.lastSuccessfulSyncAt = now;
+  } catch (err) {
+    health = classifySyncError(err, entry.label);
+  }
+  syncFields.status = health.status;
+  syncFields.lastErrorMessage = health.lastErrorMessage || null;
+  syncFields.recommendedAction = health.recommendedAction || null;
+  syncFields.missingPermissions = health.missingPermissions;
+
+  // Best-effort: si el cliente de Prisma aún no conoce los campos de salud
+  // (falta migración), reintentamos con el subconjunto mínimo.
+  const baseCreate = {
+    workspaceId: project.workspaceId,
+    projectId: project.id,
+    type,
+    config,
+    encryptedAccessToken: encrypt(effectiveSecret),
+  };
+  const baseUpdate = {
+    config,
+    ...(keepStoredToken ? {} : { encryptedAccessToken: encrypt(secret) }),
+  };
+  try {
+    await prisma.integration.upsert({
+      where: { projectId_type: { projectId: project.id, type } },
+      update: { ...baseUpdate, ...syncFields } as never,
+      create: { ...baseCreate, ...syncFields } as never,
+    });
+  } catch {
+    await prisma.integration.upsert({
+      where: { projectId_type: { projectId: project.id, type } },
+      update: { ...baseUpdate, status: health.status } as never,
+      create: { ...baseCreate, status: health.status } as never,
+    });
+  }
 
   await logAudit({
     workspaceId: project.workspaceId,
@@ -135,7 +177,14 @@ export async function POST(
     actorName: session.user.name,
     action: "integration.connect",
     target: entry.label,
+    meta: { status: health.status, recordsImported: syncFields.recordsImported ?? null },
   });
 
-  return NextResponse.json({ ok: true, detail: test.detail });
+  return NextResponse.json({
+    ok: true,
+    detail: test.detail,
+    status: health.status,
+    recommendedAction: health.recommendedAction || undefined,
+    warning: health.status !== "CONNECTED" ? health.lastErrorMessage : undefined,
+  });
 }

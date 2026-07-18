@@ -8,6 +8,11 @@ import { useT } from "@/components/i18n-provider";
 
 type Row = Record<string, string>;
 
+interface Confidence {
+  score: number;
+  level: "low" | "medium" | "high";
+}
+
 export function TeamMatrix({ projectId }: { projectId?: string }) {
   const { t } = useT();
   const cols = [
@@ -17,6 +22,7 @@ export function TeamMatrix({ projectId }: { projectId?: string }) {
     t("ws.matrix.colParticipation"),
     t("ws.matrix.colOwnership"),
     t("ws.matrix.colEvolution"),
+    t("ws.matrix.colConfidence"),
     t("ws.matrix.colRisk"),
   ];
 
@@ -26,7 +32,14 @@ export function TeamMatrix({ projectId }: { projectId?: string }) {
     return <Badge variant="secondary">{t("ws.matrix.riskLow")}</Badge>;
   }
 
+  function confBadge(level?: string) {
+    const v = level ?? "medium";
+    const variant = v === "high" ? "success" : v === "low" ? "warning" : "secondary";
+    return <Badge variant={variant}>{t(`ws.people.confidence.${v}`)}</Badge>;
+  }
+
   const [rows, setRows] = useState<Row[]>([]);
+  const [confidence, setConfidence] = useState<Confidence | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -36,7 +49,11 @@ export function TeamMatrix({ projectId }: { projectId?: string }) {
       const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
       const res = await fetch(`/api/people/matrix${qs}`);
       if (!active) return;
-      if (res.ok) setRows((await res.json()).rows ?? []);
+      if (res.ok) {
+        const json = await res.json();
+        setRows(json.rows ?? []);
+        setConfidence(json.confidence ?? null);
+      }
       setLoaded(true);
     })();
     return () => {
@@ -50,7 +67,23 @@ export function TeamMatrix({ projectId }: { projectId?: string }) {
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="text-lg">{t("ws.matrix.title")}</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle className="text-lg">{t("ws.matrix.title")}</CardTitle>
+            {confidence && (
+              <Badge
+                variant={
+                  confidence.level === "high"
+                    ? "success"
+                    : confidence.level === "low"
+                      ? "warning"
+                      : "secondary"
+                }
+                title={`${t("ws.matrix.dataConfidence")}: ${confidence.score}/100`}
+              >
+                {t("ws.matrix.dataConfidence")}: {t(`ws.people.confidence.${confidence.level}`)}
+              </Badge>
+            )}
+          </div>
           <Button variant="outline" size="sm" asChild>
             <a
               href={`/api/people/matrix/export${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""}`}
@@ -61,6 +94,11 @@ export function TeamMatrix({ projectId }: { projectId?: string }) {
         </div>
       </CardHeader>
       <CardContent>
+        {confidence?.level === "low" && rows.length > 0 && (
+          <p className="mb-3 rounded-input border border-warning/40 bg-warning-soft px-3 py-2 text-sm text-warning">
+            {t("ws.matrix.lowConfidence")}
+          </p>
+        )}
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {t("ws.matrix.empty")}
@@ -86,6 +124,7 @@ export function TeamMatrix({ projectId }: { projectId?: string }) {
                     <td className="py-2 pr-4">{r["Participación"]}</td>
                     <td className="py-2 pr-4">{r.Ownership}</td>
                     <td className="py-2 pr-4">{r["Evolución"]}</td>
+                    <td className="py-2 pr-4">{confBadge(r._conf)}</td>
                     <td className="py-2 pr-4">{riskBadge(r.Riesgo)}</td>
                   </tr>
                 ))}

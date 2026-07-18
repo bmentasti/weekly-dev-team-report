@@ -1,3 +1,4 @@
+import { fetchWithRetry } from "@/lib/http";
 import { normalizePr } from "./classify";
 import type {
   ChecksState,
@@ -22,7 +23,8 @@ async function ghFetch(
   token: string,
   init?: RequestInit,
 ): Promise<Response> {
-  return fetch(`${API}${path}`, {
+  // fetchWithRetry: timeout duro + backoff en 429/5xx respetando X-RateLimit-Reset.
+  return fetchWithRetry(`${API}${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,

@@ -15,10 +15,19 @@ export async function loadConnectionContext(
     where: { projectId_type: { projectId, type } },
   });
 
+  // Estados "usables": hay token y la conexión no está desactivada. Se intenta
+  // el fetch incluso en PARTIALLY_SYNCED / SYNCING / RATE_LIMITED porque pueden
+  // haberse recuperado; el resultado real del sync re-clasifica el estado.
+  const USABLE: string[] = [
+    "CONNECTED",
+    "PARTIALLY_SYNCED",
+    "SYNCING",
+    "RATE_LIMITED",
+  ];
   if (
     !integration ||
     !integration.encryptedAccessToken ||
-    integration.status !== "CONNECTED"
+    !USABLE.includes(integration.status as string)
   ) {
     return null;
   }

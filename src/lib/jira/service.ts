@@ -1,3 +1,4 @@
+import { fetchWithRetry } from "@/lib/http";
 import { normalizeIssue } from "./classify";
 import type {
   JiraConnectionConfig,
@@ -61,7 +62,10 @@ async function jiraFetch(
   init?: RequestInit,
 ): Promise<Response> {
   const url = `${base}${path}`;
-  return fetch(url, {
+  // fetchWithRetry agrega timeout duro + exponential backoff en 429/5xx y respeta
+  // Retry-After. La búsqueda de Jira (POST /search) es idempotente, así que es
+  // seguro reintentarla.
+  return fetchWithRetry(url, {
     ...init,
     headers: {
       Authorization: authHeader(email, apiToken),

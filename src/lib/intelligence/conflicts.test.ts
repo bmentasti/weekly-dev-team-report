@@ -44,6 +44,19 @@ describe("detectWorkConflicts", () => {
     expect(c!.severity).toBe("high");
   });
 
+  it("tarea hecha con código sin mergear (PR cerrado sin merge) → done_without_merged_code", () => {
+    const g = group({
+      key: "DEV-9",
+      signals: [
+        { kind: "work_item", source: "jira", externalId: "DEV-9", title: "t", url: "u", bucket: "DONE" },
+        { kind: "code_change", source: "github", externalId: "9", title: "DEV-9", url: "u", codeState: "CLOSED" },
+      ],
+    });
+    const c = detectWorkConflicts([g]).find((x) => x.type === "done_without_merged_code");
+    expect(c).toBeDefined();
+    expect(c!.severity).toBe("high");
+  });
+
   it("tarea sana con PR mergeado y sin checks fallando → sin conflicto", () => {
     const g = group({
       key: "DEV-4",

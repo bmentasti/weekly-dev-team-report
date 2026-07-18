@@ -35,12 +35,23 @@ import {
   sustainedLow,
   type PersonProfile,
 } from "@/lib/reports/people-profile";
+import type { EvaluationConfidence } from "@/lib/reports/evaluation-confidence";
+import type { PersonSelfComparison } from "@/lib/reports/person-history";
+
+interface GatedVerdictDTO {
+  show: boolean;
+  tier: string | null;
+  fixFirst: string[];
+}
 
 export default function PersonProfilePage() {
   const { t } = useT();
   const params = useParams<{ name: string }>();
   const name = decodeURIComponent(params.name);
   const [profile, setProfile] = useState<PersonProfile | null>(null);
+  const [confidence, setConfidence] = useState<EvaluationConfidence | null>(null);
+  const [selfComparison, setSelfComparison] = useState<PersonSelfComparison | null>(null);
+  const [verdict, setVerdict] = useState<GatedVerdictDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ai, setAi] = useState<string | null>(null);
@@ -59,6 +70,9 @@ export default function PersonProfilePage() {
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json.error ?? t("ws.people.loadError"));
         setProfile(json.profile);
+        setConfidence(json.confidence ?? null);
+        setSelfComparison(json.selfComparison ?? null);
+        setVerdict(json.verdict ?? null);
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         setError(err instanceof Error ? err.message : t("ws.people.netError"));
@@ -121,14 +135,133 @@ export default function PersonProfilePage() {
             </p>
           </div>
         </div>
-        <Badge variant={tierVariant(profile.tier)}>
-          {t(`lib.tier.${profile.tier}`)}
-        </Badge>
+        <div className="flex items-center gap-2">
+          {confidence && (
+            <Badge
+              variant={
+                confidence.level === "high"
+                  ? "success"
+                  : confidence.level === "medium"
+                    ? "secondary"
+                    : "warning"
+              }
+              title={`${t("ws.people.confidence.title")}: ${confidence.score}/100`}
+            >
+              {t("ws.people.confidence.title")}: {t(`ws.people.confidence.${confidence.level}`)}
+            </Badge>
+          )}
+          {/* Con confianza baja NO se muestra veredicto categórico (spec §7). */}
+          {(!verdict || verdict.show) && (
+            <Badge variant={tierVariant(profile.tier)}>
+              {t(`lib.tier.${profile.tier}`)}
+            </Badge>
+          )}
+        </div>
       </div>
 
       <p className="rounded-input bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
         {t("ws.people.disclaimer")}
       </p>
+
+      {/* Confianza baja: en vez de un veredicto categórico, qué corregir. */}
+      {verdict && !verdict.show && verdict.fixFirst.length > 0 && (
+        <div className="rounded-input border border-warning/40 bg-warning-soft px-3 py-2 text-sm text-warning">
+          <p className="font-medium">{t("ws.people.confidence.lowVerdict")}</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+            {verdict.fixFirst.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Confianza de la evaluación + evolución vs período propio */}
+      {(confidence || selfComparison?.comparable) && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {confidence && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t("ws.people.confidence.title")}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <ConfBar label={t("ws.people.confidence.mapping")} value={confidence.participantMappingCoverage} />
+                <ConfBar label={t("ws.people.confidence.completeness")} value={confidence.dataCompleteness} />
+                <ConfBar label={t("ws.people.confidence.traceability")} value={confidence.traceabilityCoverage} />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <span className="text-xs text-muted-foreground">
+                    {t("ws.people.confidence.connected")}:
+                  </span>
+                  {confidence.connectedIntegrations.length ? (
+                    confidence.connectedIntegrations.map((c) => (
+                      <Badge key={c} variant="success">
+                        {t(`ws.eval.cat.${c}`)}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {t("ws.people.confidence.none")}
+                    </span>
+                  )}
+                </div>
+                {confidence.missingIntegrations.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs text-muted-foreground">
+                      {t("ws.people.confidence.missing")}:
+                    </span>
+                    {confidence.missingIntegrations.map((c) => (
+                      <Badge key={c} variant="warning">
+                        {t(`ws.eval.cat.${c}`)}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {selfComparison?.comparable && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  {t("ws.people.self.title")}
+                  <Badge
+                    variant={
+                      selfComparison.trend === "up"
+                        ? "success"
+                        : selfComparison.trend === "down"
+                          ? "warning"
+                          : "secondary"
+                    }
+                  >
+                    {t(`ws.people.self.${selfComparison.trend}`)}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1.5 text-sm">
+                {selfComparison.deltas.map((d) => (
+                  <div key={d.metric} className="flex items-center justify-between">
+                    <span className="text-muted-foreground">
+                      {t(`ws.people.${metricKey(d.metric)}`)}
+                    </span>
+                    <span
+                      className={
+                        d.sentiment === "good"
+                          ? "text-success"
+                          : d.sentiment === "bad"
+                            ? "text-destructive"
+                            : "text-muted-foreground"
+                      }
+                    >
+                      {d.previous} → {d.current}{" "}
+                      {d.direction === "up" ? "▲" : d.direction === "down" ? "▼" : "="}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {sustained && (
         <p
@@ -270,4 +403,37 @@ function Stat({ label, value }: { label: string; value: string | number }) {
       <div className="text-xs text-muted-foreground">{label}</div>
     </div>
   );
+}
+
+/** Barra 0..1 para una dimensión de confianza. */
+function ConfBar({ label, value }: { label: string; value: number }) {
+  const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
+  const tone = pct >= 70 ? "bg-success" : pct >= 45 ? "bg-warning" : "bg-destructive";
+  return (
+    <div>
+      <div className="mb-1 flex justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-medium">{pct}%</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className={`h-full rounded-full ${tone}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/** Mapea la métrica del delta a la clave i18n existente de ws.people.*. */
+function metricKey(metric: string): string {
+  switch (metric) {
+    case "tasksDone":
+      return "done";
+    case "completedPoints":
+      return "completedPoints";
+    case "blocked":
+      return "blocked";
+    case "stale":
+      return "stale";
+    default:
+      return "throughput";
+  }
 }

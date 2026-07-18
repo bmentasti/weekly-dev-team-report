@@ -18,6 +18,25 @@
 // una app no duplica a una persona ya conocida siempre que su handle normalice
 // al mismo canónico o exista un alias que lo mapee.
 
+/**
+ * Cómo se estableció (o intentó establecer) la asociación de una identidad
+ * externa con una persona canónica. El ORDEN de intento definido por el spec es:
+ *   1. email_exact  — coincidencia exacta con el email principal.
+ *   2. email_alias  — coincidencia con un email alternativo.
+ *   3. provider_id  — vinculación ya confirmada por ID estable del proveedor.
+ *   4. username     — coincidencia por username/handle idéntico (determinista).
+ *   5. suggested    — sugerida por nombre/username (NUNCA se auto-vincula).
+ *   6. manual       — vinculación manual de un administrador.
+ * `suggested` queda SIEMPRE pendiente de confirmación: no participa del auto-link.
+ */
+export type MatchMethod =
+  | "email_exact"
+  | "email_alias"
+  | "manual"
+  | "provider_id"
+  | "username"
+  | "suggested";
+
 export interface PersonRef {
   /** Slug del provider (github, airtable, ...) o null si se desconoce. */
   source: string | null;
@@ -29,6 +48,12 @@ export interface PersonRef {
    * cualquier app), con prioridad sobre la heurística de nombre.
    */
   email?: string | null;
+  /**
+   * ID ESTABLE del proveedor (GitHub numeric id, Jira accountId, Airtable rec…).
+   * Si hay un alias confirmado con este ID, tiene MÁXIMA prioridad y evita
+   * re-matchear por email/nombre en cada sync (el username puede cambiar).
+   */
+  externalUserId?: string | null;
 }
 
 export interface ResolvedIdentity {
@@ -36,6 +61,10 @@ export interface ResolvedIdentity {
   id: string;
   /** Nombre para mostrar (amigable). */
   name: string;
+  /** Cómo se resolvió (metadato; opcional para retro-compat). */
+  matchMethod?: MatchMethod;
+  /** Confianza de la resolución 0..1 (metadato; opcional). */
+  confidence?: number;
 }
 
 /** Una identidad canónica declarada (fila de PersonIdentity). */
@@ -55,6 +84,18 @@ export interface AliasRecord {
   canonicalId: string;
   /** Nombre para mostrar de la identidad destino. */
   displayName: string;
+  /** ID estable del proveedor, si se confirmó (clave preferida en cada sync). */
+  externalUserId?: string | null;
+  /** Cómo se creó la asociación. `undefined` se trata como confirmada (retro-compat). */
+  matchMethod?: MatchMethod;
+  /** Confianza de la asociación 0..1. */
+  confidence?: number;
+  /**
+   * Si la asociación está confirmada. Las SUGERENCIAS (verified === false) NO se
+   * incluyen en el auto-link: quedan pendientes de confirmación de un admin.
+   * `undefined` se trata como confirmada (retro-compat con alias previos).
+   */
+  verified?: boolean;
 }
 
 export interface IdentityConfig {
@@ -105,9 +146,12 @@ const ANY = "*";
  * resolver es puro y determinista.
  */
 export function makeResolver(config: IdentityConfig) {
-  // Mapa de lookup → { id, name }. Se indexan varias formas por alias para que
-  // tanto el handle crudo como su ID derivado apunten a la misma identidad.
+  // Mapa de lookup por handle → { id, name }. Se indexan varias formas por alias
+  // para que tanto el handle crudo como su ID derivado apunten a la misma identidad.
   const lookup = new Map<string, ResolvedIdentity>();
+  // Lookup por ID ESTABLE del proveedor: `${source}::id::${externalUserId}`.
+  // Es la clave preferida una vez confirmada la identidad externa.
+  const byProviderId = new Map<string, ResolvedIdentity>();
   // Nombre para mostrar por clave canónica (para handles primarios sin alias).
   const nameByKey = new Map<string, string>();
 
@@ -116,12 +160,27 @@ export function makeResolver(config: IdentityConfig) {
   }
 
   for (const a of config.aliases) {
+    // Las sugerencias sin confirmar NO se auto-vinculan: quedan pendientes de
+    // que un admin las confirme. `undefined` = confirmada (retro-compat).
+    if (a.verified === false) continue;
+
+    const src = a.source || ANY;
     const target: ResolvedIdentity = {
       id: a.canonicalId,
       name: (a.displayName || nameByKey.get(a.canonicalId) || a.handle).trim(),
+      matchMethod: a.matchMethod ?? "manual",
+      confidence: a.confidence ?? 1,
     };
+
+    // Índice por ID estable del proveedor (máxima prioridad, source-específico
+    // y también wildcard para lecturas sin saber la app).
+    const extId = (a.externalUserId ?? "").trim();
+    if (extId) {
+      byProviderId.set(`${src}::id::${extId}`, { ...target, matchMethod: "provider_id" });
+      byProviderId.set(`${ANY}::id::${extId}`, { ...target, matchMethod: "provider_id" });
+    }
+
     const norm = normalizeHandle(a.handle);
-    const src = a.source || ANY;
     // Distintas formas bajo las que puede llegar el mismo handle.
     const keys = new Set<string>([
       `${src}::${norm}`,
@@ -135,11 +194,21 @@ export function makeResolver(config: IdentityConfig) {
   return function resolve(ref: PersonRef): ResolvedIdentity {
     const raw = (ref.handle ?? "").trim();
     const email = (ref.email ?? "").trim().toLowerCase();
-    if (!raw && !email) return { id: "", name: "" };
+    const extId = (ref.externalUserId ?? "").trim();
+    if (!raw && !email && !extId) return { id: "", name: "" };
     const norm = normalizeHandle(raw);
     const src = ref.source ?? null;
 
-    // 1) Alias explícito (por handle, por email, o por id derivado).
+    // 0) ID ESTABLE del proveedor (identidad externa YA confirmada). Tiene
+    // prioridad sobre email/nombre: el username puede cambiar entre syncs.
+    if (extId) {
+      const pid =
+        byProviderId.get(`${src ?? ANY}::id::${extId}`) ??
+        byProviderId.get(`${ANY}::id::${extId}`);
+      if (pid) return { ...pid };
+    }
+
+    // 1) Alias explícito confirmado (por handle, por email, o por id derivado).
     let hit: ResolvedIdentity | undefined;
     if (norm)
       hit =
@@ -153,12 +222,24 @@ export function makeResolver(config: IdentityConfig) {
     // 2) EMAIL = clave universal. Mismo email ⇒ misma persona en cualquier app.
     if (email && EMAIL_RE.test(email)) {
       const id = `email:${email}`;
-      return { id, name: nameByKey.get(id) ?? (raw || email) };
+      return {
+        id,
+        name: nameByKey.get(id) ?? (raw || email),
+        matchMethod: "email_exact",
+        confidence: 1,
+      };
     }
 
-    // 3) Sin email ni alias: ID canónico determinista por nombre/handle.
+    // 3) Sin email ni alias: ID canónico determinista por handle/username
+    // idéntico. Esto agrupa SOLO el mismo handle normalizado (bajo riesgo); NO
+    // vincula nombres parecidos (eso es "suggested" y requiere confirmación).
     const id = deriveId(raw);
-    return { id, name: nameByKey.get(id) ?? raw };
+    return {
+      id,
+      name: nameByKey.get(id) ?? raw,
+      matchMethod: "username",
+      confidence: 0.9,
+    };
   };
 }
 

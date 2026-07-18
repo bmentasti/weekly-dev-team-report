@@ -109,6 +109,28 @@ export function detectWorkConflicts(groups: WorkGroup[]): DataConflict[] {
       });
     }
 
+    // Tarea "hecha" con código que existe pero NO se mergeó ni quedó abierto
+    // (p. ej. único PR cerrado sin merge): "Done" no equivale a entregado.
+    if (isDone && codeChanges.length > 0 && !hasMerged && !hasOpenCode) {
+      conflicts.push({
+        type: "done_without_merged_code",
+        severity: "high",
+        entities: [g.key],
+        sources,
+        conflictingValues: [
+          { source: wi.source, value: "DONE" },
+          { source: "code", value: "sin merge (PR cerrado sin mergear)" },
+        ],
+        prioritySource: priority,
+        ruleApplied: "'Done' no equivale a entregado: no hay código mergeado que respalde el cierre",
+        confidence: g.confidence,
+        recommendedAction:
+          "Confirmar cómo se entregó el trabajo: si el PR se descartó, reabrir el ticket o documentar la evidencia real.",
+        status: "DETECTED",
+        detectedAt: nowISO(),
+      });
+    }
+
     // PR abierto con tarea cerrada (código pendiente)
     if (isDone && hasOpenCode) {
       conflicts.push({

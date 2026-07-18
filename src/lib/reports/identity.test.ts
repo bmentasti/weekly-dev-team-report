@@ -91,4 +91,91 @@ describe("identity resolver", () => {
     const b = r({ source: "jira", handle: "Juan Pérez", email: "juan2@acme.com" });
     expect(a.id).not.toBe(b.id);
   });
+
+  it("el ID ESTABLE del proveedor tiene prioridad y sobrevive un cambio de username", () => {
+    const r = makeResolver({
+      identities: [{ key: "person-1", displayName: "Ana Díaz" }],
+      aliases: [
+        {
+          source: "github",
+          handle: "12345", // handle = id estable
+          canonicalId: "person-1",
+          displayName: "Ana Díaz",
+          externalUserId: "12345",
+          matchMethod: "provider_id",
+          verified: true,
+        },
+      ],
+    });
+    // El username cambió (anadiaz → ana-d) pero el id estable NO. Debe resolver igual.
+    const before = r({ source: "github", handle: "anadiaz", externalUserId: "12345" });
+    const after = r({ source: "github", handle: "ana-d", externalUserId: "12345" });
+    expect(before.id).toBe("person-1");
+    expect(after.id).toBe("person-1");
+    expect(after.matchMethod).toBe("provider_id");
+  });
+
+  it("una sugerencia SIN confirmar (verified=false) NO se auto-vincula", () => {
+    const r = makeResolver({
+      identities: [{ key: "person-1", displayName: "Ana Díaz" }],
+      aliases: [
+        {
+          source: "github",
+          handle: "ana.d",
+          canonicalId: "person-1",
+          displayName: "Ana Díaz",
+          matchMethod: "suggested",
+          confidence: 0.7,
+          verified: false, // pendiente de confirmación
+        },
+      ],
+    });
+    // Como la sugerencia no está confirmada, "ana.d" resuelve a su propio id,
+    // NO a person-1.
+    const hit = r({ source: "github", handle: "ana.d" });
+    expect(hit.id).not.toBe("person-1");
+    expect(hit.id).toBe("ana.d");
+  });
+
+  it("una sugerencia YA confirmada (verified=true) sí vincula", () => {
+    const r = makeResolver({
+      identities: [{ key: "person-1", displayName: "Ana Díaz" }],
+      aliases: [
+        {
+          source: "github",
+          handle: "ana.d",
+          canonicalId: "person-1",
+          displayName: "Ana Díaz",
+          matchMethod: "suggested",
+          confidence: 0.7,
+          verified: true,
+        },
+      ],
+    });
+    expect(r({ source: "github", handle: "ana.d" }).id).toBe("person-1");
+  });
+
+  it("resuelve por email alternativo declarado como alias", () => {
+    const r = makeResolver({
+      identities: [{ key: "person-1", displayName: "Ana Díaz" }],
+      aliases: [
+        {
+          source: "*",
+          handle: "email:ana.personal@gmail.com",
+          canonicalId: "person-1",
+          displayName: "Ana Díaz",
+          matchMethod: "email_alias",
+          verified: true,
+        },
+      ],
+    });
+    const hit = r({ source: "jira", handle: "whatever", email: "ana.personal@gmail.com" });
+    expect(hit.id).toBe("person-1");
+  });
+
+  it("expone matchMethod=email_exact al resolver por email universal", () => {
+    const r = makeResolver({ identities: [], aliases: [] });
+    const hit = r({ source: "jira", handle: "ana", email: "ana@acme.com" });
+    expect(hit.matchMethod).toBe("email_exact");
+  });
 });

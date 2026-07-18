@@ -9,6 +9,13 @@ import {
   type PersonProfile,
   type PersonSprintPoint,
 } from "@/lib/reports/people-profile";
+import {
+  computeEvaluationConfidence,
+  participantMappingCoverage,
+  traceabilityCoverage,
+  gateVerdict,
+} from "@/lib/reports/evaluation-confidence";
+import { comparePersonToSelf, type PersonHistoryPoint } from "@/lib/reports/person-history";
 import type { PersonInsight, ReportMetrics } from "@/lib/reports/types";
 
 export async function GET(
@@ -39,8 +46,10 @@ export async function GET(
 
   const points: PersonSprintPoint[] = [];
   let latest: PersonInsight | null = null;
+  let latestMetrics: ReportMetrics | null = null;
   for (const r of reports) {
     const m = r.metrics as ReportMetrics | null;
+    if (m) latestMetrics = m; // último reporte con métricas (orden asc)
     const person = m?.people?.find((p) => p.name === name);
     if (!person) continue;
     latest = person;
@@ -65,12 +74,59 @@ export async function GET(
     trend = a > b ? "up" : a < b ? "down" : "flat";
   }
 
+  const tier = computeTier(latest);
   const profile: PersonProfile = {
     name,
     points,
     latest,
-    tier: computeTier(latest),
+    tier,
     trend,
   };
-  return NextResponse.json({ profile });
+
+  // --- Confianza de la evaluación (spec §7) ---
+  const people = latestMetrics?.people ?? [];
+  const sources = (latestMetrics?.sources ?? []).map((s) => String(s));
+  // Completitud (proxy honesto): fracción de grupos de métricas con datos.
+  const groupsWithData = latestMetrics
+    ? [
+        (latestMetrics.workItems?.total ?? 0) > 0,
+        (latestMetrics.codeChanges?.total ?? 0) > 0,
+        (latestMetrics.ci?.total ?? 0) > 0,
+        (latestMetrics.quality?.bugs ?? 0) > 0,
+      ].filter(Boolean).length / 4
+    : 0;
+  const confidence = computeEvaluationConfidence({
+    connectedProviders: sources,
+    requiredCategories: ["planning", "code"],
+    participantMappingCoverage: participantMappingCoverage(people),
+    dataCompleteness: groupsWithData,
+    traceabilityCoverage: traceabilityCoverage(people),
+  });
+
+  // Comparación contra el PROPIO historial (spec §6: self > ranking entre pares).
+  const historyPoints: PersonHistoryPoint[] = points.map((p) => ({
+    label: p.label,
+    tasksDone: p.tasksDone,
+    throughput: p.throughput,
+    completedPoints: p.completedPoints,
+    blocked: p.blocked,
+    stale: p.stale,
+    tier: p.tier,
+  }));
+  const selfComparison = comparePersonToSelf(historyPoints);
+
+  // Compuerta: con confianza baja NO se muestra veredicto categórico; en su
+  // lugar, qué datos corregir/completar primero.
+  const gated = gateVerdict(tier, confidence);
+
+  return NextResponse.json({
+    profile,
+    confidence,
+    selfComparison,
+    verdict: {
+      show: gated.show,
+      tier: gated.show ? tier : null,
+      fixFirst: gated.fixFirst,
+    },
+  });
 }

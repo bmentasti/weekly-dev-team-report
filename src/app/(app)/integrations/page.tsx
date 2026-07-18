@@ -20,8 +20,29 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { IntegrationStatus } from "@prisma/client";
+import type { SyncStatus } from "@/lib/integrations/health";
+import {
+  STATUS_LABEL_KEY,
+  statusTone,
+  TONE_DOT,
+  TONE_TEXT,
+} from "@/lib/integrations/status-display";
 import { getT } from "@/lib/i18n/server";
+
+// Los campos de salud del sync son nuevos en el modelo; hasta correr
+// `prisma generate`/`db push` el cliente puede no tiparlos, así que los leemos
+// vía una vista extendida opcional (best-effort).
+type IntegrationHealth = {
+  status: string;
+  updatedAt: Date;
+  lastSuccessfulSyncAt?: Date | null;
+  recordsImported?: number | null;
+  participantsLinked?: number | null;
+  unassociatedRecords?: number | null;
+  pendingIdentities?: number | null;
+  recommendedAction?: string | null;
+  lastErrorMessage?: string | null;
+};
 
 const BRAND_COLOR: Record<ProviderSlug, string> = {
   jira: "#2563FF",
@@ -110,10 +131,28 @@ export default async function IntegrationsPage() {
   })).filter((g) => g.items.length > 0);
 
   const renderCard = (p: ProviderCatalogEntry) => {
-    const integration = byType.get(p.type);
-    const status = integration?.status as IntegrationStatus | undefined;
-    const connected = status === "CONNECTED";
-    const errored = status === "ERROR";
+    const integration = byType.get(p.type) as IntegrationHealth | undefined;
+    // status es string en DB; lo tratamos como SyncStatus (11 estados) en vez de
+    // la enum generada, que puede no incluir los nuevos hasta `prisma generate`.
+    const status = integration?.status as SyncStatus | undefined;
+    // "Operativo" = puede usarse para reportes (trae datos). Los estados nuevos
+    // (SYNCING/PARTIALLY_SYNCED/RATE_LIMITED) siguen siendo usables.
+    const isConnectedFamily =
+      status === "CONNECTED" ||
+      status === "SYNCING" ||
+      status === "PARTIALLY_SYNCED" ||
+      status === "RATE_LIMITED";
+    const connected = isConnectedFamily; // muestra acciones de configurar/ver datos
+    const tone = status ? statusTone(status) : "muted";
+    const statusLabel = status
+      ? t(STATUS_LABEL_KEY[status])
+      : t("ws.integrations.notConnected");
+    const records = integration?.recordsImported ?? null;
+    const linked = integration?.participantsLinked ?? null;
+    const unassociated = integration?.unassociatedRecords ?? null;
+    const pending = integration?.pendingIdentities ?? null;
+    const lastOk = integration?.lastSuccessfulSyncAt ?? null;
+    const action = integration?.recommendedAction ?? null;
     const allowed = integrationAllowed(plan, p.type);
     return (
       <Card key={p.slug} className="flex flex-col">
@@ -132,37 +171,47 @@ export default async function IntegrationsPage() {
             <p className="text-sm text-muted-foreground">{p.blurb}</p>
           </div>
           <div className="mt-auto">
-            <div className="mb-3 flex items-center gap-2 text-sm">
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  connected
-                    ? "bg-success"
-                    : errored
-                      ? "bg-destructive"
-                      : "bg-muted-foreground/40"
-                }`}
-              />
-              <span
-                className={
-                  connected
-                    ? "text-success"
-                    : errored
-                      ? "text-destructive"
-                      : "text-muted-foreground"
-                }
-              >
-                {connected
-                  ? t("ws.integrations.connected")
-                  : errored
-                    ? t("ws.integrations.error")
-                    : t("ws.integrations.notConnected")}
-              </span>
-              {integration && connected && (
+            <div className="mb-1 flex flex-wrap items-center gap-2 text-sm">
+              <span className={`h-2 w-2 rounded-full ${TONE_DOT[tone]}`} />
+              <span className={TONE_TEXT[tone]}>{statusLabel}</span>
+              {integration && lastOk && (
                 <span className="text-xs text-muted-foreground">
-                  · sync {timeAgo(integration.updatedAt, t)}
+                  · {t("ws.integrations.lastSuccess")} {timeAgo(lastOk, t)}
+                </span>
+              )}
+              {integration && !lastOk && status && isConnectedFamily && (
+                <span className="text-xs text-muted-foreground">
+                  · {t("ws.integrations.noSuccessYet")}
                 </span>
               )}
             </div>
+            {integration && records != null && (
+              <div className="mb-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                <span>
+                  {records.toLocaleString()} {t("ws.integrations.records")}
+                </span>
+                {linked != null && linked > 0 && (
+                  <span>
+                    {linked} {t("ws.integrations.linked")}
+                  </span>
+                )}
+                {pending != null && pending > 0 && (
+                  <span className="text-warning">
+                    {pending} {t("ws.integrations.pending")}
+                  </span>
+                )}
+                {unassociated != null && unassociated > 0 && (
+                  <span className="text-warning">
+                    {unassociated} {t("ws.integrations.unassociated")}
+                  </span>
+                )}
+              </div>
+            )}
+            {action && (
+              <p className="mb-3 rounded-input bg-warning-soft px-2 py-1 text-[11px] leading-snug text-warning">
+                <span className="font-medium">{t("ws.integrations.action")}:</span> {action}
+              </p>
+            )}
             {!p.enabled ? (
               <Button variant="outline" size="sm" className="w-full" disabled>
                 {t("ws.integrations.comingSoon")}
@@ -320,11 +369,9 @@ export default async function IntegrationsPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">
                         {p?.label} —{" "}
-                        {i.status === "CONNECTED"
-                          ? t("ws.integrations.syncComplete")
-                          : i.status === "ERROR"
-                            ? t("ws.integrations.syncFailed")
-                            : t("ws.integrations.syncDisconnected")}
+                        <span className={TONE_TEXT[statusTone(i.status as SyncStatus)]}>
+                          {t(STATUS_LABEL_KEY[i.status as SyncStatus])}
+                        </span>
                       </p>
                     </div>
                     <span className="text-xs text-muted-foreground">

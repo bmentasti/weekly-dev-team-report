@@ -21,6 +21,99 @@ export class HttpTimeoutError extends Error {
 }
 
 /**
+ * Error HTTP con status. Lo usan los adapters (vía `fetchWithRetry`/`assertOk`)
+ * para que la capa de salud pueda clasificar 401/403/429/5xx sin parsear texto.
+ */
+export class HttpError extends Error {
+  status: number;
+  retryAfterMs: number | null;
+  constructor(status: number, message: string, retryAfterMs: number | null = null) {
+    super(message);
+    this.name = "HttpError";
+    this.status = status;
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+/** Lee Retry-After (segundos o fecha) y headers de rate limit → ms de espera. */
+export function retryAfterMs(res: Response): number | null {
+  const ra = res.headers.get("retry-after");
+  if (ra) {
+    const secs = Number(ra);
+    if (Number.isFinite(secs)) return Math.max(0, secs * 1000);
+    const when = Date.parse(ra);
+    if (Number.isFinite(when)) return Math.max(0, when - Date.now());
+  }
+  // GitHub/GitLab: X-RateLimit-Reset (epoch segundos) cuando remaining == 0.
+  const remaining = res.headers.get("x-ratelimit-remaining");
+  const reset = res.headers.get("x-ratelimit-reset");
+  if (remaining === "0" && reset) {
+    const resetMs = Number(reset) * 1000 - Date.now();
+    if (Number.isFinite(resetMs) && resetMs > 0) return resetMs;
+  }
+  return null;
+}
+
+/**
+ * fetch con reintentos y exponential backoff. Reintenta en 429 y 5xx y ante
+ * errores de red/timeout. Respeta Retry-After / X-RateLimit-Reset. Devuelve la
+ * Response (incluida la última aunque no sea ok) para que el caller decida.
+ *
+ * Es idempotente por diseño: usarlo solo para requests seguros (GET) o para POST
+ * de búsqueda sin efectos secundarios (como el search de Jira).
+ */
+export async function fetchWithRetry(
+  url: string,
+  init: RequestInit = {},
+  opts: { retries?: number; baseDelayMs?: number; maxDelayMs?: number; timeoutMs?: number } = {},
+): Promise<Response> {
+  const { retries = 3, baseDelayMs = 500, maxDelayMs = 8_000, timeoutMs } = opts;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await safeFetch(url, init, timeoutMs ?? DEFAULT_TIMEOUT_MS);
+      if (res.status === 429 || res.status >= 500) {
+        if (attempt < retries) {
+          const wait = retryAfterMs(res) ?? Math.min(maxDelayMs, baseDelayMs * 2 ** attempt);
+          await sleep(wait);
+          continue;
+        }
+      }
+      return res;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries) {
+        await sleep(Math.min(maxDelayMs, baseDelayMs * 2 ** attempt));
+        continue;
+      }
+      throw err;
+    }
+  }
+  // Inalcanzable en la práctica, pero satisface el tipo de retorno.
+  throw lastErr ?? new Error(`fetchWithRetry agotó reintentos para ${url}`);
+}
+
+/** Lanza HttpError si la respuesta no es ok (para que la salud pueda clasificar). */
+export async function assertOk(res: Response, label = "request"): Promise<Response> {
+  if (res.ok) return res;
+  let detail = "";
+  try {
+    detail = (await res.clone().text()).slice(0, 300);
+  } catch {
+    /* cuerpo ilegible */
+  }
+  throw new HttpError(
+    res.status,
+    `${label} falló con HTTP ${res.status}${detail ? `: ${detail}` : ""}`,
+    retryAfterMs(res),
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
  * fetch con timeout duro y `cache: no-store` por defecto. Si el caller pasa su
  * propio `signal`, se combina con el timeout.
  */

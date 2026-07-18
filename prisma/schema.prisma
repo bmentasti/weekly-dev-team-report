@@ -68,7 +68,18 @@ enum IntegrationType {
 }
 
 enum IntegrationStatus {
+  // Estados de conexión / sincronización. Los tres originales (CONNECTED,
+  // DISCONNECTED, ERROR) se conservan por retro-compatibilidad; el resto refleja
+  // la salud REAL de la integración (no solo el resultado de la autenticación).
+  NOT_CONNECTED
+  CONNECTING
   CONNECTED
+  SYNCING
+  PARTIALLY_SYNCED
+  PERMISSION_REQUIRED
+  TOKEN_EXPIRED
+  RATE_LIMITED
+  FAILED
   DISCONNECTED
   ERROR
 }
@@ -207,6 +218,29 @@ model Integration {
   config                Json?
   encryptedAccessToken  String?
   encryptedRefreshToken String?
+  // ---- Salud REAL de la sincronización (no solo autenticación) ----
+  /// Última sincronización que trajo y procesó datos con éxito.
+  lastSuccessfulSyncAt  DateTime?
+  /// Último INTENTO de sincronización (haya salido bien o mal).
+  lastSyncAttemptAt     DateTime?
+  /// Cursor/updatedAt para sincronización incremental (idempotente).
+  syncCursor            String?
+  /// Cantidad de registros importados en el último sync exitoso.
+  recordsImported       Int?
+  /// Participantes vinculados a una identidad canónica.
+  participantsLinked    Int?
+  /// Identidades pendientes de confirmación (sugerencias sin verificar).
+  pendingIdentities     Int?
+  /// Actividad encontrada sin persona asociada.
+  unassociatedRecords   Int?
+  /// Permisos/scopes que faltan para operar (p. ej. ["repo","read:org"]).
+  missingPermissions    String[]
+  /// Mensaje de error comprensible para el usuario.
+  lastErrorMessage      String?
+  /// Acción recomendada para resolver el problema.
+  recommendedAction     String?
+  /// Detalle de salud: completitud, errores parciales, últimos contadores.
+  healthDetail          Json?
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 
@@ -293,7 +327,29 @@ model PersonAlias {
   identityId String
   source     String   @default("*")
   handle     String
-  createdAt  DateTime @default(now())
+  // ---- Identidad externa (ExternalIdentity) ----
+  /// ID ESTABLE del proveedor (GitHub numeric id, Jira accountId, Airtable rec…).
+  /// Una vez confirmado, se resuelve por acá y NO se re-matchea por email/nombre.
+  externalUserId String?
+  /// Username del proveedor (puede cambiar; por eso no es la clave estable).
+  username       String?
+  /// Email conocido para esta identidad externa (puede diferir del principal).
+  email          String?
+  /// Nombre visible en el proveedor (puede diferir entre herramientas).
+  displayName    String?
+  /// Cómo se estableció la asociación.
+  /// email_exact | email_alias | provider_id | username | suggested | manual
+  matchMethod    String   @default("manual")
+  /// Confianza de la asociación (0..1).
+  confidence     Float    @default(1)
+  /// Si está confirmada. Las sugeridas (verified=false) NO se auto-vinculan.
+  verified       Boolean  @default(true)
+  verifiedAt     DateTime?
+  /// Auditoría de la vinculación manual.
+  createdById    String?
+  createdByName  String?
+  reason         String?
+  createdAt      DateTime @default(now())
 
   project  Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   identity PersonIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
@@ -301,6 +357,7 @@ model PersonAlias {
   @@unique([projectId, source, handle])
   @@index([projectId])
   @@index([identityId])
+  @@index([projectId, externalUserId])
 }
 
 model ProjectMember {
