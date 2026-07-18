@@ -81,7 +81,8 @@ export default function PersonProfilePage() {
       }
     })();
     return () => controller.abort();
-  }, [name]);
+    // `t` es estable (useMemo en el provider); sólo re-corre si cambia el idioma.
+  }, [name, t]);
 
   async function coach() {
     setAiLoading(true);

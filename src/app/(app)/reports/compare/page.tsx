@@ -92,7 +92,8 @@ export default function ComparePage() {
       }
     })();
     return () => controller.abort();
-  }, []);
+    // `t` es estable (useMemo en el provider), así que sólo re-corre si cambia el idioma.
+  }, [t]);
 
   const fetchReport = useCallback(async (id: string) => {
     if (!id) return null;
