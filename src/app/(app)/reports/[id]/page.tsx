@@ -310,6 +310,50 @@ export default function ReportPreviewPage() {
           </p>
         )}
 
+      {m?.scope && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Alcance del sprint</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
+              {[
+                ["Tareas únicas del período", m.scope.uniqueTasks],
+                ["Comprometidas", m.scope.committed],
+                ["Incorporadas en el sprint", m.scope.addedDuringSprint],
+                ["Completadas", m.scope.completed],
+                ["En progreso", m.scope.inProgress],
+                ["Bloqueadas", m.scope.blocked],
+                ["Trasladadas (no cerradas)", m.scope.carriedOver],
+                ["Cumplimiento comprometido", `${m.scope.commitmentCompletionPct}%`],
+              ].map(([label, value]) => (
+                <div key={String(label)}>
+                  <div className="text-xs text-muted-foreground">{label}</div>
+                  <div className="text-lg font-semibold tabular-nums">{value}</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Trazabilidad del recorte: {m.scope.excludedOutOfPeriod} fuera de la
+              ventana (backlog / otros sprints), {m.scope.insufficientData} sin
+              fechas para ubicarlas, {m.scope.duplicatesCollapsed} duplicados
+              unificados. Última sincronización con la fuente:{" "}
+              {new Date(m.scope.lastSyncedAt).toLocaleString("es-AR")}.
+            </p>
+            {(m.scope.insufficientData > 0 || m.scope.duplicatesCollapsed > 0) && (
+              <p className="rounded-input bg-warning-soft px-3 py-2 text-xs text-warning">
+                Advertencia de calidad de datos:{" "}
+                {m.scope.insufficientData > 0 &&
+                  `${m.scope.insufficientData} tarea(s) no tienen fechas suficientes y se excluyen de los cálculos del sprint. `}
+                {m.scope.duplicatesCollapsed > 0 &&
+                  `${m.scope.duplicatesCollapsed} registro(s) duplicado(s) fueron unificados por su ID estable. `}
+                Revisá los campos de fecha en Airtable para mejorar la precisión.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {showEmail && <EmailReport reportId={params.id} />}
 
       {report.rawData?.aiAnalysis && (
@@ -616,6 +660,11 @@ export default function ReportPreviewPage() {
                             <Badge variant={personCategoryVariant(p.category)}>
                               {t(`lib.personCategory.${p.category}`)}
                             </Badge>
+                            {p.categoryReason && (
+                              <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+                                {p.categoryReason}
+                              </p>
+                            )}
                           </td>
                           <td className="py-2 pr-3">{p.score}</td>
                           <td className="py-2 pr-3">{p.completedPoints}</td>

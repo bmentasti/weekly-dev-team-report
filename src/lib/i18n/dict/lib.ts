@@ -13,11 +13,12 @@ export const es: Record<string, string> = {
   "lib.health.MEDIUM_RISK": "Riesgo medio",
   "lib.health.HIGH_RISK": "Riesgo alto",
   // labels.ts — PERSON_CATEGORY_LABEL (PersonCategory)
-  "lib.personCategory.RECOGNIZE": "Reconocer",
+  "lib.personCategory.RECOGNIZE": "Avance sólido",
   "lib.personCategory.SUPPORT": "Necesita apoyo",
   "lib.personCategory.OVERLOADED": "Sobrecargado/a",
   "lib.personCategory.FREE_CAPACITY": "Capacidad libre",
-  "lib.personCategory.ON_TRACK": "En ritmo",
+  "lib.personCategory.ON_TRACK": "En seguimiento",
+  "lib.personCategory.INSUFFICIENT_DATA": "Datos insuficientes",
   // compare.ts — TREND_LABEL (TrendClass)
   "lib.trend.MEJORA_CLARA": "Mejora clara",
   "lib.trend.MEJORA_LEVE": "Mejora leve",
@@ -279,11 +280,12 @@ export const en: Record<string, string> = {
   "lib.health.MEDIUM_RISK": "Medium risk",
   "lib.health.HIGH_RISK": "High risk",
   // labels.ts — PERSON_CATEGORY_LABEL (PersonCategory)
-  "lib.personCategory.RECOGNIZE": "Recognize",
+  "lib.personCategory.RECOGNIZE": "Solid progress",
   "lib.personCategory.SUPPORT": "Needs support",
   "lib.personCategory.OVERLOADED": "Overloaded",
   "lib.personCategory.FREE_CAPACITY": "Free capacity",
-  "lib.personCategory.ON_TRACK": "On track",
+  "lib.personCategory.ON_TRACK": "Monitoring",
+  "lib.personCategory.INSUFFICIENT_DATA": "Insufficient data",
   // compare.ts — TREND_LABEL (TrendClass)
   "lib.trend.MEJORA_CLARA": "Clear improvement",
   "lib.trend.MEJORA_LEVE": "Slight improvement",

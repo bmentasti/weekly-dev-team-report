@@ -11,7 +11,9 @@ export const es: Record<string, string> = {
     "Reconocer el aporte. Buen candidato/a para mentoría o tareas de mayor impacto.",
   "gen.nextStep.FREE_CAPACITY":
     "Tiene capacidad disponible; asignar trabajo del backlog o revisiones.",
-  "gen.nextStep.ON_TRACK": "En ritmo. Mantener seguimiento habitual.",
+  "gen.nextStep.ON_TRACK": "En seguimiento. Mantener seguimiento habitual.",
+  "gen.nextStep.INSUFFICIENT_DATA":
+    "Datos insuficientes para evaluar. Verificá el mapeo del responsable y la completitud de los registros en Airtable antes de concluir.",
 
   // Risks
   "gen.risk.criticalStale.title": "{count} tarea(s) crítica(s) sin movimiento",
@@ -123,6 +125,8 @@ export const en: Record<string, string> = {
   "gen.nextStep.FREE_CAPACITY":
     "Has spare capacity; assign backlog work or reviews.",
   "gen.nextStep.ON_TRACK": "On track. Keep the usual follow-up.",
+  "gen.nextStep.INSUFFICIENT_DATA":
+    "Not enough data to evaluate. Verify the assignee mapping and record completeness in Airtable before concluding.",
 
   // Risks
   "gen.risk.criticalStale.title": "{count} critical task(s) with no movement",

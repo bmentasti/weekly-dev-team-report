@@ -1,11 +1,12 @@
 import type { PersonCategory } from "./types";
 
 export const PERSON_CATEGORY_LABEL: Record<PersonCategory, string> = {
-  RECOGNIZE: "Reconocer",
+  RECOGNIZE: "Avance sólido",
   SUPPORT: "Necesita apoyo",
   OVERLOADED: "Sobrecargado/a",
   FREE_CAPACITY: "Capacidad libre",
-  ON_TRACK: "En ritmo",
+  ON_TRACK: "En seguimiento",
+  INSUFFICIENT_DATA: "Datos insuficientes",
 };
 
 export function personCategoryVariant(
@@ -20,6 +21,8 @@ export function personCategoryVariant(
       return "destructive";
     case "FREE_CAPACITY":
       return "info";
+    case "INSUFFICIENT_DATA":
+      return "secondary";
     default:
       return "secondary";
   }

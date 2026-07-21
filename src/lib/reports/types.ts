@@ -13,6 +13,28 @@ export interface WorkItemMetrics {
   critical: number;
 }
 
+/**
+ * Alcance del sprint: conteos sobre tareas ÚNICAS del período + trazabilidad de
+ * lo descartado (fuera de período, sin fechas, duplicados). Permite reconciliar
+ * el total con Airtable y explicar por qué el total ya no incluye backlog.
+ */
+export interface SprintScopeMetrics {
+  uniqueTasks: number;
+  committed: number; // existían al inicio del sprint
+  addedDuringSprint: number; // incorporadas durante el sprint (no penalizan el compromiso)
+  completed: number;
+  inProgress: number;
+  blocked: number;
+  pending: number;
+  carriedOver: number; // no completadas al cierre (se trasladan)
+  committedCompleted: number;
+  commitmentCompletionPct: number; // committedCompleted / committed
+  excludedOutOfPeriod: number; // backlog / otros sprints / futuras
+  insufficientData: number; // sin fechas utilizables
+  duplicatesCollapsed: number; // filas colapsadas por deduplicación
+  lastSyncedAt: string; // ISO — última sincronización con la fuente
+}
+
 export interface CodeChangeMetrics {
   total: number;
   open: number;
@@ -42,6 +64,12 @@ export interface PersonRollup {
   tasksInProgress: number;
   tasksBlocked: number;
   tasksStale: number;
+  /** Tareas asignadas en estado TODO (pendientes, sin empezar). */
+  tasksTodo?: number;
+  /** Tareas comprometidas (existían al inicio del sprint) asignadas a la persona. */
+  committedTasks?: number;
+  /** Tareas incorporadas durante el sprint asignadas a la persona. */
+  addedTasks?: number;
   prsOpen: number;
   prsMerged: number;
 }
@@ -51,7 +79,8 @@ export type PersonCategory =
   | "SUPPORT"
   | "OVERLOADED"
   | "FREE_CAPACITY"
-  | "ON_TRACK";
+  | "ON_TRACK"
+  | "INSUFFICIENT_DATA";
 
 /**
  * Punto de la evolución DENTRO del período del reporte, por persona. Permite que
@@ -73,6 +102,12 @@ export interface PersonInsight extends PersonRollup {
   throughput: number;
   cycleTimeAvgDays: number | null;
   category: PersonCategory;
+  /**
+   * Explicación específica y verificable de por qué la persona quedó en esa
+   * categoría (evidencia con números). Nunca un mensaje genérico. Opcional por
+   * retro-compatibilidad con reportes previos.
+   */
+  categoryReason?: string;
   score: number;
   rank: number;
   nextStep: string;
@@ -152,6 +187,8 @@ export interface CiMetrics {
 
 export interface ReportMetrics {
   workItems: WorkItemMetrics;
+  /** Alcance del sprint y trazabilidad del recorte. Opcional (reportes viejos). */
+  scope?: SprintScopeMetrics;
   codeChanges: CodeChangeMetrics;
   activity: ActivityMetrics;
   quality: QualityMetrics;

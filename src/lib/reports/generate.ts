@@ -27,6 +27,7 @@ import { makeResolver, type Resolver } from "./identity";
 import { getIdentityConfig } from "./identity-store";
 import { unifyPeople } from "./people-unify";
 import { filterActivePeople } from "./activity";
+import { scopeToSprint, scopeTagOf, type ScopedWorkItems } from "./sprint-scope";
 
 
 interface CollectedData {
@@ -48,6 +49,7 @@ interface CollectedData {
 async function collect(
   projectId: string,
   periodStart: Date,
+  periodEnd: Date,
 ): Promise<CollectedData> {
   const integrations = await prisma.integration.findMany({
     where: { projectId, status: "CONNECTED" },
@@ -65,6 +67,7 @@ async function collect(
   };
 
   const since = periodStart.toISOString();
+  const until = periodEnd.toISOString();
 
   await Promise.all(
     integrations.map(async (integration) => {
@@ -82,7 +85,7 @@ async function collect(
         // slug, devuelve una estructura vacía segura (no llamada real).
         const data = isDemo(loaded.ctx.config)
           ? demoDataFor(entry.slug, periodDaysFrom({ since }))
-          : await adapter.fetchData(loaded.ctx, { since });
+          : await adapter.fetchData(loaded.ctx, { since, until });
         if (data.workItems) out.workItems.push(...data.workItems);
         if (data.codeChanges) out.codeChanges.push(...data.codeChanges);
         if (data.activity) out.activity.push(...data.activity);
@@ -127,35 +130,34 @@ function clampToPeriod(
   data: CollectedData,
   periodStart: Date,
   periodEnd: Date,
-): CollectedData {
+): { data: CollectedData; scope: ScopedWorkItems } {
   const startMs = periodStart.getTime();
   const endMs = periodEnd.getTime();
   const within = (t: number | null) =>
     t === null || (t >= startMs && t <= endMs);
 
+  // Work items: deduplicación por id estable + regla de pertenencia al sprint.
+  // Reemplaza el viejo `return true` que conservaba TODO el backlog abierto (la
+  // causa de las 135+ tareas). Ver src/lib/reports/sprint-scope.ts.
+  const scope = scopeToSprint(data.workItems, periodStart, periodEnd);
+
   return {
-    ...data,
-    // Un work item pertenece al período si existía antes del fin del período
-    // y, si está DONE, se resolvió dentro de la ventana (lo abierto cuenta
-    // como trabajo en curso del período).
-    workItems: data.workItems.filter((i) => {
-      const created = ts(i.createdAt);
-      if (created !== null && created > endMs) return false;
-      if (i.bucket === "DONE")
-        return within(ts(i.resolvedAt) ?? ts(i.updatedAt));
-      return true;
-    }),
-    // PRs: creados antes del fin del período; merged/closed dentro de la
-    // ventana para contar como actividad del período.
-    codeChanges: data.codeChanges.filter((c) => {
-      const created = ts(c.createdAt);
-      if (created !== null && created > endMs) return false;
-      if (c.state === "MERGED") return within(ts(c.mergedAt));
-      if (c.state === "CLOSED") return within(ts(c.closedAt));
-      return true;
-    }),
-    activity: data.activity.filter((a) => within(ts(a.createdAt))),
-    ciRuns: data.ciRuns.filter((r) => within(ts(r.createdAt))),
+    scope,
+    data: {
+      ...data,
+      workItems: scope.items,
+      // PRs: creados antes del fin del período; merged/closed dentro de la
+      // ventana para contar como actividad del período.
+      codeChanges: data.codeChanges.filter((c) => {
+        const created = ts(c.createdAt);
+        if (created !== null && created > endMs) return false;
+        if (c.state === "MERGED") return within(ts(c.mergedAt));
+        if (c.state === "CLOSED") return within(ts(c.closedAt));
+        return true;
+      }),
+      activity: data.activity.filter((a) => within(ts(a.createdAt))),
+      ciRuns: data.ciRuns.filter((r) => within(ts(r.createdAt))),
+    },
   };
 }
 
@@ -258,6 +260,9 @@ function buildPeople(
         tasksInProgress: 0,
         tasksBlocked: 0,
         tasksStale: 0,
+        tasksTodo: 0,
+        committedTasks: 0,
+        addedTasks: 0,
         prsOpen: 0,
         prsMerged: 0,
         committedPoints: 0,
@@ -295,8 +300,12 @@ function buildPeople(
         p.completedPoints += sp(w);
       } else if (w.bucket === "IN_PROGRESS") p.tasksInProgress++;
       else if (w.bucket === "BLOCKED") p.tasksBlocked++;
+      else p.tasksTodo = (p.tasksTodo ?? 0) + 1;
       if (w.isStale) p.tasksStale++;
       if (w.bucket !== "TODO") p.committedPoints += sp(w);
+      if (scopeTagOf(w, periodStart) === "added")
+        p.addedTasks = (p.addedTasks ?? 0) + 1;
+      else p.committedTasks = (p.committedTasks ?? 0) + 1;
     }
   }
   for (const c of codeChanges) {
@@ -493,14 +502,14 @@ export async function generateReportComputation(
 ): Promise<ReportComputation> {
   const t = makeT(locale);
   const [raw, identityConfig] = await Promise.all([
-    collect(projectId, periodStart),
+    collect(projectId, periodStart, periodEnd),
     getIdentityConfig(projectId),
   ]);
   const resolve = makeResolver(identityConfig);
   // Última actividad por persona sobre datos SIN recortar (llegan hasta hoy):
   // detecta inactividad > umbral aunque el período del reporte sea corto.
   const lastActivity = computeLastActivity(raw, resolve);
-  const data = clampToPeriod(raw, periodStart, periodEnd);
+  const { data, scope } = clampToPeriod(raw, periodStart, periodEnd);
   const { workItems, codeChanges, activity, ciRuns } = data;
 
   const wi = {
@@ -511,6 +520,38 @@ export async function generateReportComputation(
     todo: workItems.filter((i) => i.bucket === "TODO").length,
     stale: workItems.filter((i) => i.isStale).length,
     critical: workItems.filter((i) => i.isCritical).length,
+  };
+
+  // ---- Alcance del sprint (trazabilidad §"Delimitación del período") ----
+  // Todo se calcula sobre tareas ÚNICAS que pertenecen al período. Los conteos
+  // de descartados explican por qué el total ya NO son 135+.
+  const committedItems = workItems.filter(
+    (i) => scopeTagOf(i, periodStart) === "committed",
+  );
+  const addedItems = workItems.filter(
+    (i) => scopeTagOf(i, periodStart) === "added",
+  );
+  const committedDone = committedItems.filter(
+    (i) => i.bucket === "DONE",
+  ).length;
+  const scopeMetrics = {
+    uniqueTasks: workItems.length,
+    committed: committedItems.length,
+    addedDuringSprint: addedItems.length,
+    completed: wi.done,
+    inProgress: wi.inProgress,
+    blocked: wi.blocked,
+    pending: wi.todo,
+    carriedOver: workItems.filter((i) => i.bucket !== "DONE").length,
+    committedCompleted: committedDone,
+    commitmentCompletionPct:
+      committedItems.length > 0
+        ? Math.round((committedDone / committedItems.length) * 100)
+        : 0,
+    excludedOutOfPeriod: scope.excludedOutOfPeriod,
+    insufficientData: scope.insufficientData,
+    duplicatesCollapsed: scope.duplicatesCollapsed,
+    lastSyncedAt: new Date().toISOString(),
   };
 
   const openPrs = codeChanges.filter((c) => c.state === "OPEN");
@@ -794,6 +835,7 @@ export async function generateReportComputation(
 
   const metrics = {
     workItems: wi,
+    scope: scopeMetrics,
     codeChanges: cc,
     activity: act,
     quality,

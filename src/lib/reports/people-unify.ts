@@ -14,14 +14,13 @@ import { makeResolver, resolvePerson, type Resolver } from "./identity";
 import { autoMergeGroups } from "./identity-suggest";
 import { getIdentityConfig } from "./identity-store";
 import { filterActivePeople, maxIso } from "./activity";
+import { categorizePerson, scorePerson } from "./evaluation-category";
 import type {
   PersonCategory,
   PersonInsight,
   PersonTimelinePoint,
   ReportMetrics,
 } from "./types";
-
-const OVERLOAD_WIP = 5;
 
 /**
  * Suma dos timelines por índice (todos los del mismo reporte comparten cortes,
@@ -48,17 +47,6 @@ function mergeTimeline(
     });
   }
   return out;
-}
-
-// Misma clasificación que generate.ts::categorize (mantener en sync).
-function categorize(p: PersonInsight): PersonCategory {
-  if (p.tasksBlocked > 0 || p.tasksStale >= 2) return "SUPPORT";
-  if (p.wip >= OVERLOAD_WIP) return "OVERLOADED";
-  if (p.throughput >= 3 && p.tasksBlocked === 0 && p.tasksStale === 0)
-    return "RECOGNIZE";
-  if (p.wip === 0 && p.throughput <= 1 && p.committedPoints <= 2)
-    return "FREE_CAPACITY";
-  return "ON_TRACK";
 }
 
 /**
@@ -99,6 +87,9 @@ export function unifyPeople(
         tasksInProgress: 0,
         tasksBlocked: 0,
         tasksStale: 0,
+        tasksTodo: 0,
+        committedTasks: 0,
+        addedTasks: 0,
         prsOpen: 0,
         prsMerged: 0,
         committedPoints: 0,
@@ -123,6 +114,9 @@ export function unifyPeople(
     e.tasksInProgress += p.tasksInProgress;
     e.tasksBlocked += p.tasksBlocked;
     e.tasksStale += p.tasksStale;
+    e.tasksTodo = (e.tasksTodo ?? 0) + (p.tasksTodo ?? 0);
+    e.committedTasks = (e.committedTasks ?? 0) + (p.committedTasks ?? 0);
+    e.addedTasks = (e.addedTasks ?? 0) + (p.addedTasks ?? 0);
     e.prsOpen += p.prsOpen;
     e.prsMerged += p.prsMerged;
     e.committedPoints += p.committedPoints;
@@ -138,8 +132,10 @@ export function unifyPeople(
     e.cycleTimeAvgDays = cs.length
       ? Math.round((cs.reduce((a, b) => a + b, 0) / cs.length) * 10) / 10
       : null;
-    e.score = e.completedPoints * 2 + e.tasksDone * 2 + e.prsMerged * 3 + e.prsOpen;
-    e.category = categorize(e);
+    e.score = scorePerson(e);
+    const cat = categorizePerson(e);
+    e.category = cat.category;
+    e.categoryReason = cat.reason;
     e.nextStep = nextStep(e.category);
   }
   out.sort((a, b) => b.score - a.score);

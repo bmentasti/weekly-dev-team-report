@@ -10,6 +10,7 @@ describe("labels", () => {
       "OVERLOADED",
       "FREE_CAPACITY",
       "ON_TRACK",
+      "INSUFFICIENT_DATA",
     ];
     for (const c of cats) expect(PERSON_CATEGORY_LABEL[c]).toBeTruthy();
   });
@@ -19,5 +20,6 @@ describe("labels", () => {
     expect(personCategoryVariant("OVERLOADED")).toBe("destructive");
     expect(personCategoryVariant("FREE_CAPACITY")).toBe("info");
     expect(personCategoryVariant("ON_TRACK")).toBe("secondary");
+    expect(personCategoryVariant("INSUFFICIENT_DATA")).toBe("secondary");
   });
 });

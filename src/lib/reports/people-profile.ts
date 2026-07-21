@@ -38,20 +38,13 @@ export interface PersonProfile {
  */
 export function computeTier(p: PersonInsight | null): PerfTier {
   if (!p) return "CUMPLE";
-  if (
-    p.throughput >= 4 &&
-    p.tasksBlocked === 0 &&
-    p.tasksStale === 0 &&
-    p.category !== "SUPPORT"
-  )
-    return "DESTACADA";
-  if (
-    p.category === "SUPPORT" ||
-    p.tasksBlocked > 0 ||
-    p.tasksStale >= 2 ||
-    (p.wip > 0 && p.completedPoints === 0)
-  )
-    return "BAJO";
+  // Coherente con la categoría evidencia-based del reporte (evaluation-category):
+  // no se marca BAJO por tener 1 bloqueada o 2 estancadas si hubo avance real.
+  // "Datos insuficientes" es neutral acá; el gate de confianza (API) decide si se
+  // muestra un veredicto.
+  if (p.category === "INSUFFICIENT_DATA") return "CUMPLE";
+  if (p.category === "RECOGNIZE") return "DESTACADA";
+  if (p.category === "SUPPORT") return "BAJO";
   return "CUMPLE";
 }
 

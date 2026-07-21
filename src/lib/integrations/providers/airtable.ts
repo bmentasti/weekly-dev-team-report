@@ -125,15 +125,26 @@ async function atFetchAll(
   table: string,
   token: string,
   since?: string,
+  until?: string,
 ): Promise<RawRecord[]> {
   const params = new URLSearchParams({ pageSize: "100" });
+  // Prefetch acotado a la ventana del período. La regla de pertenencia definitiva
+  // se aplica downstream (scopeToSprint), pero acotar server-side reduce payload y
+  // evita traer históricos irrelevantes. ISO 8601 no contiene comillas simples,
+  // es seguro interpolarlo.
+  const clauses: string[] = [];
   if (since) {
-    // ISO 8601 no contiene comillas simples, es seguro interpolarlo.
-    params.set(
-      "filterByFormula",
+    clauses.push(
       `OR(IS_AFTER(CREATED_TIME(), '${since}'), IS_AFTER(LAST_MODIFIED_TIME(), '${since}'))`,
     );
   }
+  if (until) {
+    // Excluye trabajo claramente futuro (creado después del fin del período).
+    clauses.push(`IS_BEFORE(CREATED_TIME(), '${until}')`);
+  }
+  if (clauses.length === 1) params.set("filterByFormula", clauses[0]);
+  else if (clauses.length > 1)
+    params.set("filterByFormula", `AND(${clauses.join(", ")})`);
 
   const records: RawRecord[] = [];
   let offset: string | undefined;
@@ -345,9 +356,16 @@ export const airtableAdapter: ProviderAdapter = {
     const assigneeTable = ctx.config.assigneeTableName?.trim() ?? "";
     const assigneeNameField = field(ctx.config, "assigneeNameField", "Name");
 
-    // Respeta el período del reporte: solo records creados/modificados desde
-    // `since`. Antes se ignoraba y todos los reportes traían los mismos datos.
-    const records = await atFetchAll(baseId, table, ctx.secret, opts?.since);
+    // Respeta el período del reporte: solo records creados/modificados dentro de
+    // la ventana [since, until]. Antes se ignoraba y todos los reportes traían
+    // los mismos datos (y todo el backlog).
+    const records = await atFetchAll(
+      baseId,
+      table,
+      ctx.secret,
+      opts?.since,
+      opts?.until,
+    );
     const now = Date.now();
 
     // Resolución dinámica de columnas: mapeo confirmado por el usuario
@@ -377,6 +395,12 @@ export const airtableAdapter: ProviderAdapter = {
     const pointsField = resolveCol("storyPoints", "pointsField", "Story Points");
     const titleField = resolveCol("title", "titleField", "Name");
     const priorityField = resolveCol("priority", undefined, "Priority");
+    // Campos de sprint y fechas: se usan para la regla de pertenencia al período
+    // y para la trazabilidad (inicio / fin / vencimiento). "" si no se resuelven.
+    const sprintField = resolveCol("sprint", undefined, "");
+    const startedField = resolveCol("startedAt", undefined, "");
+    const finishedField = resolveCol("finishedAt", undefined, "");
+    const createdField = resolveCol("createdAt", undefined, "");
 
     // Mapea record ids de responsables vinculados a nombres reales (y emails).
     // Automático vía Metadata API (mapa global de la base) con fallback a config.
@@ -411,6 +435,7 @@ export const airtableAdapter: ProviderAdapter = {
       const bucket = bucketFor(status);
       const priority = toStr(f[priorityField]) || null;
       const updatedRaw =
+        (finishedField && bucket === "DONE" ? toStr(f[finishedField]) : "") ||
         toStr(f["Last Modified"]) ||
         toStr(f["Last modified time"]) ||
         toStr(f["Updated"]) ||
@@ -423,8 +448,22 @@ export const airtableAdapter: ProviderAdapter = {
         !Number.isNaN(updatedMs) &&
         (now - updatedMs) / (1000 * 60 * 60 * 24) > STALE_DAYS;
 
+      // Fechas declaradas (campos mapeados) con fallback a metadatos del record.
+      const createdAt =
+        (createdField ? toStr(f[createdField]) : "") || rec.createdTime;
+      const startedAt = startedField ? toStr(f[startedField]) || null : null;
+      const dueAt = finishedField ? toStr(f[finishedField]) || null : null;
+      // resolvedAt: fecha de finalización declarada si está DONE; si no, la
+      // última modificación (proxy) para poder ubicar el cierre en el período.
+      const resolvedAt = isDone
+        ? (finishedField ? toStr(f[finishedField]) : "") || updatedRaw
+        : null;
+
       return {
         source: "airtable",
+        // Clave estable = record id opaco. externalId queda como identificador
+        // legible ("ID" del usuario) solo para mostrar.
+        recordId: rec.id,
         externalId: toStr(f["ID"]) || rec.id.slice(0, 8),
         title: toStr(f[titleField]) || "(sin título)",
         status,
@@ -438,11 +477,13 @@ export const airtableAdapter: ProviderAdapter = {
         labels: [],
         type: null,
         project: table,
-        sprint: null,
+        sprint: sprintField ? toStr(f[sprintField]) || null : null,
         url: recordUrl(rec.id),
-        createdAt: rec.createdTime,
+        createdAt,
         updatedAt: updatedRaw,
-        resolvedAt: isDone ? updatedRaw : null,
+        resolvedAt,
+        startedAt,
+        dueAt,
       };
     });
 

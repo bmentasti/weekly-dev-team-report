@@ -134,18 +134,18 @@ describe("evolvePeople", () => {
   it("classifyEvolution cubre todas las categorías y movimientos", () => {
     const a = rm({
       people: [
-        person("Dest", { throughput: 5 }), // DESTACADA
-        person("Riesgo", { tasksBlocked: 1 }), // BAJO
-        person("Obs", { tasksBlocked: 1 }), // BAJO
+        person("Dest", { throughput: 5, category: "RECOGNIZE" }), // DESTACADA
+        person("Riesgo", { category: "SUPPORT" }), // BAJO (evidencia-based)
+        person("Obs", { category: "SUPPORT" }), // BAJO
         person("Estable"), // CUMPLE, throughput 3
         person("Mas", { throughput: 2 }), // CUMPLE, throughput 2
       ],
     });
     const b = rm({
       people: [
-        person("Dest", { throughput: 5 }), // flat
-        person("Riesgo", { tasksBlocked: 1 }), // prev BAJO => RIESGO
-        person("Obs"), // prev CUMPLE => OBSERVACION
+        person("Dest", { throughput: 5, category: "RECOGNIZE" }), // flat
+        person("Riesgo", { category: "SUPPORT" }), // prev BAJO => RIESGO
+        person("Obs"), // now CUMPLE; prev BAJO => OBSERVACION
         person("Estable", { throughput: 1 }), // up
         person("Mas", { throughput: 2 }), // flat
       ],

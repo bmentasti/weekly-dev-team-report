@@ -8,7 +8,14 @@ export type WorkItemBucket = "TODO" | "IN_PROGRESS" | "DONE" | "BLOCKED";
 
 export interface UnifiedWorkItem {
   source: ProviderSlug;
-  externalId: string; // key / number / id in the source system
+  externalId: string; // key / number / id in the source system (may be human-facing)
+  /**
+   * Identificador OPACO y ESTABLE del registro en la fuente (p. ej. el record id
+   * de Airtable "rec..."). Único dentro de la base y nunca cambia; es la clave
+   * primaria para deduplicar. `externalId` puede ser un campo editable ("ID") y
+   * no sirve como clave. Opcional por retro-compatibilidad con adapters previos.
+   */
+  recordId?: string;
   title: string;
   status: string;
   bucket: WorkItemBucket;
@@ -31,6 +38,10 @@ export interface UnifiedWorkItem {
   createdAt: string | null;
   updatedAt: string | null;
   resolvedAt: string | null;
+  /** Fecha de inicio declarada (campo "Fecha de inicio"), si existe. */
+  startedAt?: string | null;
+  /** Fecha de finalización/vencimiento declarada (campo "Fecha de fin/Due"). */
+  dueAt?: string | null;
 }
 
 export type CodeChangeState = "OPEN" | "MERGED" | "CLOSED";
@@ -130,6 +141,11 @@ export interface TestResult {
 export interface FetchOptions {
   /** ISO date; providers include items updated on/after this. */
   since?: string;
+  /**
+   * ISO date; fin de la ventana del período. Permite acotar server-side también
+   * por el extremo superior (no traer trabajo posterior al período).
+   */
+  until?: string;
 }
 
 export interface ProviderAdapter {

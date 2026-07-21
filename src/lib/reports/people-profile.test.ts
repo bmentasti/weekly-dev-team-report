@@ -32,21 +32,26 @@ function pi(over: Partial<PersonInsight> = {}): PersonInsight {
   };
 }
 
-describe("computeTier", () => {
+describe("computeTier (evidencia-based, coherente con la categoría del reporte)", () => {
   it("null => CUMPLE", () => {
     expect(computeTier(null)).toBe("CUMPLE");
   });
-  it("DESTACADA con throughput alto y sin bloqueos", () => {
-    expect(computeTier(pi({ throughput: 5, tasksBlocked: 0, tasksStale: 0 }))).toBe("DESTACADA");
+  it("DESTACADA cuando la categoría es 'Avance sólido' (RECOGNIZE)", () => {
+    expect(computeTier(pi({ category: "RECOGNIZE" }))).toBe("DESTACADA");
   });
-  it("BAJO por SUPPORT / bloqueos / stale / wip sin entrega", () => {
+  it("BAJO solo cuando la categoría evidencia-based es SUPPORT", () => {
     expect(computeTier(pi({ category: "SUPPORT" }))).toBe("BAJO");
-    expect(computeTier(pi({ tasksBlocked: 1 }))).toBe("BAJO");
-    expect(computeTier(pi({ tasksStale: 2 }))).toBe("BAJO");
-    expect(computeTier(pi({ wip: 2, completedPoints: 0 }))).toBe("BAJO");
   });
-  it("CUMPLE en caso intermedio", () => {
-    expect(computeTier(pi({ throughput: 2, wip: 1, completedPoints: 3 }))).toBe("CUMPLE");
+  it("NO marca BAJO por 1 bloqueada o 2 estancadas si hubo avance (fix auditoría §6)", () => {
+    // Antes esto daba BAJO; ahora, con avance real y categoría ON_TRACK, es CUMPLE.
+    expect(computeTier(pi({ category: "ON_TRACK", tasksBlocked: 1 }))).toBe("CUMPLE");
+    expect(computeTier(pi({ category: "ON_TRACK", tasksStale: 2 }))).toBe("CUMPLE");
+  });
+  it("'Datos insuficientes' es neutral (CUMPLE), nunca BAJO", () => {
+    expect(computeTier(pi({ category: "INSUFFICIENT_DATA" }))).toBe("CUMPLE");
+  });
+  it("CUMPLE en caso intermedio (ON_TRACK)", () => {
+    expect(computeTier(pi({ category: "ON_TRACK", throughput: 2, wip: 1, completedPoints: 3 }))).toBe("CUMPLE");
   });
 });
 
