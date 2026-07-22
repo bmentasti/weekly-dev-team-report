@@ -44,6 +44,7 @@ import { ReportShares } from "@/components/report-shares";
 import { EmailReport } from "@/components/email-report";
 import { AutomatedAnalysis } from "@/components/automated-analysis";
 import { ReportRoleViews } from "@/components/report-role-views";
+import type { FinanceAlertInput } from "@/lib/reports/alerts";
 import { AiAskBox } from "@/components/ai-ask-box";
 import { BackButton } from "@/components/back-button";
 import { useDialogs } from "@/components/ui/dialog-provider";
@@ -196,6 +197,7 @@ export default function ReportPreviewPage() {
   const [copied, setCopied] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
   const [peopleHidden, setPeopleHidden] = useState(false);
+  const [finance, setFinance] = useState<FinanceAlertInput | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -214,6 +216,39 @@ export default function ReportPreviewPage() {
       }
     })();
   }, [params.id, t]);
+
+  // Trae el snapshot financiero del proyecto (si el módulo está habilitado) para
+  // sumar la alerta de presupuesto excedido a las alertas del reporte.
+  const projectId = report?.projectId;
+  useEffect(() => {
+    if (!projectId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/finance`);
+        if (!res.ok) return; // sin plan/rol o no configurado: sin alerta financiera
+        const j = await res.json();
+        if (!j.configured || !j.snapshot) return;
+        const s = j.snapshot;
+        const asOf = new Date(s.asOf).getTime();
+        const fe = s.forecastEndDate ? new Date(s.forecastEndDate).getTime() : null;
+        const daysToForecastEnd = fe != null ? Math.round((fe - asOf) / 86_400_000) : null;
+        const rawTarget = s.profitability?.marginVariance?.provenance?.inputs?.targetMarginPct;
+        setFinance({
+          currency: s.currency,
+          eac: s.evm?.eac?.value ?? null,
+          currentBudget: s.budget?.currentBudget?.value ?? null,
+          projectedProfit: s.profitability?.projectedProfit?.value ?? null,
+          projectedMarginPct: s.profitability?.projectedMarginPct?.value ?? null,
+          targetMarginPct: typeof rawTarget === "number" ? rawTarget : null,
+          budgetRunwayDays: s.budget?.runwayDays?.value ?? null,
+          daysToForecastEnd,
+          hasMargins: !!j.canViewMargins,
+        });
+      } catch {
+        // silencioso: la alerta financiera es complementaria
+      }
+    })();
+  }, [projectId]);
 
   async function copyMarkdown() {
     if (!report?.rawData?.markdown) return;
@@ -381,7 +416,7 @@ export default function ReportPreviewPage() {
 
       {m && m.capacity && (
         <>
-          <ReportRoleViews metrics={m} healthStatus={report.healthStatus} />
+          <ReportRoleViews metrics={m} healthStatus={report.healthStatus} finance={finance} />
 
           {peopleHidden && (
             <div className="rounded-input border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">

@@ -141,6 +141,24 @@ export const es: Record<string, string> = {
   "lib.alert.overload.impact": "Cuello de botella y riesgo de burnout; baja el bus factor.",
   "lib.alert.overload.action": "Redistribuir carga y revisar dependencias hacia esas personas.",
 
+  // alerts.ts — computeFinanceAlerts() (presupuesto / rentabilidad)
+  "lib.alert.finOverBudget.title": "Presupuesto excedido (proyección)",
+  "lib.alert.finOverBudget.meaning": "El costo estimado al finalizar ({eac}) supera el presupuesto vigente ({budget}) en {over}.",
+  "lib.alert.finOverBudget.impact": "Sin acción, el proyecto cierra por encima del presupuesto aprobado y erosiona el margen.",
+  "lib.alert.finOverBudget.action": "Evaluar ampliación presupuestaria, reducir alcance/costo restante o renegociar precio.",
+  "lib.alert.finLoss.title": "Pérdida proyectada",
+  "lib.alert.finLoss.meaning": "La ganancia proyectada es negativa ({loss}).",
+  "lib.alert.finLoss.impact": "El proyecto termina perdiendo dinero al ritmo actual.",
+  "lib.alert.finLoss.action": "Escalar: renegociar, recortar costo o revisar viabilidad.",
+  "lib.alert.finMargin.title": "Margen por debajo del objetivo",
+  "lib.alert.finMargin.meaning": "El margen proyectado ({m}%) está por debajo del objetivo ({target}%).",
+  "lib.alert.finMargin.impact": "La rentabilidad esperada no se está cumpliendo.",
+  "lib.alert.finMargin.action": "Optimizar costo restante o revisar precio/alcance.",
+  "lib.alert.finRunway.title": "El presupuesto se agota antes del cierre",
+  "lib.alert.finRunway.meaning": "Al ritmo de gasto actual, el presupuesto alcanza ~{days} días, antes de la fecha forecast.",
+  "lib.alert.finRunway.impact": "Riesgo de quedarse sin fondos antes de terminar.",
+  "lib.alert.finRunway.action": "Planificar financiamiento o ajustar el ritmo de gasto.",
+
   // people-profile.ts — contextHypotheses()
   "lib.profile.hyp.noData": "Sin datos suficientes en el período: validar en un 1:1.",
   "lib.profile.hyp.blocked": "Dependencias o bloqueos no resueltos a tiempo.",
@@ -407,6 +425,24 @@ export const en: Record<string, string> = {
   "lib.alert.overload.meaning": "One or more people concentrate a lot of work in progress.",
   "lib.alert.overload.impact": "Bottleneck and burnout risk; the bus factor drops.",
   "lib.alert.overload.action": "Redistribute the load and review dependencies on those people.",
+
+  // alerts.ts — computeFinanceAlerts() (budget / profitability)
+  "lib.alert.finOverBudget.title": "Over budget (projected)",
+  "lib.alert.finOverBudget.meaning": "The estimate at completion ({eac}) exceeds the current budget ({budget}) by {over}.",
+  "lib.alert.finOverBudget.impact": "Without action, the project closes above the approved budget and erodes margin.",
+  "lib.alert.finOverBudget.action": "Consider a budget increase, cut remaining scope/cost or renegotiate price.",
+  "lib.alert.finLoss.title": "Projected loss",
+  "lib.alert.finLoss.meaning": "Projected profit is negative ({loss}).",
+  "lib.alert.finLoss.impact": "The project ends up losing money at the current pace.",
+  "lib.alert.finLoss.action": "Escalate: renegotiate, cut cost or review viability.",
+  "lib.alert.finMargin.title": "Margin below target",
+  "lib.alert.finMargin.meaning": "Projected margin ({m}%) is below target ({target}%).",
+  "lib.alert.finMargin.impact": "Expected profitability is not being met.",
+  "lib.alert.finMargin.action": "Optimize remaining cost or review price/scope.",
+  "lib.alert.finRunway.title": "Budget runs out before completion",
+  "lib.alert.finRunway.meaning": "At the current burn rate, the budget lasts ~{days} days, before the forecast date.",
+  "lib.alert.finRunway.impact": "Risk of running out of funds before finishing.",
+  "lib.alert.finRunway.action": "Plan financing or adjust the spending pace.",
 
   // people-profile.ts — contextHypotheses()
   "lib.profile.hyp.noData": "Not enough data in the period: validate in a 1:1.",

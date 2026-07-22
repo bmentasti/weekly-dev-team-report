@@ -19,7 +19,14 @@ export type Capability =
   | "inviteUsers"
   | "manageRoles"
   | "changePlan"
-  | "deleteWorkspace";
+  | "deleteWorkspace"
+  // ---- Budget, Forecast & Profitability (datos SENSIBLES) ----
+  | "viewFinancials" // ver presupuesto/costos/avance económico agregado
+  | "viewMargins" // ver márgenes, tarifas y rentabilidad (más sensible)
+  | "editFinancials" // configurar contrato, presupuesto, costos, ingresos
+  | "approveBudget" // aprobar ampliaciones / change requests
+  | "runScenarios" // ejecutar simulaciones
+  | "exportFinancials"; // exportar datos financieros
 
 const MATRIX: Record<AccessRole, Capability[]> = {
   OWNER: [
@@ -38,6 +45,12 @@ const MATRIX: Record<AccessRole, Capability[]> = {
     "manageRoles",
     "changePlan",
     "deleteWorkspace",
+    "viewFinancials",
+    "viewMargins",
+    "editFinancials",
+    "approveBudget",
+    "runScenarios",
+    "exportFinancials",
   ],
   ADMIN: [
     "viewReports",
@@ -54,6 +67,12 @@ const MATRIX: Record<AccessRole, Capability[]> = {
     "inviteUsers",
     "manageRoles",
     // NO changePlan / deleteWorkspace (solo Owner)
+    "viewFinancials",
+    "viewMargins",
+    "editFinancials",
+    "approveBudget",
+    "runScenarios",
+    "exportFinancials",
   ],
   MEMBER: [
     "viewReports",
@@ -62,10 +81,14 @@ const MATRIX: Record<AccessRole, Capability[]> = {
     "editReport",
     "viewPeople", // acotado a sus proyectos (el scope lo aplica cada endpoint)
     "exportData",
+    // Vista operativa del presupuesto/avance, SIN márgenes/tarifas ni edición.
+    "viewFinancials",
+    "runScenarios",
   ],
   VIEWER: [
     "viewReports", // solo lo compartido / de sus proyectos
     // sin datos por persona, sin edición, sin export por defecto
+    // sin acceso financiero por defecto
   ],
 };
 

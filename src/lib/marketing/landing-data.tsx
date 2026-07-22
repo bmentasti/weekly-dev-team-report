@@ -16,6 +16,7 @@ import {
   Boxes,
   ClipboardList,
   Sparkles,
+  Wallet,
 } from "lucide-react";
 import type { Locale } from "@/lib/i18n/config";
 
@@ -80,6 +81,7 @@ const ES: LandingData = {
     { icon: GitPullRequest, title: "Calidad técnica", items: ["PRs abiertos / mergeados", "Tiempo de review", "Bugs", "Test coverage", "Build / deploy failures", "Incidentes"] },
     { icon: Layers, title: "Producto", items: ["Scope creep", "Historias completadas", "Historias reabiertas", "Listo para demo / prod", "Valor entregado", "Cambios de prioridad"] },
     { icon: Users, title: "Equipo", items: ["Participación", "Comunicación de bloqueos", "Distribución de carga", "Personas destacadas", "A quién acompañar", "Alertas recurrentes"] },
+    { icon: Wallet, title: "Budget, Forecast & Profitability", items: ["Presupuesto vigente y consumo", "Margen actual y proyectado", "Earned Value: CPI · SPI · EAC", "Punto de equilibrio y runway", "Costo de atraso y finalización anticipada", "Estado financiero y alertas"] },
   ],
   ALERTS: [
     { tone: "destructive", label: "Crítico", text: "El sprint tiene alto riesgo de no completarse.", who: "TL · Dirección", action: "Repriorizar alcance" },
@@ -137,6 +139,7 @@ const EN: LandingData = {
     { icon: GitPullRequest, title: "Technical quality", items: ["Open / merged PRs", "Review time", "Bugs", "Test coverage", "Build / deploy failures", "Incidents"] },
     { icon: Layers, title: "Product", items: ["Scope creep", "Completed stories", "Reopened stories", "Ready for demo / prod", "Value delivered", "Priority changes"] },
     { icon: Users, title: "Team", items: ["Participation", "Blocker communication", "Load distribution", "Standout contributors", "Who to support", "Recurring alerts"] },
+    { icon: Wallet, title: "Budget, Forecast & Profitability", items: ["Current budget & consumption", "Current & projected margin", "Earned Value: CPI · SPI · EAC", "Break-even & runway", "Delay cost & early completion", "Financial status & alerts"] },
   ],
   ALERTS: [
     { tone: "destructive", label: "Critical", text: "The sprint is at high risk of not completing.", who: "TL · Leadership", action: "Re-prioritize scope" },

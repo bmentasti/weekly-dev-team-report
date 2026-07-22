@@ -222,6 +222,127 @@ export function computeAlerts(m: ReportMetrics, t?: Translate): Alert[] {
   return alerts;
 }
 
+/** Insumos financieros compactos para las alertas del reporte (§ presupuesto). */
+export interface FinanceAlertInput {
+  currency: string;
+  eac: number | null;
+  currentBudget: number | null;
+  projectedProfit: number | null;
+  projectedMarginPct: number | null;
+  targetMarginPct: number | null;
+  budgetRunwayDays: number | null;
+  daysToForecastEnd: number | null;
+  hasMargins: boolean;
+}
+
+function fmtMoney(v: number | null | undefined, currency: string): string {
+  if (typeof v !== "number" || !Number.isFinite(v)) return "s/d";
+  return `${currency} ${Math.round(v).toLocaleString("en-US")}`;
+}
+
+/**
+ * Alertas FINANCIERAS para el reporte: principalmente "presupuesto excedido"
+ * (EAC > presupuesto vigente), más pérdida/margen bajo y runway corto. Se
+ * fusionan con las alertas operativas del reporte. Respeta el enmascarado de
+ * márgenes (hasMargins): sin ese permiso, sólo se muestran alertas de costo.
+ */
+export function computeFinanceAlerts(fin: FinanceAlertInput | null | undefined, t?: Translate): Alert[] {
+  if (!fin) return [];
+  const tr = (key: string, fallback: string, vars?: Record<string, string | number>) =>
+    t ? fill(t(key), vars) : fill(fallback, vars);
+  const c = fin.currency;
+  const alerts: Alert[] = [];
+
+  // Presupuesto excedido (proyección): EAC supera el presupuesto vigente.
+  if (
+    typeof fin.eac === "number" &&
+    typeof fin.currentBudget === "number" &&
+    fin.eac > fin.currentBudget
+  ) {
+    const over = fin.eac - fin.currentBudget;
+    alerts.push({
+      id: "finance-over-budget",
+      title: tr("lib.alert.finOverBudget.title", "Presupuesto excedido (proyección)"),
+      level: "high",
+      meaning: tr(
+        "lib.alert.finOverBudget.meaning",
+        "El costo estimado al finalizar ({eac}) supera el presupuesto vigente ({budget}) en {over}.",
+        { eac: fmtMoney(fin.eac, c), budget: fmtMoney(fin.currentBudget, c), over: fmtMoney(over, c) },
+      ),
+      impact: tr(
+        "lib.alert.finOverBudget.impact",
+        "Sin acción, el proyecto cierra por encima del presupuesto aprobado y erosiona el margen.",
+      ),
+      action: tr(
+        "lib.alert.finOverBudget.action",
+        "Evaluar ampliación presupuestaria, reducir alcance/costo restante o renegociar precio.",
+      ),
+      roles: ["TL", "PO", "DIR"],
+    });
+  }
+
+  // Ganancia proyectada negativa (sólo con permiso de márgenes).
+  if (fin.hasMargins && typeof fin.projectedProfit === "number" && fin.projectedProfit < 0) {
+    alerts.push({
+      id: "finance-projected-loss",
+      title: tr("lib.alert.finLoss.title", "Pérdida proyectada"),
+      level: "high",
+      meaning: tr("lib.alert.finLoss.meaning", "La ganancia proyectada es negativa ({loss}).", {
+        loss: fmtMoney(fin.projectedProfit, c),
+      }),
+      impact: tr("lib.alert.finLoss.impact", "El proyecto termina perdiendo dinero al ritmo actual."),
+      action: tr("lib.alert.finLoss.action", "Escalar: renegociar, recortar costo o revisar viabilidad."),
+      roles: ["PO", "DIR"],
+    });
+  }
+
+  // Margen por debajo del objetivo.
+  if (
+    fin.hasMargins &&
+    typeof fin.projectedMarginPct === "number" &&
+    typeof fin.targetMarginPct === "number" &&
+    fin.projectedMarginPct >= 0 &&
+    fin.projectedMarginPct < fin.targetMarginPct
+  ) {
+    alerts.push({
+      id: "finance-margin-below-target",
+      title: tr("lib.alert.finMargin.title", "Margen por debajo del objetivo"),
+      level: "medium",
+      meaning: tr(
+        "lib.alert.finMargin.meaning",
+        "El margen proyectado ({m}%) está por debajo del objetivo ({target}%).",
+        { m: Math.round(fin.projectedMarginPct * 10) / 10, target: Math.round(fin.targetMarginPct * 10) / 10 },
+      ),
+      impact: tr("lib.alert.finMargin.impact", "La rentabilidad esperada no se está cumpliendo."),
+      action: tr("lib.alert.finMargin.action", "Optimizar costo restante o revisar precio/alcance."),
+      roles: ["PO", "DIR"],
+    });
+  }
+
+  // Presupuesto se agota antes del cierre forecast.
+  if (
+    typeof fin.budgetRunwayDays === "number" &&
+    typeof fin.daysToForecastEnd === "number" &&
+    fin.budgetRunwayDays < fin.daysToForecastEnd
+  ) {
+    alerts.push({
+      id: "finance-runway-short",
+      title: tr("lib.alert.finRunway.title", "El presupuesto se agota antes del cierre"),
+      level: "medium",
+      meaning: tr(
+        "lib.alert.finRunway.meaning",
+        "Al ritmo de gasto actual, el presupuesto alcanza ~{days} días, antes de la fecha forecast.",
+        { days: Math.round(fin.budgetRunwayDays) },
+      ),
+      impact: tr("lib.alert.finRunway.impact", "Riesgo de quedarse sin fondos antes de terminar."),
+      action: tr("lib.alert.finRunway.action", "Planificar financiamiento o ajustar el ritmo de gasto."),
+      roles: ["DIR", "PO"],
+    });
+  }
+
+  return alerts;
+}
+
 export function alertsForRole(alerts: Alert[], role: AlertRole): Alert[] {
   return alerts
     .filter((a) => a.roles.includes(role))

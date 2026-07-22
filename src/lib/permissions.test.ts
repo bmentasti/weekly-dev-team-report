@@ -46,6 +46,21 @@ describe("permissions", () => {
     expect(can("SUPERUSER" as AccessRole, "viewReports")).toBe(false);
   });
 
+  it("Finanzas: Owner/Admin ven márgenes y editan; Member sólo vista operativa", () => {
+    expect(can("OWNER", "viewMargins")).toBe(true);
+    expect(can("OWNER", "editFinancials")).toBe(true);
+    expect(can("ADMIN", "approveBudget")).toBe(true);
+    expect(can("ADMIN", "viewMargins")).toBe(true);
+    // Member: ve el módulo pero NO márgenes/tarifas ni edición.
+    expect(can("MEMBER", "viewFinancials")).toBe(true);
+    expect(can("MEMBER", "viewMargins")).toBe(false);
+    expect(can("MEMBER", "editFinancials")).toBe(false);
+    expect(can("MEMBER", "approveBudget")).toBe(false);
+    // Viewer: sin acceso financiero.
+    expect(can("VIEWER", "viewFinancials")).toBe(false);
+    expect(can("VIEWER", "viewMargins")).toBe(false);
+  });
+
   it("ROLE_LABEL cubre los 4 roles", () => {
     for (const r of ["OWNER", "ADMIN", "MEMBER", "VIEWER"] as AccessRole[]) {
       expect(ROLE_LABEL[r]).toBeTruthy();

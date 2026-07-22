@@ -13,6 +13,7 @@ import {
   Settings,
   FolderKanban,
   LifeBuoy,
+  Wallet,
   Menu,
   X,
 } from "lucide-react";
@@ -34,11 +35,20 @@ interface NavItem {
   disabled?: boolean;
   /** Capacidad requerida para ver el ítem (si no, se oculta). */
   requires?: Capability;
+  /** Planes que habilitan el ítem (si no está en la lista, se oculta). */
+  requiresPlan?: PlanTierName[];
 }
 
 const NAV: NavItem[] = [
   { label: "nav.overview", href: "/dashboard", icon: LayoutDashboard },
   { label: "nav.projects", href: "/projects", icon: FolderKanban },
+  {
+    label: "nav.finance",
+    href: "/finance",
+    icon: Wallet,
+    requires: "viewFinancials",
+    requiresPlan: ["TEAM", "PRO"],
+  },
   { label: "nav.reports", href: "/reports", icon: FileBarChart2 },
   { label: "nav.intelligence", href: "/reports/intelligence", icon: Sparkles },
   {
@@ -67,7 +77,12 @@ function SidebarContent({
 }) {
   const { t } = useT();
   const planLabel = plan ? (PLANS[plan as PlanTierName]?.name ?? "Free") : "Free";
-  const nav = NAV.filter((item) => !item.requires || can(role, item.requires));
+  const planTier = (plan as PlanTierName) ?? "FREE";
+  const nav = NAV.filter(
+    (item) =>
+      (!item.requires || can(role, item.requires)) &&
+      (!item.requiresPlan || item.requiresPlan.includes(planTier)),
+  );
   return (
     <div className="flex h-full flex-col">
       <div className="px-5 py-5">

@@ -17,6 +17,7 @@ const es: Dict = {
   // Navegación
   "nav.overview": "Overview",
   "nav.projects": "Proyectos",
+  "nav.finance": "Finanzas",
   "nav.reports": "Reportes",
   "nav.intelligence": "Inteligencia",
   "nav.integrations": "Integraciones",
@@ -218,6 +219,7 @@ const en: Dict = {
   // Navigation
   "nav.overview": "Overview",
   "nav.projects": "Projects",
+  "nav.finance": "Finance",
   "nav.reports": "Reports",
   "nav.intelligence": "Intelligence",
   "nav.integrations": "Integrations",

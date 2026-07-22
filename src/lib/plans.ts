@@ -26,6 +26,8 @@ export interface PlanDefinition {
   allowedKinds: ProviderKind[];
   multiProject: boolean;
   slackDelivery: boolean;
+  /** Módulo Budget, Forecast & Profitability (solo Team y Pro). */
+  financials: boolean;
 }
 
 // Free solo permite estas, sin importar el kind.
@@ -46,6 +48,7 @@ export const PLANS: Record<PlanTierName, PlanDefinition> = {
     allowedKinds: [],
     multiProject: false,
     slackDelivery: false,
+    financials: false,
   },
   TEAM: {
     name: "Team",
@@ -59,6 +62,7 @@ export const PLANS: Record<PlanTierName, PlanDefinition> = {
     allowedKinds: ["ISSUES", "CODE", "PLANNING"],
     multiProject: false,
     slackDelivery: false,
+    financials: true,
   },
   PRO: {
     name: "Pro",
@@ -72,6 +76,7 @@ export const PLANS: Record<PlanTierName, PlanDefinition> = {
     allowedKinds: ["ISSUES", "CODE", "COMM", "AI", "PLANNING"],
     multiProject: true,
     slackDelivery: true,
+    financials: true,
   },
 };
 
@@ -105,6 +110,11 @@ export function trialDaysLeft(ws: WorkspaceLike): number {
 export function effectivePlan(ws: WorkspaceLike): PlanTierName {
   if (isTrialActive(ws)) return "PRO";
   return (ws?.plan ?? "FREE") as PlanTierName;
+}
+
+/** ¿El plan incluye el módulo Budget, Forecast & Profitability? (Team y Pro) */
+export function financeEnabled(plan: PlanTierName): boolean {
+  return PLANS[plan].financials;
 }
 
 export function annualTotal(monthly: number): number {

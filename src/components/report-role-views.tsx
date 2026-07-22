@@ -6,9 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { healthBadgeVariant } from "@/lib/reports/health";
 import {
   computeAlerts,
+  computeFinanceAlerts,
   alertsForRole,
   type Alert,
   type AlertRole,
+  type FinanceAlertInput,
 } from "@/lib/reports/alerts";
 import type { HealthLevel, ReportMetrics } from "@/lib/reports/types";
 import { useT } from "@/components/i18n-provider";
@@ -60,13 +62,15 @@ function AlertList({ alerts, t }: { alerts: Alert[]; t: (k: string) => string })
 export function ReportRoleViews({
   metrics,
   healthStatus,
+  finance,
 }: {
   metrics: ReportMetrics;
   healthStatus: HealthLevel | null;
+  finance?: FinanceAlertInput | null;
 }) {
   const { t } = useT();
   const [role, setRole] = useState<AlertRole>("TL");
-  const alerts = computeAlerts(metrics, t);
+  const alerts = [...computeAlerts(metrics, t), ...computeFinanceAlerts(finance, t)];
   const roleAlerts = alertsForRole(alerts, role);
 
   const m = metrics;
