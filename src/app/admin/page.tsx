@@ -36,6 +36,7 @@ const ROLES: Record<string, string> = {
   ENGINEERING_MANAGER: "Eng. Manager",
   CTO: "CTO",
   DEVELOPER_LEAD: "Dev Lead",
+  DEVELOPER: "Developer",
   OTHER: "Otro",
 };
 

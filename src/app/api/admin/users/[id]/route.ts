@@ -13,6 +13,7 @@ const patchSchema = z.object({
       "ENGINEERING_MANAGER",
       "CTO",
       "DEVELOPER_LEAD",
+      "DEVELOPER",
       "OTHER",
     ])
     .optional(),

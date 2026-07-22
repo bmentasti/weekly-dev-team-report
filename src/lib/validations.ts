@@ -6,6 +6,7 @@ export const userRoles = [
   "ENGINEERING_MANAGER",
   "CTO",
   "DEVELOPER_LEAD",
+  "DEVELOPER",
   "OTHER",
 ] as const;
 
@@ -15,6 +16,7 @@ export const userRoleLabels: Record<(typeof userRoles)[number], string> = {
   ENGINEERING_MANAGER: "Engineering Manager",
   CTO: "CTO",
   DEVELOPER_LEAD: "Developer Lead",
+  DEVELOPER: "Developer",
   OTHER: "Otro",
 };
 
