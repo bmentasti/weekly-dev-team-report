@@ -86,6 +86,16 @@ const HEALTH_COLOR: Record<HealthLevel, string> = {
   HIGH_RISK: "#E5484D",
 };
 
+/** Variante visual del badge según el estado financiero del proyecto. */
+function finStatusVariant(
+  status: string,
+): "success" | "warning" | "destructive" | "secondary" {
+  if (status === "HEALTHY") return "success";
+  if (status === "ATTENTION") return "warning";
+  if (status === "AT_RISK" || status === "CRITICAL") return "destructive";
+  return "secondary";
+}
+
 function Kpi({
   label,
   value,
@@ -198,6 +208,15 @@ export default function ReportPreviewPage() {
   const [showEmail, setShowEmail] = useState(false);
   const [peopleHidden, setPeopleHidden] = useState(false);
   const [finance, setFinance] = useState<FinanceAlertInput | null>(null);
+  const [finStatus, setFinStatus] = useState<{
+    status: string;
+    eac: number | null;
+    currentBudget: number | null;
+    currency: string;
+    canViewMargins: boolean;
+    projectedMarginPct: number | null;
+    targetMarginPct: number | null;
+  } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -233,16 +252,26 @@ export default function ReportPreviewPage() {
         const fe = s.forecastEndDate ? new Date(s.forecastEndDate).getTime() : null;
         const daysToForecastEnd = fe != null ? Math.round((fe - asOf) / 86_400_000) : null;
         const rawTarget = s.profitability?.marginVariance?.provenance?.inputs?.targetMarginPct;
+        const targetMarginPct = typeof rawTarget === "number" ? rawTarget : null;
         setFinance({
           currency: s.currency,
           eac: s.evm?.eac?.value ?? null,
           currentBudget: s.budget?.currentBudget?.value ?? null,
           projectedProfit: s.profitability?.projectedProfit?.value ?? null,
           projectedMarginPct: s.profitability?.projectedMarginPct?.value ?? null,
-          targetMarginPct: typeof rawTarget === "number" ? rawTarget : null,
+          targetMarginPct,
           budgetRunwayDays: s.budget?.runwayDays?.value ?? null,
           daysToForecastEnd,
           hasMargins: !!j.canViewMargins,
+        });
+        setFinStatus({
+          status: s.status?.status ?? "INSUFFICIENT_DATA",
+          eac: s.evm?.eac?.value ?? null,
+          currentBudget: s.budget?.currentBudget?.value ?? null,
+          currency: s.currency,
+          canViewMargins: !!j.canViewMargins,
+          projectedMarginPct: s.profitability?.projectedMarginPct?.value ?? null,
+          targetMarginPct,
         });
       } catch {
         // silencioso: la alerta financiera es complementaria
@@ -316,6 +345,14 @@ export default function ReportPreviewPage() {
             <Badge variant={healthBadgeVariant(report.healthStatus)}>
               {report.healthStatus ? t(`lib.health.${report.healthStatus}`) : "—"}
             </Badge>
+            {finStatus && (
+              <Link href={`/projects/${report.projectId}/finance`}>
+                <Badge variant={finStatusVariant(finStatus.status)} title={t("rep.finance.title")}>
+                  {"$ "}
+                  {t(`rep.finance.${finStatus.status}`)}
+                </Badge>
+              </Link>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -416,6 +453,41 @@ export default function ReportPreviewPage() {
 
       {m && m.capacity && (
         <>
+          {finStatus && (
+            <Card>
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">{t("rep.finance.title")}</span>
+                  <Badge variant={finStatusVariant(finStatus.status)}>
+                    {t(`rep.finance.${finStatus.status}`)}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {t("rep.finance.eac")}: {finStatus.currency}{" "}
+                    {finStatus.eac != null ? Math.round(finStatus.eac).toLocaleString("en-US") : "—"} /{" "}
+                    {t("rep.finance.budget")}: {finStatus.currency}{" "}
+                    {finStatus.currentBudget != null
+                      ? Math.round(finStatus.currentBudget).toLocaleString("en-US")
+                      : "—"}
+                    {finStatus.canViewMargins && finStatus.projectedMarginPct != null && (
+                      <>
+                        {" · "}
+                        {t("rep.finance.margin")}: {Math.round(finStatus.projectedMarginPct * 10) / 10}%
+                        {finStatus.targetMarginPct != null
+                          ? ` (${t("rep.finance.target")} ${Math.round(finStatus.targetMarginPct * 10) / 10}%)`
+                          : ""}
+                      </>
+                    )}
+                  </span>
+                </div>
+                <Link
+                  href={`/projects/${report.projectId}/finance`}
+                  className="text-sm text-primary underline"
+                >
+                  {t("rep.finance.view")}
+                </Link>
+              </CardContent>
+            </Card>
+          )}
           <ReportRoleViews metrics={m} healthStatus={report.healthStatus} finance={finance} />
 
           {peopleHidden && (

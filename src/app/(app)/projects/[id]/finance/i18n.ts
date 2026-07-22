@@ -172,6 +172,20 @@ const ES = {
   remainingCol: "Presup. restante",
   noPortfolio: "Ningún proyecto tiene configuración financiera todavía.",
   openDetail: "Ver detalle",
+  // --- Referencia cruzada con reportes ---
+  opsHealthLabel: "Salud del equipo",
+  ops_HEALTHY: "Saludable",
+  ops_MEDIUM_RISK: "Riesgo medio",
+  ops_HIGH_RISK: "Alto riesgo",
+  viewReport: "Ver reporte",
+  // --- CRUD ---
+  deleteConfig: "Eliminar configuración financiera",
+  deleteConfigConfirm: "¿Eliminar la configuración financiera de este proyecto? Se desactiva el módulo (los costos/ingresos cargados se conservan).",
+  configDeleted: "Configuración financiera eliminada.",
+  pendingTitle: "Proyectos sin configurar",
+  configure: "Configurar",
+  createProjectHint: "No tenés proyectos. Creá uno para activar el seguimiento financiero.",
+  goToProjects: "Ir a Proyectos",
 } as const;
 
 const EN: FinanceLabels = {
@@ -329,6 +343,18 @@ const EN: FinanceLabels = {
   remainingCol: "Remaining budget",
   noPortfolio: "No project has financial configuration yet.",
   openDetail: "View detail",
+  opsHealthLabel: "Team health",
+  ops_HEALTHY: "Healthy",
+  ops_MEDIUM_RISK: "Medium risk",
+  ops_HIGH_RISK: "High risk",
+  viewReport: "View report",
+  deleteConfig: "Delete financial configuration",
+  deleteConfigConfirm: "Delete this project's financial configuration? The module is disabled (loaded costs/revenue are kept).",
+  configDeleted: "Financial configuration deleted.",
+  pendingTitle: "Unconfigured projects",
+  configure: "Configure",
+  createProjectHint: "You have no projects. Create one to enable financial tracking.",
+  goToProjects: "Go to Projects",
 };
 
 export function financeLabels(locale: Locale): FinanceLabels {

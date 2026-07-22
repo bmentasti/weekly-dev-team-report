@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   BarChart,
   Bar,
@@ -34,6 +35,19 @@ function statusMeta(
     default:
       return { label: L.status_INSUFFICIENT_DATA, variant: "secondary" };
   }
+}
+
+function opsHealthVariant(h: string): "success" | "warning" | "destructive" | "secondary" {
+  if (h === "HEALTHY") return "success";
+  if (h === "MEDIUM_RISK") return "warning";
+  if (h === "HIGH_RISK") return "destructive";
+  return "secondary";
+}
+function opsHealthLabel(h: string, L: FinanceLabels): string {
+  if (h === "HEALTHY") return L.ops_HEALTHY;
+  if (h === "MEDIUM_RISK") return L.ops_MEDIUM_RISK;
+  if (h === "HIGH_RISK") return L.ops_HIGH_RISK;
+  return h;
 }
 
 function fmtMoney(v: number | null, currency: string, L: FinanceLabels): string {
@@ -113,6 +127,8 @@ export function FinanceDashboard({
   projectName,
   projectId,
   canExport,
+  operationalHealth,
+  reportId,
   labels,
 }: {
   snapshot: FinancialSnapshot;
@@ -120,6 +136,8 @@ export function FinanceDashboard({
   projectName: string;
   projectId: string;
   canExport: boolean;
+  operationalHealth?: string | null;
+  reportId?: string | null;
   labels: FinanceLabels;
 }) {
   const L = labels;
@@ -151,9 +169,18 @@ export function FinanceDashboard({
           </p>
         </div>
         <div className="text-right">
-          <Badge variant={st.variant} className="text-sm">
-            {st.label}
-          </Badge>
+          <div className="flex items-center justify-end gap-2">
+            {operationalHealth && (
+              <Link href={reportId ? `/reports/${reportId}` : "/reports"}>
+                <Badge variant={opsHealthVariant(operationalHealth)} title={L.opsHealthLabel}>
+                  {L.opsHealthLabel}: {opsHealthLabel(operationalHealth, L)}
+                </Badge>
+              </Link>
+            )}
+            <Badge variant={st.variant} className="text-sm">
+              {st.label}
+            </Badge>
+          </div>
           <p className="mt-1 max-w-xs text-xs text-muted-foreground">{status.explanation}</p>
           {canExport && (
             <a

@@ -425,9 +425,12 @@ export default async function LandingPage() {
             <h2 className="text-3xl font-bold tracking-tight">{t("m.metrics.title")}</h2>
             <p className="mt-3 text-muted-foreground">{t("m.metrics.desc")}</p>
           </div>
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 flex flex-wrap justify-center gap-6">
             {METRIC_GROUPS.map((g) => (
-              <Card key={g.title}>
+              <Card
+                key={g.title}
+                className="w-full sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)]"
+              >
                 <CardContent className="py-6">
                   <div className="flex items-center gap-2">
                     <span className="flex h-9 w-9 items-center justify-center rounded-input bg-primary/10 text-primary">

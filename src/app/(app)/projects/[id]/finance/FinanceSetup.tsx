@@ -107,6 +107,24 @@ export function FinanceSetup({
     }
   }
 
+  async function deleteConfig() {
+    if (typeof window !== "undefined" && !window.confirm(L.deleteConfigConfirm)) return;
+    setSaving(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/finance`, { method: "DELETE" });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? L.genericError);
+      }
+      router.push("/finance");
+      router.refresh();
+    } catch (err) {
+      setMsg({ kind: "err", text: err instanceof Error ? err.message : L.genericError });
+      setSaving(false);
+    }
+  }
+
   // ---- Entradas (costo / ingreso) ----
   const [entryKind, setEntryKind] = useState<"cost" | "revenue">("cost");
   const [costCategory, setCostCategory] = useState("LABOR");
@@ -233,9 +251,22 @@ export function FinanceSetup({
               <Input type="date" value={forecastEndDate} onChange={(e) => setForecastEndDate(e.target.value)} />
             </div>
           </div>
-          <Button type="submit" disabled={saving}>
-            {saving ? L.saving : L.saveConfig}
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" disabled={saving}>
+              {saving ? L.saving : L.saveConfig}
+            </Button>
+            {mode === "edit" && (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={saving}
+                onClick={deleteConfig}
+                className="text-destructive hover:text-destructive"
+              >
+                {L.deleteConfig}
+              </Button>
+            )}
+          </div>
         </form>
 
         {/* --- Alta de costo / ingreso --- */}

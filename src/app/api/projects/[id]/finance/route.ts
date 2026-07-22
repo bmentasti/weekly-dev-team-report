@@ -133,3 +133,34 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
   return NextResponse.json({ ok: true, config: { id: saved.id, projectId: params.id } });
 }
+
+/** Elimina la configuración financiera del proyecto (desactiva el módulo). */
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id)
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!(await canFinance(session.user.id, params.id, "editFinancials")))
+    return NextResponse.json(
+      { error: "Tu rol no permite configurar las finanzas de este proyecto." },
+      { status: 403 },
+    );
+
+  const project = await prisma.project.findUnique({
+    where: { id: params.id },
+    select: { workspaceId: true },
+  });
+  if (!project)
+    return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+
+  await db.projectFinance.deleteMany({ where: { projectId: params.id } });
+
+  await logAudit({
+    workspaceId: project.workspaceId,
+    actorId: session.user.id,
+    actorName: session.user.name ?? null,
+    action: "finance.config.delete",
+    target: params.id,
+  });
+
+  return NextResponse.json({ ok: true });
+}

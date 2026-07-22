@@ -135,6 +135,13 @@ export default async function ProjectFinancePage({
   const canExport = await canFinance(userId, params.id, "exportFinancials");
   const initialConfig = canEdit ? await loadInitialConfig(params.id) : undefined;
 
+  // Referencia cruzada: salud operativa del último reporte del proyecto.
+  const latestReport = await db.report.findFirst({
+    where: { projectId: params.id },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, healthStatus: true },
+  });
+
   return (
     <div className="space-y-6">
       <FinanceDashboard
@@ -143,6 +150,8 @@ export default async function ProjectFinancePage({
         projectName={project.name}
         projectId={project.id}
         canExport={canExport}
+        operationalHealth={latestReport?.healthStatus ?? null}
+        reportId={latestReport?.id ?? null}
         labels={L}
       />
       {canMargins && (
